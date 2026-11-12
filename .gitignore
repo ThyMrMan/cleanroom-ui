@@ -1,0 +1,16 @@
+# Built movies and scripts ship as release assets, never in git
+*.swf
+*.pex
+dist/
+out/
+
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# DLL build output
+*.obj
+*.dll
+*.lib
+*.exp
+*.pdb

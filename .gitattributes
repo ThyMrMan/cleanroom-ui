@@ -1,0 +1,6 @@
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+*.dds -diff
+*.png -diff
+*.swf -diff
