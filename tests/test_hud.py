@@ -84,8 +84,8 @@ def test_the_movie_builds_the_same_twice(tmp_path):
     raw = menus.compile_movie(MENU, tmp_path / 'a.swf').read_bytes()
     assert raw == menus.compile_movie(MENU, tmp_path / 'b.swf').read_bytes() and raw[:3] == b'FWS'
     assert not {t.code for t in Swf.parse(raw).tags} & set(mxmlc.DATED)
-    for name in (b'CRUI_Hud', b'StatsLine', b'PartLayout', b'FnvPreset', b'HudWidgets', b'HudMessages', b'HudStats',
-                 b'HudPartLayout', b'processMessage', b'crui'):
+    for name in (b'CRUI_Hud', b'StatsLine', b'PartLayout', b'FnvPreset', b'ConditionBar', b'HudWidgets',
+                 b'HudMessages', b'HudStats', b'HudPartLayout', b'HudWeaponCondition', b'processMessage', b'crui'):
         assert name in raw
 
 
@@ -141,7 +141,8 @@ def test_the_host_lays_out_the_hud_parts_from_def_hud_xml():
     frames; the parts are the vanilla HUD's, in the seven groups the game pins to the safe area."""
     parts = _source(REPO / 'dll' / 'framework' / 'parts.cpp')
     assert r'".\\Data\\Interface\\DEF_CONF\\DEF_HUD.xml"' in parts
-    assert re.findall(r'RegisterFunction<\w+>\(plugin, movie, "(\w+)"\);', parts) == ['HudPartLayout']
+    registered = re.findall(r'RegisterFunction<\w+>\(plugin, movie, "(\w+)"\);', parts)
+    assert registered == ['HudPartLayout', 'HudWeaponCondition']
     assert 'RegisterHudParts(movie, plugin);' in _source(HUD_CPP)
     assert 'parts.cpp' in _source(REPO / 'dll' / 'build.bat')
     host = _source(MENU.sources / f'{MENU.document}.as')
@@ -175,11 +176,35 @@ def test_the_fnv_preset_is_a_setting_run_between_def_and_the_places():
     assert 'args->result->SetMember("preset", &presetText);' in parts
     layout = _source(MENU.sources / 'PartLayout.as')
     body = layout[layout.index('public function place('):layout.index('private function find(')]
-    order = [body.index(step) for step in ('lay(part);', 'FnvPreset.arrange(found, stage);', 'finish(part, dll, stage);')]
+    order = [body.index(step) for step in ('fnv.add(hud);', 'lay(part);', 'fnv.arrange(found, stage);',
+                                           'finish(part, dll, stage);')]
     assert order == sorted(order)
     preset = _source(MENU.sources / 'FnvPreset.as')
     assert 'public static const NAME:String = "FNV";' in preset
-    assert 'addChild' not in preset and 'removeChild' not in preset
-    named = set(re.findall(r'"(\w+_mc)"', preset))
+    assert re.findall(r'\w+\.addChild\(\w+\)', preset) == ['group.addChild(condition)']
+    assert 'removeChild' not in preset
+    rules = preset[preset.index('public function arrange('):]
+    named = set(re.findall(r'"(\w+_mc)"', rules))
     table = layout[layout.index('GROUPS:Object = {'):layout.index('};', layout.index('GROUPS:Object = {'))]
     assert named and named <= set(re.findall(r'"(\w+_mc)"', table))
+
+
+def test_the_fnv_preset_draws_the_weapon_condition_bar_fnv_has_and_fo4_has_not():
+    """With the FNV preset, our own CND bar joins the HUD group RightMeters_mc (so it hides and fades with it) as a
+    part of the layout (laid out, arranged, placed and in the edit menu as "part:" + its name); the host feeds it each
+    frame from HudWeaponCondition: the equipped weapon's condition, 1 while none is set, -1 (hidden) for no weapon
+    or one that doesn't wear."""
+    bar = _source(MENU.sources / 'ConditionBar.as')
+    assert 'public static const NAME:String = "CRUI_WeaponCondition_mc";' in bar
+    assert 'Text.show(label, "$CRUI_CND");' in bar and 'visible = shown && health >= 0;' in bar
+    assert re.search(r'^\$CRUI_CND\t', _source(REPO / 'translations' / 'CleanroomUI' / 'en.txt'), re.M)
+    preset = _source(MENU.sources / 'FnvPreset.as')
+    assert 'WIDGETS:Object = {CRUI_WeaponCondition_mc: "RightMeters_mc"};' in preset
+    assert 'dll.HudWeaponCondition()' in preset
+    layout = _source(MENU.sources / 'PartLayout.as')
+    assert 'for (var widget:String in FnvPreset.WIDGETS)' in layout
+    assert 'parts.draw(hud, dll);' in _source(MENU.sources / f'{MENU.document}.as')
+    parts = _source(REPO / 'dll' / 'framework' / 'parts.cpp')
+    native = parts[parts.index('class WeaponConditionNative'):parts.index('}  // namespace')]
+    assert 'EquippedWeapon(player)' in native and 'g_tracked.count(weapon->formID)' in native
+    assert 'health = set < 0.0f ? 1.0 : double(set);' in native

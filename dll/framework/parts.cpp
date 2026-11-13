@@ -7,6 +7,9 @@
 // scaleY, rotation, color, color2, flags, parname (the HUD group the part sits in: one of the seven groups the game
 // pins to the safe area, so one layout serves every screen shape) and defx, defy (where the game puts it). Only the
 // format is read; nothing of DEF's movies or programs is used (docs/spin_offs.md#def-ui).
+//
+// The FNV preset's own widget, the weapon condition (CND) bar, reads the equipped weapon's condition here
+// (HudWeaponCondition; docs/swf_framework.md#fnv-widgets).
 #include "condition.h"
 
 #include "f4se/ScaleformCallbacks.h"
@@ -113,10 +116,35 @@ public:
     }
 };
 
+// HudWeaponCondition(): the condition of the player's equipped weapon, for the FNV preset's CND bar (0 to 1; 1 while
+// none is set yet, as the Pip-Boy shows it); -1 with no weapon equipped or one that doesn't wear
+// (CRUI_Condition.Track).
+class WeaponConditionNative : public GFxFunctionHandler {
+public:
+    void Invoke(Args *args) override {
+        Actor *player = *g_player;
+        TESForm *weapon = EquippedWeapon(player);
+        double health = -1.0;
+        if (weapon) {
+            bool tracked;
+            {
+                std::lock_guard<std::mutex> hold(g_lock);
+                tracked = g_tracked.count(weapon->formID) != 0;
+            }
+            if (tracked) {
+                float set = HealthOf(FindStack(player, weapon));
+                health = set < 0.0f ? 1.0 : double(set);
+            }
+        }
+        args->result->SetNumber(health);
+    }
+};
+
 }  // namespace
 
 void RegisterHudParts(GFxMovieRoot *movie, GFxValue *plugin) {
     RegisterFunction<PartLayoutNative>(plugin, movie, "HudPartLayout");
+    RegisterFunction<WeaponConditionNative>(plugin, movie, "HudWeaponCondition");
 }
 
 }  // namespace crui

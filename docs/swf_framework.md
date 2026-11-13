@@ -44,7 +44,7 @@ licensed way to build menus without starting from decompiled Bethesda files.
 | **Own menu** | Casino (Papyrus `UI.RegisterCustomMenu`), HUD color by the menu itself (spike 2b, played) | Registering from the DLL: not needed for color; only if a later menu needs it |
 | **Replace a vanilla movie** | Dialogue menu on our own movie (spike 3, played); its `mxmlc` build. Level-up: our own registered menu opened in place of `LevelUpMenu` from Papyrus, no vanilla file shipped ([open](fo4_level_up_plan.md#open), built) | Both played; if the moment of `LevelUpMenu` first shows, F3NV.dll swapping its constructor |
 | **Inject into a vanilla menu** | Pip-Boy (spike 4, played under vanilla); CND, lists and item-card API built | Any of it played; FallUI played; container and barter (still C++) |
-| **HUD widget** | `CRUI_Hud`: HUDFramework hosts the widgets when installed, else our host movie loaded into any HUD by `CleanroomUI.dll`; widget movies with HUDFramework's `processMessage`; the built-in stats line ([host](#hud-built)); our host's saved places and edit menu ([edit](#hud-edit)); DEF_HUD.xml layouts of the game's parts ([layouts](#hud-layout)), moved and scaled in the edit menu too; the [FNV preset](#fnv-preset); built, not played | Played; FNV-only parts as widgets; hiding and recoloring parts in game, `flags`; the converter's Hardcore needs on it (still C++) |
+| **HUD widget** | `CRUI_Hud`: HUDFramework hosts the widgets when installed, else our host movie loaded into any HUD by `CleanroomUI.dll`; widget movies with HUDFramework's `processMessage`; the built-in stats line ([host](#hud-built)); our host's saved places and edit menu ([edit](#hud-edit)); DEF_HUD.xml layouts of the game's parts ([layouts](#hud-layout)), moved and scaled in the edit menu too; the [FNV preset](#fnv-preset) with its [CND bar](#fnv-widgets); built, not played | Played; hiding and recoloring parts in game, `flags`; the converter's Hardcore needs on it (still C++) |
 | **DLL side** | GFx helpers (`gfx.cpp`), Pip-Boy injection (`LoadOverlay`), natives the movies call (`HudColor`, `Log`, `PipboyCardLines`, `PipboyList`, `TextureExists`) | Injection by menu URL for other menus, settings INI to the movie, GFx log routing |
 | **Translations** ([translations](#translations)) | Files named after `FalloutHelpers.esl`, every language with English fallback, our fixed words as `$F3NV_` keys, the key check in preflight (spike 5, played) | The keys played; Papyrus key check; slot and per-language counts; a test language |
 | **Controller** ([controller](#controller)) | The casino and dialogue menu on `Input` and `HintBar` (built, not played) | Playing them with a pad; the Pip-Boy "more" button; roulette's board on a pad |
@@ -766,14 +766,48 @@ the game put it, right at any screen shape and HUD size:
   moves parts from the preset's positions and R puts them back there. With
   a preset, `DEF_HUD.xml` is left aside (logged).
 
-Not built yet: FNV's parts that FO4's HUD has no part for, as widgets
-drawn by our own code (FNV's art can't ship): the weapon condition bar
-beside the ammo count, the crippled limb figure, the Hardcore needs (the
-converter's `AddStats` line can sit there), and hiding the critical meter
-(FNV has none). **Play check:** each rule at 16:9 and 21:9, in and out of
+FNV's parts that FO4's HUD has no part for: [its own
+widgets](#fnv-widgets) (the weapon condition bar built). **Play check:** each rule at 16:9 and 21:9, in and out of
 combat and sneaking; the ammo count, right-aligned, as its digits change;
 the HP bar and compass with the rads meter showing; power armor's own HUD
 is a different movie and is not touched.
+
+### <a id="fnv-widgets"></a>The FNV preset's own widgets (built 2026-11-13, not played)
+
+What FNV's HUD shows that FO4's has no part for, checked against where
+FNV's engine places each (the FNV decomp's `HUDMainMenu` setup, read only):
+- **Weapon condition (CND): built.** FNV draws a small CND meter on the
+  ammo row of its AP block, at the block's left, the ammo count right-aligned
+  beside it. `ConditionBar.as` draws "CND" (`$CRUI_CND`) and a meter in the
+  HUD's bold font and color with our own code. It joins the group
+  `RightMeters_mc`, so it hides with it, and takes the AP bar's alpha. The
+  preset puts it on the ammo count's row at the AP bar's left edge (just
+  under the AP bar without an ammo count). It is a part of the layout like
+  the game's (`FnvPreset.WIDGETS`): in the edit menu as
+  `CRUI_WeaponCondition`, moved, scaled and reset there. The value comes
+  from `HudWeaponCondition` (`parts.cpp`), read every 6 frames: the
+  equipped weapon's condition, 1 while none is set yet (as the Pip-Boy
+  shows it), and hidden with no weapon or one that doesn't wear
+  (`CRUI_Condition.Track`). Framework version 10.
+- **Crippled limbs: nothing to build.** FNV places its limb figure at the
+  top right, 200 px in from the safe area's right edge and 100 down; FO4's
+  own condition Vault Boy (`VaultBoyCondition_mc`) already sits there and
+  shows the same thing, so the preset leaves it.
+- **Hardcore needs: the converter's.** FNV puts H2O / FOD / SLP at the HP
+  block's top, 150 px in. The converter's [stats line](#hud-built),
+  anchored 30 px above `LeftMeters_mc`, already sits there; with the
+  preset the group's top is measured after the HP bar moves up, so it
+  stays above it. Moving it onto `AddStats` is still converter work.
+- **The critical meter: kept.** FNV has none, but the converter keeps
+  FO4's V.A.T.S. critical meter alongside FNV's random criticals, so the
+  preset doesn't hide it.
+
+Not built: FNV's CND arrows (shown as the condition changes), the ammo
+type label. **Play check:** the bar's row and size against the ammo count
+at 16:9 and 21:9 and at another HUD scale; it hides in menus, dialogue
+and power armor with the right meters; a melee weapon (no ammo count)
+still shows it; the value after a repair, a swap and with an untracked
+weapon (hidden).
 
 ## <a id="level-up"></a>Our own level-up menu (built 2026-11-12, not played)
 

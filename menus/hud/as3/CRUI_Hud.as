@@ -104,6 +104,7 @@ package
             deliver(message);
          }
          drawStats(dll);
+         parts.draw(hud, dll);
       }
 
       // Show our widgets of `list` ({version, widgets}; HUDFramework hosts those naming it): add the new ones, re-add

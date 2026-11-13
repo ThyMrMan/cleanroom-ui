@@ -22,7 +22,7 @@ namespace crui {
 
 // The framework's version (CRUI_Framework.GetVersion, the F4SE version query, F4SEPlugin_Version): raised whenever a
 // native, event or rule changes, so a mod can ask for the one it was built against.
-constexpr UInt32 VERSION = 9;
+constexpr UInt32 VERSION = 10;
 
 // The forms that wear (CRUI_Condition.Track): the Pip-Boy shows their condition.
 extern std::mutex g_lock;
@@ -41,6 +41,9 @@ BGSInventoryItem::Stack *FindStack(TESObjectREFR *holder, TESForm *item, SInt32 
 
 // A stack's health (0 to 1); -1 with none set yet.
 float HealthOf(BGSInventoryItem::Stack *stack);
+
+// The weapon `actor` has equipped, or null.
+TESForm *EquippedWeapon(Actor *actor);
 
 // Set the health of `item`'s stack `index` in `holder` (as FindStack picks it) through the engine, which splits
 // one copy off a shared stack, so only that copy changes; false when it is not held.
@@ -279,7 +282,7 @@ void RegisterHud(VirtualMachine *vm);
 
 // ---- The game's HUD parts laid out from DEF_HUD.xml (parts.cpp; docs/swf_framework.md#hud-layout) ----
 
-// Give `plugin` the host's HudPartLayout.
+// Give `plugin` the host's HudPartLayout and the FNV preset's HudWeaponCondition.
 void RegisterHudParts(GFxMovieRoot *movie, GFxValue *plugin);
 
 // ---- Our own keys (keys.cpp; docs/swf_framework.md#keys) ----

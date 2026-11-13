@@ -50,6 +50,22 @@ float HealthOf(BGSInventoryItem::Stack *stack) {
     return health ? health->health : -1.0f;
 }
 
+TESForm *EquippedWeapon(Actor *actor) {
+    if (!actor || !actor->inventoryList) return nullptr;
+    BGSInventoryList *list = actor->inventoryList;
+    TESForm *weapon = nullptr;
+    list->inventoryLock.LockForRead();
+    for (UInt32 i = 0; i < list->items.count && !weapon; i++) {
+        BGSInventoryItem entry;
+        list->items.GetNthItem(i, entry);
+        if (entry.form && entry.form->formType == kFormType_WEAP)
+            for (BGSInventoryItem::Stack *s = entry.stack; s; s = s->next)
+                if (s->flags & BGSInventoryItem::Stack::kFlagEquipped) weapon = entry.form;
+    }
+    list->inventoryLock.UnlockRead();
+    return weapon;
+}
+
 namespace {
 
 // The engine's own stack writer (Fallout4.exe 1.11.240; docs/fork/fo4_condition.md#stack-writer):
@@ -166,18 +182,7 @@ bool SetStackHealth(StaticFunctionTag *, TESObjectREFR *holder, TESForm *item, S
 
 // Papyrus: the health of the weapon `actor` has equipped (0 to 1); -1 with none or none set.
 float GetEquippedWeaponHealth(StaticFunctionTag *tag, Actor *actor) {
-    if (!actor || !actor->inventoryList) return -1.0f;
-    BGSInventoryList *list = actor->inventoryList;
-    TESForm *weapon = nullptr;
-    list->inventoryLock.LockForRead();
-    for (UInt32 i = 0; i < list->items.count && !weapon; i++) {
-        BGSInventoryItem entry;
-        list->items.GetNthItem(i, entry);
-        if (entry.form && entry.form->formType == kFormType_WEAP)
-            for (BGSInventoryItem::Stack *s = entry.stack; s; s = s->next)
-                if (s->flags & BGSInventoryItem::Stack::kFlagEquipped) weapon = entry.form;
-    }
-    list->inventoryLock.UnlockRead();
+    TESForm *weapon = EquippedWeapon(actor);
     return weapon ? GetHealth(tag, actor, weapon) : -1.0f;
 }
 

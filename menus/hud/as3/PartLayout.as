@@ -38,13 +38,15 @@ package
          BottomCenterGroup_mc: ["PerkVaultBoy_mc", "SubtitleText_mc", "CritMeter_mc", "CompassWidget_mc"],
          RightMeters_mc: ["PowerArmorLowBatteryWarning_mc", "FlashLightWidget_mc", "ExplosiveAmmoCount_mc",
                           "AmmoCount_mc", "ActionPointMeter_mc", "FatigueWarning_mc", "HUDActiveEffectsWidget_mc"]};
-      // Part name -> {group, name, entry (DEF_HUD.xml's, or null), base {x, y, scaleX, scaleY}, set (what we last
-      // gave it, or null), rotation (its own, as first found)}.
+      // Part name (the vanilla parts, and with the FNV preset its own widgets) -> {group, name, entry (DEF_HUD.xml's,
+      // or null), base {x, y, scaleX, scaleY}, set (what we last gave it, or null), rotation (its own, as first
+      // found)}.
       private var parts:Object = {};
       private var log:Function;
       private var seen:Object = {};
-      // The preset to arrange the parts by ("" none; FnvPreset.NAME).
+      // The preset to arrange the parts by ("" none; FnvPreset.NAME), and the FNV preset with its own widgets.
       private var preset:String = "";
+      private var fnv:FnvPreset;
 
       // `layout` as HudPartLayout gives it ({preset, settings, parts}, parts empty with no file; or null with no
       // DLL); `log` takes a line.
@@ -67,6 +69,14 @@ package
          {
             once("no preset " + layout.preset + ", none used");
             preset = "";
+         }
+         if (preset == FnvPreset.NAME)
+         {
+            fnv = new FnvPreset();
+            for (var widget:String in FnvPreset.WIDGETS)
+            {
+               parts[widget] = {group: FnvPreset.WIDGETS[widget], name: widget, entry: null};
+            }
          }
          if (preset != "")
          {
@@ -108,6 +118,10 @@ package
       // base with DEF_HUD.xml's changes, then the preset over all of them, then each reported and moved by its place.
       public function place(hud:Object, dll:Object, stage:Stage) : void
       {
+         if (fnv != null)
+         {
+            fnv.add(hud);
+         }
          var found:Object = {};
          for each (var part:Object in parts)
          {
@@ -119,13 +133,22 @@ package
                found[part.name] = part;
             }
          }
-         if (preset == FnvPreset.NAME && stage != null)
+         if (fnv != null && stage != null)
          {
-            FnvPreset.arrange(found, stage);
+            fnv.arrange(found, stage);
          }
          for each (part in found)
          {
             finish(part, dll, stage);
+         }
+      }
+
+      // Each frame: the preset's own widgets drawn (FnvPreset.draw).
+      public function draw(hud:Object, dll:Object) : void
+      {
+         if (fnv != null)
+         {
+            fnv.draw(hud, dll);
          }
       }
 

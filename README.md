@@ -95,9 +95,8 @@ weight, weapons' spawn condition, no combat sprint).
    [layout module](docs/swf_framework.md#hud-layout) reading `DEF_HUD.xml`,
    with the HUD's parts moved and scaled in the edit menu too, built, not
    played), and the [FNV layout preset](docs/swf_framework.md#fnv-preset)
-   (built, not played): FNV's parts FO4 has none for (weapon condition,
-   crippled limbs) as widgets drawn by our own code, and hiding and
-   recoloring parts in game.
+   with its [weapon condition bar](docs/swf_framework.md#fnv-widgets)
+   (built, not played). Next: hiding and recoloring parts in game.
 5. **An example menu** for authors, and the API in this README.
 6. **CI** that fetches the Flex SDK and builds the movies; release assets.
 7. **The converter uses this repo** as a pinned submodule in `external/`.
