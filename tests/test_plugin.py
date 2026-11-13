@@ -46,7 +46,7 @@ def test_the_plugin_is_a_light_master_without_masters(tmp_path):
 
 
 def test_the_holder_quest_starts_with_the_game_and_carries_the_holder():
-    """The quest at HOLDER_ID is start-game enabled and carries F3NV_LevelUpHolder, which exists."""
+    """The quest at HOLDER_ID is start-game enabled and carries CRUI_LevelUpHolder, which exists."""
     _, _, [(sig, fid, subs)] = _parse(P.plugin_bytes())
     assert (sig, fid) == ('QUST', P.HOLDER_ID) and subs['EDID'] == P.HOLDER_EDID.encode() + b'\0'
     assert struct.unpack_from('<H', subs['DNAM'])[0] & P.START_GAME_ENABLED
@@ -55,13 +55,13 @@ def test_the_holder_quest_starts_with_the_game_and_carries_the_holder():
 
 
 def test_the_scripts_find_the_holder_where_the_plugin_puts_it():
-    """F3NV_LevelUpHolder.Shared reads PLUGIN at HOLDER_ID; Get reads it first and every host announces to it."""
-    holder = (PAPYRUS / 'F3NV_LevelUpHolder.psc').read_text(encoding='utf-8')
+    """CRUI_LevelUpHolder.Shared reads PLUGIN at HOLDER_ID; Get reads it first and every host announces to it."""
+    holder = (PAPYRUS / 'CRUI_LevelUpHolder.psc').read_text(encoding='utf-8')
     shared = re.search(r'Function Shared\(\) Global.*?EndFunction', holder, re.S).group(0)
     assert f'Game.GetFormFromFile(0x{P.HOLDER_ID:X}, "{P.PLUGIN}")' in shared
     assert f'Game.IsPluginInstalled("{P.PLUGIN}")' in shared
-    host = (PAPYRUS / 'F3NV_LevelUp.psc').read_text(encoding='utf-8')
+    host = (PAPYRUS / 'CRUI_LevelUp.psc').read_text(encoding='utf-8')
     get = re.search(r'Function Get\(\) Global.*?EndFunction', host, re.S).group(0)
-    assert get.index('= F3NV_LevelUpHolder.Shared()') < get.index('GetFormFromFile(0x901, "FalloutHelpers.esl")')
+    assert '= CRUI_LevelUpHolder.Shared()' in get and 'GetFormFromFile' not in get
     announce = re.search(r'Function Announce\(\).*?EndFunction', host, re.S).group(0)
     assert 'shared.Hold(Self)' in announce and 'holder.Hold(Self)' in announce

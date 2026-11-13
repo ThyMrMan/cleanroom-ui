@@ -24,9 +24,9 @@ class Menu:
         return MENUS_DIR / self.name / 'as3'
 
 
-#: The level-up, tag and trait menu (F3NV_LevelUp.psc opens it); the Pip-Boy overlay (pipboy.cpp loads it); the
+#: The level-up, tag and trait menu (CRUI_LevelUp.psc opens it); the Pip-Boy overlay (pipboy.cpp loads it); the
 #: dialogue menu (dialogue.cpp drives it).
-MENUS = (Menu('level_up', 'F3NV_LevelUp', 'Interface/F3NV_LevelUp.swf'),
+MENUS = (Menu('level_up', 'CRUI_LevelUp', 'Interface/CRUI_LevelUp.swf'),
          Menu('pipboy', 'F3NV_Pipboy', 'Interface/F3NV_Pipboy.swf'),
          Menu('dialogue', 'DialogueMenuRoot', 'Interface/DialogueMenu.swf'))
 BY_NAME = {menu.name: menu for menu in MENUS}

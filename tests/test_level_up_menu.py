@@ -1,4 +1,4 @@
-"""Our level-up menu: the movie mxmlc builds, and the contract between it, F3NV_LevelUp.psc and F3NV_LevelUpTable.psc.
+"""Our level-up menu: the movie mxmlc builds, and the contract between it, CRUI_LevelUp.psc and CRUI_LevelUpTable.psc.
 
 See: docs/level_up_plan.md#menu
 """
@@ -12,10 +12,10 @@ from crui.swf import Swf
 
 MENU = menus.BY_NAME['level_up']
 PAPYRUS = REPO / 'papyrus'
-SCRIPT = (PAPYRUS / 'F3NV_LevelUp.psc').read_text(encoding='utf-8')
-TABLE = (PAPYRUS / 'F3NV_LevelUpTable.psc').read_text(encoding='utf-8')
-MOVIE = (MENU.sources / 'F3NV_LevelUp.as').read_text(encoding='utf-8')
-CHARACTER = (MENU.sources / 'f3nv' / 'levelup' / 'Character.as').read_text(encoding='utf-8')
+SCRIPT = (PAPYRUS / 'CRUI_LevelUp.psc').read_text(encoding='utf-8')
+TABLE = (PAPYRUS / 'CRUI_LevelUpTable.psc').read_text(encoding='utf-8')
+MOVIE = (MENU.sources / 'CRUI_LevelUp.as').read_text(encoding='utf-8')
+CHARACTER = (MENU.sources / 'crui' / 'levelup' / 'Character.as').read_text(encoding='utf-8')
 
 
 def _function(source: str, name: str) -> str:
@@ -24,7 +24,7 @@ def _function(source: str, name: str) -> str:
 
 
 def test_the_script_opens_the_movie_the_build_installs():
-    """The menu name F3NV_LevelUp.psc registers is the movie's file and document class."""
+    """The menu name CRUI_LevelUp.psc registers is the movie's file and document class."""
     name = re.search(r'String Property MenuName = "(\w+)"', SCRIPT).group(1)
     assert MENU.movie == f'Interface/{name}.swf' and MENU.document == name and f'MENU:String = "{name}"' in MOVIE
 
@@ -32,14 +32,14 @@ def test_the_script_opens_the_movie_the_build_installs():
 def test_the_script_and_movie_agree_on_events_and_calls():
     """Every event the movie sends is one the script registers, and each root1 call the script makes is a public
     function of the movie."""
-    sent = set(re.findall(r'send\("(F3NV_LevelUp\w+)"', MOVIE))
+    sent = set(re.findall(r'send\("(CRUI_LevelUp\w+)"', MOVIE))
     registered = set(re.findall(r'RegisterForExternalEvent\("(\w+)"', SCRIPT))
-    assert sent == registered == {'F3NV_LevelUpTake', 'F3NV_LevelUpRaise', 'F3NV_LevelUpClose', 'F3NV_LevelUpLog',
-                                  'F3NV_LevelUpTags', 'F3NV_LevelUpTraits'}
+    assert sent == registered == {'CRUI_LevelUpTake', 'CRUI_LevelUpRaise', 'CRUI_LevelUpClose', 'CRUI_LevelUpLog',
+                                  'CRUI_LevelUpTags', 'CRUI_LevelUpTraits'}
     for call in re.findall(r'"root1\.(\w+)"', SCRIPT):
         assert re.search(rf'public function {call}\(', MOVIE), call
     assert 'Function OnMenuTags(Int aiMask)' in SCRIPT and 'Function OnMenuTraits(Int aiMask, Int aiShown)' in SCRIPT
-    assert 'send("F3NV_LevelUpTraits", Character.mask(who.traits, "picked"), who.traits.length)' in MOVIE
+    assert 'send("CRUI_LevelUpTraits", Character.mask(who.traits, "picked"), who.traits.length)' in MOVIE
 
 
 def test_built_hands_over_what_the_movie_reads():
@@ -97,10 +97,10 @@ def test_an_added_perk_is_described_and_tested_by_the_game():
     filled = sorted(int(n) for n in re.findall(r'AddPart\((\d+),', described))
     assert filled == [*range(5), *range(8, 15)] and 'AddPart(9, "4", j)' in described
     assert '"" + (tableRows + j)' in described
-    assert 'public static const GAME:int = 4;' in CHARACTER and '"$F3NV_LU_OWN_TEST"' in CHARACTER
+    assert 'public static const GAME:int = 4;' in CHARACTER and '"$CRUI_LU_OWN_TEST"' in CHARACTER
 
 
-HOLDER = (PAPYRUS / 'F3NV_LevelUpHolder.psc').read_text(encoding='utf-8')
+HOLDER = (PAPYRUS / 'CRUI_LevelUpHolder.psc').read_text(encoding='utf-8')
 
 
 def test_the_api_opens_each_menu_through_the_holder():
@@ -151,11 +151,11 @@ def test_the_movie_builds_the_same_twice(tmp_path):
     raw = menus.compile_movie(MENU, tmp_path / 'a.swf').read_bytes()
     assert raw == menus.compile_movie(MENU, tmp_path / 'b.swf').read_bytes() and raw[:3] == b'FWS'
     assert not {t.code for t in Swf.parse(raw).tags} & set(mxmlc.DATED)
-    for name in (b'F3NV_LevelUp', b'Open', b'Taken', b'Raised', b'ProcessUserEvent', b'Character', b'ScrollList'):
+    for name in (b'CRUI_LevelUp', b'Open', b'Taken', b'Raised', b'ProcessUserEvent', b'Character', b'ScrollList'):
         assert name in raw
 
 
 @pytest.mark.skipif(not mxmlc.available(), reason='the Flex SDK is not installed')
 def test_install_writes_the_movie_under_interface(tmp_path):
-    """install() copies the built movie to <data>/Interface/F3NV_LevelUp.swf."""
+    """install() copies the built movie to <data>/Interface/CRUI_LevelUp.swf."""
     assert menus.install(MENU, tmp_path).read_bytes()[:3] == b'FWS' and (tmp_path / MENU.movie).is_file()

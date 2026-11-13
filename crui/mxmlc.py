@@ -1,4 +1,4 @@
-"""Our own Flash movies, compiled by Apache Flex's `mxmlc` from a menu's AS3 sources plus our f3ui library.
+"""Our own Flash movies, compiled by Apache Flex's `mxmlc` from a menu's AS3 sources plus our crui library.
 
 mxmlc is a real compiler (type errors and missing members fail the build).
 It writes a build date into tags 41 (ProductInfo) and 77 (Metadata); both
@@ -22,7 +22,7 @@ from crui.swf import Swf
 #: The Flex SDK 4.16.1 with playerglobal 11.2 (docs/swf_framework.md#mxmlc-setup): CRUI_FLEX, else a tools_ext
 #: folder beside the repo.
 FLEX = Path(os.environ.get('CRUI_FLEX', REPO.parent / 'tools_ext' / 'FlexSDK'))
-#: Our shared AS3 library (package f3ui), on every movie's source path.
+#: Our shared AS3 library (package crui), on every movie's source path.
 LIBRARY = REPO / 'as3'
 #: Stage, frame rate, background, player and SWF version.
 OPTIONS = ('-target-player=11.2', '-swf-version=15', '-static-link-runtime-shared-libraries=true', '-debug=false',
@@ -76,7 +76,7 @@ def compile_movie(out: Path, sources: Path, document: str, flex: Path = FLEX) ->
 
 def source_hash(sources: Path) -> str:
     """A hash of the menu's sources, the library, the options and output format."""
-    seed = ' '.join(OPTIONS) + ' FWS' + source_digest(LIBRARY, b'f3ui')
+    seed = ' '.join(OPTIONS) + ' FWS' + source_digest(LIBRARY, b'crui')
     return source_digest(sources, seed.encode())
 
 

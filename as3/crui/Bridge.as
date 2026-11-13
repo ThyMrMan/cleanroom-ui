@@ -1,4 +1,4 @@
-package f3ui
+package crui
 {
    // The movie's link to the game: F4SE's root object (handed over in onF4SEObjCreated) and our DLL's natives.
    // See docs/fork/swf_framework.md#design

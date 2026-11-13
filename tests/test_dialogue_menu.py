@@ -13,7 +13,7 @@ from crui.swf import Swf
 MENU = menus.BY_NAME['dialogue']
 MENU_AS = MENU.sources / 'DialogueMenu.as'
 DIALOGUE_CPP = REPO / 'dll' / 'f3nv' / 'dialogue.cpp'
-LIBRARY = REPO / 'as3' / 'f3ui'
+LIBRARY = REPO / 'as3' / 'crui'
 
 
 def test_movie_draws_only_white_so_the_hud_color_shows():
@@ -87,7 +87,7 @@ def test_wheel_scrolls_the_list_and_skips_the_camera():
     assert 'CAMERA_ZOOM' not in source
 
 
-def test_rows_take_text_only_through_f3ui():
+def test_rows_take_text_only_through_crui():
     """Row text goes in through Text.show, never row.text = (a "$" loses the font)."""
     rows = (LIBRARY / 'ScrollList.as').read_text(encoding='utf-8')
     assert 'Text.show(text, ' in rows and not re.search(r'\.text\s*=', rows)
@@ -96,10 +96,10 @@ def test_rows_take_text_only_through_f3ui():
 
 @pytest.mark.skipif(not mxmlc.available(), reason='the Flex SDK is not installed')
 def test_movie_builds_the_same_twice_with_the_menu_at_root_menu_mc(tmp_path):
-    """Two uncompressed, undated builds are identical; Menu_mc registers the holders, calls the DLL, uses f3ui."""
+    """Two uncompressed, undated builds are identical; Menu_mc registers the holders, calls the DLL, uses crui."""
     raw = menus.compile_movie(MENU, tmp_path / 'a.swf').read_bytes()
     assert raw == menus.compile_movie(MENU, tmp_path / 'b.swf').read_bytes() and raw[:3] == b'FWS'
     assert not {t.code for t in Swf.parse(raw).tags} & set(mxmlc.DATED)
     for name in (b'DialogueMenuRoot', b'Menu_mc', b'registerObjects', b'GetDialogueOptions', b'SelectDialogueOption',
-                 b'onF4SEObjCreated', b'QuickkeyUp', b'f3ui'):
+                 b'onF4SEObjCreated', b'QuickkeyUp', b'crui'):
         assert name in raw

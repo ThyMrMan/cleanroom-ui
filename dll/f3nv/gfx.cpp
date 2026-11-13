@@ -1,6 +1,6 @@
 // Flash helpers shared by the menus F3NV hooks (pipboy.cpp, transfer.cpp, hardcore.cpp): reading values, finding a
 // menu's instance by its BGSCodeObj, and logging an object's members when a menu is not laid out as expected; and
-// the natives every movie of ours may call (f4se.plugins.F3NV: TextureExists, for f3ui's Images).
+// the natives every movie of ours may call (f4se.plugins.F3NV: TextureExists, for crui's Images).
 #include "condition.h"
 
 #include "f4se/GameStreams.h"

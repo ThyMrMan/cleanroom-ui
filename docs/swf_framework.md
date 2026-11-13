@@ -8,6 +8,12 @@ Status lives in the [roadmap](ROADMAP.md).
 **V** = read in source or code, **P** = played in game, **S** = from search
 results only.
 
+**Names:** written for the FO3/FNV converter, so this plan says `f3ui`, `F3NV_LevelUp*`, `F3NV_Array`
+and `$F3NV_LU_*`. In Cleanroom UI those are `crui`, `CRUI_LevelUp*`, `CRUI_Array` and `$CRUI_*`
+(renamed 2026-11-12); the DLL's names (`F3NV.dll`, its native scripts, the `F3NV` Scaleform object,
+`F3NV_Pipboy`) wait for the [DLL split](spin_offs.md#split). Our translation files are
+`CleanroomUI_<language>.txt`, from `translations/<language>.txt` (`crui/translations.py`).
+
 ## <a id="why"></a>Why
 
 Each of our three menus solved the same problems on its own: finding the

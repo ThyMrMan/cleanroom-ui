@@ -1,11 +1,11 @@
 package
 {
-   import f3ui.Bridge;
-   import f3ui.Draw;
-   import f3ui.HintBar;
-   import f3ui.Input;
-   import f3ui.ScrollList;
-   import f3ui.Text;
+   import crui.Bridge;
+   import crui.Draw;
+   import crui.HintBar;
+   import crui.Input;
+   import crui.ScrollList;
+   import crui.Text;
    import flash.display.DisplayObject;
    import flash.display.MovieClip;
    import flash.display.Sprite;
@@ -46,7 +46,7 @@ package
       // same as said (ScrollList draws a dim row fainter).
       private var entries:Array = [];
 
-      // The box (its outline in its own graphics) holding the rows (f3ui's ScrollList) and the hints.
+      // The box (its outline in its own graphics) holding the rows (crui's ScrollList) and the hints.
       private var list:Sprite;
 
       private var scroll:ScrollList;
@@ -289,7 +289,7 @@ package
          if(this.input != null)
          {
             this.hints = new HintBar(this.input, HINT_SIZE);
-            this.hints.show([[Input.ACCEPT, "$F3NV_HINT_SELECT"], [Input.BACK, "$F3NV_HINT_LEAVE"]]);
+            this.hints.show([[Input.ACCEPT, "$CRUI_HINT_SELECT"], [Input.BACK, "$CRUI_HINT_LEAVE"]]);
             list.addChild(this.hints);
          }
          host.addChild(list);
@@ -341,7 +341,7 @@ package
             this.log("no options of ours: the game's " + this.entries.length + " (" + this.gameTexts.join(" | ") + "), and [Leave]");
             if(this.dll != null)
             {
-               this.entries.push({"text":"$F3NV_LEAVE", "said":false, "ours":false, "index":LEAVE});
+               this.entries.push({"text":"$CRUI_LEAVE", "said":false, "ours":false, "index":LEAVE});
             }
             if(this.dll != null && this.listShown && this.retries > 0)
             {

@@ -1,10 +1,10 @@
-ScriptName F3NV_LevelUp extends Quest
+ScriptName CRUI_LevelUp extends Quest
 {Fallout 4 only. A level-up in place of the game's: the perk and skill points to spend (saved with the game as this
 script's variables), taking a perk and raising a skill, the perk list, each perk's rank and eligibility, and our
-level-up menu (Interface/F3NV_LevelUp.swf, registered with F4SE), also the tag skill and trait menus. Its partner
-F3NV_LevelUpHolder (Holder) keeps the tagged skills, is where Get() finds it, and decides what opening each menu does.
+level-up menu (Interface/CRUI_LevelUp.swf, registered with F4SE), also the tag skill and trait menus. Its partner
+CRUI_LevelUpHolder (Holder) keeps the tagged skills, is where Get() finds it, and decides what opening each menu does.
 What the menu shows is written as tables (the skills' here, each plugin's perks and traits on its
-F3NV_LevelUpTable), so opening it asks the engine only for the ranks and traits held and the player's values.
+CRUI_LevelUpTable), so opening it asks the engine only for the ranks and traits held and the player's values.
 TagsChosen is sent once the tag menu's picks are set.
 See docs/level_up_plan.md#prkf}
 
@@ -15,7 +15,7 @@ CustomEvent SkillTagged
 CustomEvent SkillUntagged
 CustomEvent MenuClosed
 
-String Property MenuName = "F3NV_LevelUp" AutoReadOnly Hidden
+String Property MenuName = "CRUI_LevelUp" AutoReadOnly Hidden
 {The menu's name, also its movie's name under Interface.}
 Int Property MenuFlags = 0x800049D AutoReadOnly Hidden
 {The casino menu's flags (pauses, cursor, menu context, modal, no pause menu; no Custom Rendering, played 2026-11-08).}
@@ -28,8 +28,8 @@ Int Property LevelUpMode = 0 AutoReadOnly Hidden
 Int Property TagsMode = 1 AutoReadOnly Hidden
 Int Property TraitsMode = 2 AutoReadOnly Hidden
 
-F3NV_LevelUpHolder Property Events Auto Const
-{The holder (Holder); None: the F3NV_LevelUpHolder on this quest.}
+CRUI_LevelUpHolder Property Events Auto Const
+{The holder (Holder); None: the CRUI_LevelUpHolder on this quest.}
 FormList Property Perks Auto Const
 {The level-up list's perks, first ranks only (FNV_Perks).}
 FormList Property Skills Auto Const
@@ -45,7 +45,7 @@ String Property SkillNames Auto Const
 String Property SkillDescriptions Auto Const
 String Property SkillImages Auto Const
 FormList Property Tables Auto Const
-{Every plugin's perk and trait table (F3NV_LevelUpTable), the game's beside this script on its own quest.}
+{Every plugin's perk and trait table (CRUI_LevelUpTable), the game's beside this script on its own quest.}
 
 Int PerkPoints
 Int SkillPoints
@@ -57,7 +57,7 @@ Int pending
 Int mode
 Int wanted
 Int bonus
-F3NV_LevelUpTable[] shown
+CRUI_LevelUpTable[] shown
 Int[] perkCounts
 Int[] traitCounts
 Int[] rowCounts
@@ -75,39 +75,33 @@ Var[] ready
 ; For other mods (docs/level_up_plan.md#api)
 ; ---------------------------------------------------------------------------
 
-F3NV_LevelUp Function Get() Global
-  {The running game's level-up, for other mods: F3NV_LevelUp.Get().AddPerkPoints(1). Cleanroom UI's shared holder
-  (F3NV_LevelUpHolder.Shared) holds it, set as its owner starts and each time our menu opens; without that plugin,
-  the FO3/FNV conversion's holder (FalloutHelpers.esl 0x901); None before either is set.
+CRUI_LevelUp Function Get() Global
+  {The running game's level-up, for other mods: CRUI_LevelUp.Get().AddPerkPoints(1). Cleanroom UI's shared holder
+  (CRUI_LevelUpHolder.Shared) holds it, set as its owner starts and each time our menu opens; None without that
+  plugin or before it is set.
   See docs/level_up_plan.md#plugin}
-  F3NV_LevelUpHolder holder = F3NV_LevelUpHolder.Shared()
-  If holder && holder.Running()
-    Return holder.Running()
-  ElseIf !Game.IsPluginInstalled("FalloutHelpers.esl")
-    Return None
-  EndIf
-  holder = Game.GetFormFromFile(0x901, "FalloutHelpers.esl") as F3NV_LevelUpHolder
+  CRUI_LevelUpHolder holder = CRUI_LevelUpHolder.Shared()
   If !holder
     Return None
   EndIf
   Return holder.Running()
 EndFunction
 
-F3NV_LevelUpHolder Function Holder()
+CRUI_LevelUpHolder Function Holder()
   {Events, else the holder on this quest.}
   If Events
     Return Events
   EndIf
-  Return (Self as Quest) as F3NV_LevelUpHolder
+  Return (Self as Quest) as CRUI_LevelUpHolder
 EndFunction
 
 Function Announce()
   {Be the level-up Get() finds: held by this host's holder and by Cleanroom UI's shared one.}
-  F3NV_LevelUpHolder holder = Holder()
+  CRUI_LevelUpHolder holder = Holder()
   If holder
     holder.Hold(Self)
   EndIf
-  F3NV_LevelUpHolder shared = F3NV_LevelUpHolder.Shared()
+  CRUI_LevelUpHolder shared = CRUI_LevelUpHolder.Shared()
   If shared && shared != holder
     shared.Hold(Self)
   EndIf
@@ -349,18 +343,18 @@ Function Register()
   EndIf
   UnregisterForMenuOpenCloseEvent(MenuName)
   RegisterForMenuOpenCloseEvent(MenuName)
-  UnregisterForExternalEvent("F3NV_LevelUpTake")
-  UnregisterForExternalEvent("F3NV_LevelUpRaise")
-  UnregisterForExternalEvent("F3NV_LevelUpClose")
-  UnregisterForExternalEvent("F3NV_LevelUpLog")
-  UnregisterForExternalEvent("F3NV_LevelUpTags")
-  UnregisterForExternalEvent("F3NV_LevelUpTraits")
-  RegisterForExternalEvent("F3NV_LevelUpTake", "OnMenuTake")
-  RegisterForExternalEvent("F3NV_LevelUpRaise", "OnMenuRaise")
-  RegisterForExternalEvent("F3NV_LevelUpClose", "OnMenuClose")
-  RegisterForExternalEvent("F3NV_LevelUpLog", "OnMenuLog")
-  RegisterForExternalEvent("F3NV_LevelUpTags", "OnMenuTags")
-  RegisterForExternalEvent("F3NV_LevelUpTraits", "OnMenuTraits")
+  UnregisterForExternalEvent("CRUI_LevelUpTake")
+  UnregisterForExternalEvent("CRUI_LevelUpRaise")
+  UnregisterForExternalEvent("CRUI_LevelUpClose")
+  UnregisterForExternalEvent("CRUI_LevelUpLog")
+  UnregisterForExternalEvent("CRUI_LevelUpTags")
+  UnregisterForExternalEvent("CRUI_LevelUpTraits")
+  RegisterForExternalEvent("CRUI_LevelUpTake", "OnMenuTake")
+  RegisterForExternalEvent("CRUI_LevelUpRaise", "OnMenuRaise")
+  RegisterForExternalEvent("CRUI_LevelUpClose", "OnMenuClose")
+  RegisterForExternalEvent("CRUI_LevelUpLog", "OnMenuLog")
+  RegisterForExternalEvent("CRUI_LevelUpTags", "OnMenuTags")
+  RegisterForExternalEvent("CRUI_LevelUpTraits", "OnMenuTraits")
 EndFunction
 
 Event OnMenuOpenCloseEvent(String asMenuName, Bool abOpening)
@@ -434,7 +428,7 @@ Var[] Function Built()
   args[32] = ShowAllPerks
   args[33] = GroupCounts(perkCounts)
   args[34] = GroupCounts(rowCounts)
-  Debug.Trace("F3NV_LevelUp: gathered in " + (Utility.GetCurrentRealTime() - started) + "s, mode " + mode + ", " \
+  Debug.Trace("CRUI_LevelUp: gathered in " + (Utility.GetCurrentRealTime() - started) + "s, mode " + mode + ", " \
               + shown.Length + " tables")
   Return args
 EndFunction
@@ -445,11 +439,11 @@ String Function GroupCounts(Int[] aiCounts)
   String out = ""
   Int t = 0
   While t < aiCounts.Length
-    out = F3NV_LevelUpTable.Joined(out, "" + aiCounts[t], t)
+    out = CRUI_LevelUpTable.Joined(out, "" + aiCounts[t], t)
     t += 1
   EndWhile
   If extra.Length > 0
-    out = F3NV_LevelUpTable.Joined(out, "" + extra.Length, t)
+    out = CRUI_LevelUpTable.Joined(out, "" + extra.Length, t)
   EndIf
   Return out
 EndFunction
@@ -458,14 +452,14 @@ Function Collect()
   {Into shown: this quest's table (the game's), then every other plugin's registered in Tables; and each one's perk,
   trait and row counts, of what the mode shows: perks and rows in a level-up, traits in the trait menu, neither in
   the tag menu (the rest count 0, so Send hands over and asks about none of them).}
-  F3NV_LevelUpTable own = (Self as Quest) as F3NV_LevelUpTable
-  shown = new F3NV_LevelUpTable[0]
+  CRUI_LevelUpTable own = (Self as Quest) as CRUI_LevelUpTable
+  shown = new CRUI_LevelUpTable[0]
   If own
     shown.Add(own)
   EndIf
   Int k = 0
   While Tables && k < Tables.GetSize()
-    F3NV_LevelUpTable table = Tables.GetAt(k) as F3NV_LevelUpTable
+    CRUI_LevelUpTable table = Tables.GetAt(k) as CRUI_LevelUpTable
     If table && shown.Find(table) < 0
       shown.Add(table)
     EndIf
@@ -500,7 +494,7 @@ Function Collect()
 EndFunction
 
 Function DescribeAdded()
-  {Into extra and extraParts (F3NV_LevelUpTable.Text's order): the perks AddPerk listed that no shown table lists,
+  {Into extra and extraParts (CRUI_LevelUpTable.Text's order): the perks AddPerk listed that no shown table lists,
   each read from the perk, with one requirement row of kind 4, the game's own test of its next rank: the row's index,
   after every table's rows, goes in unlisted when the test passes. Owners count from 0, as a table's do.}
   Int i = 0
@@ -526,7 +520,7 @@ Function DescribeAdded()
     AddPart(13, "0", j)
     AddPart(14, "", j)
     If Eligible(NextRank(first))
-      unlisted = F3NV_LevelUpTable.Joined(unlisted, "" + (tableRows + j), (unlisted != "") as Int)
+      unlisted = CRUI_LevelUpTable.Joined(unlisted, "" + (tableRows + j), (unlisted != "") as Int)
     EndIf
     j += 1
   EndWhile
@@ -534,7 +528,7 @@ EndFunction
 
 Function AddPart(Int aiWhich, String asText, Int aiIndex)
   {asText, the added perk aiIndex's, onto extraParts[aiWhich] (a tab inside it would split the entry).}
-  extraParts[aiWhich] = F3NV_LevelUpTable.Joined(extraParts[aiWhich], asText, aiIndex)
+  extraParts[aiWhich] = CRUI_LevelUpTable.Joined(extraParts[aiWhich], asText, aiIndex)
 EndFunction
 
 Bool Function Tabled(Perk akPerk)
@@ -550,20 +544,20 @@ Bool Function Tabled(Perk akPerk)
 EndFunction
 
 String Function Merged(Int aiWhich, Int[] aiCounts)
-  {Text aiWhich (F3NV_LevelUpTable.Text) of each shown table with entries (aiCounts, per table), then the added
+  {Text aiWhich (CRUI_LevelUpTable.Text) of each shown table with entries (aiCounts, per table), then the added
   perks', SEP between.}
   String out = ""
   Int part = 0
   Int t = 0
   While t < shown.Length
     If aiCounts[t] > 0
-      out = F3NV_LevelUpTable.Joined(out, shown[t].Text(aiWhich), part)
+      out = CRUI_LevelUpTable.Joined(out, shown[t].Text(aiWhich), part)
       part += 1
     EndIf
     t += 1
   EndWhile
   If extra.Length > 0 && (aiWhich < 5 || aiWhich > 7)
-    out = F3NV_LevelUpTable.Joined(out, extraParts[aiWhich], part)
+    out = CRUI_LevelUpTable.Joined(out, extraParts[aiWhich], part)
   EndIf
   Return out
 EndFunction
@@ -620,8 +614,8 @@ Function ScanChunk(Int aiChunk, Int aiFirst, Int aiEnd, Int aiSpecials, Int aiSk
       value = Skills.GetAt(i - perkTotal - aiSpecials) as ActorValue
     EndIf
     Int n = i - Most(aiFirst, perkTotal)
-    values = F3NV_LevelUpTable.Joined(values, "" + player.GetBaseValue(value), n)
-    tags = F3NV_LevelUpTable.Joined(tags, "" + TagState(value), n)
+    values = CRUI_LevelUpTable.Joined(values, "" + player.GetBaseValue(value), n)
+    tags = CRUI_LevelUpTable.Joined(tags, "" + TagState(value), n)
     i += 1
   EndWhile
   valueParts[aiChunk] = values
@@ -631,7 +625,7 @@ EndFunction
 
 Function ScanUnlisted()
   {Gather's extra stack: onto unlisted, each table's rows testing a perk it does not list that the player has, moved
-  to where the table's rows start (F3NV_LevelUpTable.UnlistedHeld).}
+  to where the table's rows start (CRUI_LevelUpTable.UnlistedHeld).}
   Actor player = Game.GetPlayer()
   Int first = 0
   Int t = 0
@@ -664,7 +658,7 @@ String Function Over(Actor akPlayer, Bool abTraits, Int aiFrom, Int aiTo)
       Else
         text = shown[t].RanksHeld(akPlayer, from, upto)
       EndIf
-      out = F3NV_LevelUpTable.Joined(out, text, part)
+      out = CRUI_LevelUpTable.Joined(out, text, part)
       part += 1
     EndIf
     start += n
@@ -672,7 +666,7 @@ String Function Over(Actor akPlayer, Bool abTraits, Int aiFrom, Int aiTo)
   EndWhile
   Int k = Most(aiFrom - tablePerks, 0)
   While !abTraits && k < Least(aiTo - tablePerks, extra.Length)
-    out = F3NV_LevelUpTable.Joined(out, "" + Rank(extra[k]), part)
+    out = CRUI_LevelUpTable.Joined(out, "" + Rank(extra[k]), part)
     part += 1
     k += 1
   EndWhile
@@ -695,7 +689,7 @@ EndFunction
 
 Int Function TagState(ActorValue akValue)
   {0 untagged, 1 tagged as SetPlayerTagSkill's suggestion (the tag menu may change it), 2 tagged.}
-  F3NV_LevelUpHolder holder = Holder()
+  CRUI_LevelUpHolder holder = Holder()
   If !holder.IsTagged(akValue)
     Return 0
   ElseIf holder.IsSuggested(akValue)
@@ -711,7 +705,7 @@ String Function JoinedParts(String[] asParts)
   Int i = 0
   While i < asParts.Length
     If asParts[i] != ""
-      out = F3NV_LevelUpTable.Joined(out, asParts[i], n)
+      out = CRUI_LevelUpTable.Joined(out, asParts[i], n)
       n += 1
     EndIf
     i += 1
@@ -781,7 +775,7 @@ EndFunction
 
 Function OnMenuTraits(Int aiMask, Int aiShown)
   {The trait menu's picks, bit i for trait i of the shown tables', of the first aiShown: each table adds the picked
-  ones the player lacks and removes the others they have (F3NV_LevelUpTable.SetTraits); then the menu closed.}
+  ones the player lacks and removes the others they have (CRUI_LevelUpTable.SetTraits); then the menu closed.}
   Actor player = Game.GetPlayer()
   Int first = 0
   Int t = 0
@@ -798,7 +792,7 @@ Function OnMenuClose()
 EndFunction
 
 Function OnMenuLog(String asText)
-  Debug.Trace("F3NV_LevelUp: " + asText)
+  Debug.Trace("CRUI_LevelUp: " + asText)
 EndFunction
 
 Var[] Function FormArgs(Form akForm)

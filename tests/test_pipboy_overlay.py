@@ -49,7 +49,7 @@ def test_the_movie_builds_the_same_twice_and_fills_the_item_card(tmp_path):
     assert raw == menus.compile_movie(MENU, tmp_path / 'b.swf').read_bytes() and raw[:3] == b'FWS'
     assert not {t.code for t in Swf.parse(raw).tags} & set(mxmlc.DATED)
     for name in (b'F3NV_Pipboy', b'CurrentPage', b'ItemCard_mc', b'InfoObj', b'onDataChange', b'PipboyCardLines',
-                 b'PipboyList', b'ListPanel', b'f3ui'):
+                 b'PipboyList', b'ListPanel', b'crui'):
         assert name in raw
 
 

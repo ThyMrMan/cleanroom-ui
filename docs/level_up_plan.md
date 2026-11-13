@@ -11,6 +11,12 @@ Status lines live only in
 menu, the image staging) is in
 [swf_framework.md](swf_framework.md#level-up).
 
+**Names:** written for the FO3/FNV converter, so this plan's history says `f3ui`, `F3NV_LevelUp*`, `F3NV_Array`
+and `$F3NV_LU_*`. In Cleanroom UI those are `crui`, `CRUI_LevelUp*`, `CRUI_Array` and `$CRUI_*`
+(renamed 2026-11-12); the DLL's names (`F3NV.dll`, its native scripts, the `F3NV` Scaleform object,
+`F3NV_Pipboy`) wait for the [DLL split](spin_offs.md#split). Our translation files are
+`CleanroomUI_<language>.txt`, from `translations/<language>.txt` (`crui/translations.py`).
+
 **Scope:** FNV's and FO3's level-up (skill points, perks, traits, tags) in a
 menu of our own on f3ui, replacing LevelUpMenuEx, with the extras players
 have bolted onto level-up menus built in. Not the perks themselves
@@ -339,13 +345,12 @@ As with [item-card lines](swf_framework.md#card-lines), a small API:
   and Be Exceptional patches) work without LevelUpMenuEx. Only the file
   format, not its code. **Open decision**, as with PipboyTabs' INIs.
 
-**Built 2026-11-12 (not played),** all on `F3NV_LevelUp`:
-- **Reaching it:** `F3NV_LevelUp.Get()` (global), so a mod needs no master
-  but `FalloutHelpers.esl`, which every converted plugin masters. It asks
-  the holder at helper quest `0x901` ([holder](#holder)), which the level-up
-  sets as the rules quest starts (`OnInit`) and each time our menu registers
-  (`Register`, `Announce`); on a save from before, `Get()` is None until
-  the menu first opens. With two games loaded, the one whose rules ran last.
+**Built 2026-11-12 (not played),** all on `CRUI_LevelUp`:
+- **Reaching it:** `CRUI_LevelUp.Get()` (global), so a mod needs no master
+  but `CleanroomUI.esl`. It asks the shared holder ([plugin](#plugin)),
+  which every host sets as its quest starts (`OnInit`) and each time our
+  menu registers (`Register`, `Announce`); None before then. With two
+  hosts running, the one that announced last.
 - **Points:** `AddPerkPoints`, `AddSkillPoints`, `GetPerkPoints`,
   `GetSkillPoints`, `RaiseSkill`, `TakePerk`, `CanTake`, `Rank`,
   `NextRank`, `PerkList` (from [prkf](#prkf)).
@@ -363,9 +368,9 @@ As with [item-card lines](swf_framework.md#card-lines), a small API:
 
 ## <a id="holder"></a>The holder: the host without the converter (built 2026-11-12, not played)
 
-Cleanroom UI's host (`F3NV_LevelUp`) names no other mod's script. What it
+Cleanroom UI's host (`CRUI_LevelUp`) names no other mod's script. What it
 needs from the mod that runs it is one partner script,
-**`F3NV_LevelUpHolder`** (extends `Quest`), read from the host's `Events`
+**`CRUI_LevelUpHolder`** (extends `Quest`), read from the host's `Events`
 property, else from a holder attached to the host's own quest. Every
 function in it works as written; a mod with rules of its own extends it and
 overrides what it needs.
@@ -384,19 +389,20 @@ until no menu, the Pip-Boy and ours included, is open, then `Open`.
 `CleanroomUI.esl` (`crui/plugin.py`, `python -m crui plugin`) is a light
 master with no masters, holding one start-game, run-once quest:
 `CleanroomUI_LevelUpHolder` at object id `0x800`, carrying
-`F3NV_LevelUpHolder` with nothing set. Its bytes match what the FO3/FNV
-conversion's writer makes for the same quest (its `FalloutHelpers.esl` is
-written the same way and loads in game; compared 2026-11-12). Object ids are
+`CRUI_LevelUpHolder` with nothing set. It is written as the FO3/FNV
+conversion writes its `FalloutHelpers.esl`, which loads in game. The
+converter's own copy of `CleanroomUI.esl` still carries `F3NV_LevelUpHolder`
+(byte-identical to ours before the rename), so the two differ until the
+converter moves to the `CRUI_` scripts; neither has shipped. Object ids are
 a save contract: append only.
 
-- `F3NV_LevelUpHolder.Shared()` (global) is that quest's holder, None
+- `CRUI_LevelUpHolder.Shared()` (global) is that quest's holder, None
   while the plugin isn't loaded (`Game.IsPluginInstalled` first, so no
   missing-file log line).
 - Every host's `Announce` holds itself in its own holder and in the shared
   one, so `Get()` finds any running host with no master but
   `CleanroomUI.esl`.
-- `Get()` reads the shared holder first, then, while the conversion
-  doesn't require Cleanroom UI, its holder at `FalloutHelpers.esl` `0x901`.
+- `Get()` reads only the shared holder.
 
 ### <a id="holder-converter"></a>The FO3/FNV conversion as a holder
 
@@ -414,7 +420,9 @@ to `F3NV_CharacterEvents`:
   `LevelUp as F3NV_CharacterRules`, which keep topping up points, giving
   the tag bonus and moving LevelUpMenuEx's state.
 
-The host's `Events` property changes type to `F3NV_LevelUpHolder`; the
+These are the converter's own `F3NV_` copies, which it keeps until its
+saves can move to the `CRUI_` scripts. The host's `Events` property changes
+type to `F3NV_LevelUpHolder`; the
 build writes the same object. A tag picked in our menu now also sends the
 host's `SkillTagged`, beside `F3NV_CharacterEvents`' own.
 - **Perks of other mods:** `AddPerk(akFirstRank)` and `RemovePerk`, kept by
@@ -423,7 +431,7 @@ host's `SkillTagged`, beside `F3NV_CharacterEvents`' own.
   `GetDescription`, `GetIconPath`, `GetLevel`, `GetNumRanks`, each a frame
   per perk). Its requirements are one row of kind 4, the game's own test
   of its next rank (`IsEligible`), shown as "Its own requirements"
-  (`$F3NV_LU_OWN_TEST`); taking it is `TakePerk` as for any other.
+  (`$CRUI_LU_OWN_TEST`); taking it is `TakePerk` as for any other.
 
 **Not yet:** skills of other mods (the menu's skills are FNV_Skills, and a
 skill's tag rides a 31-bit mask), and LevelUpMenuEx's INI format (the open

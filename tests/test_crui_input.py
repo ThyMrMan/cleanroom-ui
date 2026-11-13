@@ -1,4 +1,4 @@
-"""f3ui's Input and HintBar: the game's controls and glyphs they rely on, and the menus taking input only through them.
+"""crui's Input and HintBar: the game's controls and glyphs they rely on, and the menus taking input only through them.
 
 See: docs/swf_framework.md#input
 """
@@ -8,9 +8,9 @@ import re
 from crui import REPO
 from crui.menus import BY_NAME
 
-LIBRARY = REPO / 'as3' / 'f3ui'
+LIBRARY = REPO / 'as3' / 'crui'
 #: The menus that take keys and controls (the Pip-Boy overlay rides the Pip-Boy's own input).
-MENUS = (BY_NAME['level_up'].sources / 'F3NV_LevelUp.as', BY_NAME['dialogue'].sources / 'DialogueMenu.as')
+MENUS = (BY_NAME['level_up'].sources / 'CRUI_LevelUp.as', BY_NAME['dialogue'].sources / 'DialogueMenu.as')
 RUNTIME = REPO / 'dll' / 'f3nv'
 #: FO4's menu-mode controls (the control map in Fallout4.exe) and the action each should be.
 MENU_CONTROLS = {'Accept': 'ACCEPT', 'Cancel': 'BACK', 'Up': 'UP', 'Down': 'DOWN', 'Left': 'LEFT', 'Right': 'RIGHT',
@@ -83,10 +83,10 @@ def test_the_menus_take_keys_and_controls_only_through_input():
 
 
 def test_movie_sources_use_no_bethesda_classes():
-    """Every import in every movie is Flash's, our f3ui's or the movie's own package: nothing from the game's."""
+    """Every import in every movie is Flash's, our crui's or the movie's own package: nothing from the game's."""
     for menu in BY_NAME.values():
         own = {p.parent.relative_to(menu.sources).as_posix().replace('/', '.') for p in menu.sources.rglob('*.as')}
         for path in menu.sources.rglob('*.as'):
             imports = re.findall(r'^\s*import ([\w.]+);', path.read_text(encoding='utf-8'), re.M)
-            assert all(name.startswith(('flash.', 'f3ui.')) or name.rsplit('.', 1)[0] in own for name in imports), \
+            assert all(name.startswith(('flash.', 'crui.')) or name.rsplit('.', 1)[0] in own for name in imports), \
                 (path.name, imports)

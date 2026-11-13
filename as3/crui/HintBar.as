@@ -1,4 +1,4 @@
-package f3ui
+package crui
 {
    import flash.display.Sprite;
    import flash.events.MouseEvent;

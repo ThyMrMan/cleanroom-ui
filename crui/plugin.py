@@ -1,7 +1,7 @@
 """CleanroomUI.esl: Cleanroom UI's own plugin, the forms its scripts find by a fixed id.
 
-One start-game quest, HOLDER_ID, carrying F3NV_LevelUpHolder: every level-up host announces itself there, so
-F3NV_LevelUp.Get() finds the running one with no master but this plugin. A light master (ESM + ESL flags) with no
+One start-game quest, HOLDER_ID, carrying CRUI_LevelUpHolder: every level-up host announces itself there, so
+CRUI_LevelUp.Get() finds the running one with no master but this plugin. A light master (ESM + ESL flags) with no
 masters of its own. Object ids are a save contract: append only, never reuse.
 
 See: docs/level_up_plan.md#plugin
@@ -12,7 +12,7 @@ from pathlib import Path
 
 PLUGIN = 'CleanroomUI.esl'
 #: The holder quest's object id and editor id, and the script on it.
-HOLDER_ID, HOLDER_EDID, HOLDER_SCRIPT = 0x800, 'CleanroomUI_LevelUpHolder', 'F3NV_LevelUpHolder'
+HOLDER_ID, HOLDER_EDID, HOLDER_SCRIPT = 0x800, 'CleanroomUI_LevelUpHolder', 'CRUI_LevelUpHolder'
 AUTHOR, DESCRIPTION = 'Cleanroom UI', 'Cleanroom UI: shared forms of the menu framework'
 #: Fallout 4's record form version, HEDR version and INTV.
 FORM_VERSION, HEDR_VERSION, INTV = 131, 1.0, 1
