@@ -212,7 +212,8 @@ GFxValue Str(GFxMovieRoot *movie, const std::string &text) {
     return out;
 }
 
-// HudWidgets(version): {version, widgets: [{name, movie, anchor, x, y, host, place: {dx, dy, scale}}]}, or null while
+// HudWidgets(version): {version, widgets: [{name, movie, anchor, x, y, host, place: {dx, dy, scale, hidden, color}}]},
+// or null while
 // the list is still the one numbered `version` (a widget added or removed, or a place changed in the edit menu).
 class WidgetsNative : public GFxFunctionHandler {
 public:
@@ -234,12 +235,8 @@ public:
             entry.SetMember("x", &x);
             entry.SetMember("y", &y);
             entry.SetMember("host", &host);
-            HudPlace at = PlaceOf(w.name);
-            GFxValue place, dx(double(at.dx)), dy(double(at.dy)), scale(double(at.scale));
-            movie->CreateObject(&place);
-            place.SetMember("dx", &dx);
-            place.SetMember("dy", &dy);
-            place.SetMember("scale", &scale);
+            GFxValue place;
+            MakePlace(movie, PlaceOf(w.name), &place);
             entry.SetMember("place", &place);
             widgets.PushBack(&entry);
         }

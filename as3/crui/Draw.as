@@ -32,12 +32,12 @@ package crui
          return box;
       }
 
-      // An outline `thick` wide round the `wide` by `high` box at (`x`, `y`) in Theme.color at `alpha`, as four
-      // strips that do not overlap (so a translucent outline has no darker corners).
+      // An outline `thick` wide round the `wide` by `high` box at (`x`, `y`) in `color` (below 0: Theme.color) at
+      // `alpha`, as four strips that do not overlap (so a translucent outline has no darker corners).
       public static function outline(g:Graphics, x:Number, y:Number, wide:Number, high:Number, thick:Number,
-                                     alpha:Number) : void
+                                     alpha:Number, color:Number = -1) : void
       {
-         g.beginFill(Theme.color, alpha);
+         g.beginFill(color >= 0 ? uint(color) : Theme.color, alpha);
          g.drawRect(x, y, wide, thick);
          g.drawRect(x, y + high - thick, wide, thick);
          g.drawRect(x, y + thick, thick, high - 2 * thick);

@@ -8,6 +8,7 @@ package
    import flash.display.MovieClip;
    import flash.events.Event;
    import flash.events.IOErrorEvent;
+   import flash.geom.ColorTransform;
    import flash.geom.Point;
    import flash.geom.Rectangle;
    import flash.net.URLRequest;
@@ -148,7 +149,9 @@ package
       }
 
       // Put widget `shown` where its mod puts it and report that to CleanroomUI.dll (origin and bounds, in fractions of
-      // the screen), then move and scale it by the place the player gave it.
+      // the screen), then move and scale it by the place the player gave it, and give it its look: hidden (alpha 0:
+      // nothing else sets our widgets' alpha) and a color (a stats line draws in it; a widget movie takes it as its
+      // color transform's multipliers, over what it draws).
       private function place(dll:Object, shown:Object) : void
       {
          var view:DisplayObject = shown.view;
@@ -173,6 +176,17 @@ package
             view.x = moved.x;
             view.y = moved.y;
             view.scaleX = view.scaleY = Number(at.scale);
+         }
+         shown.color = at != null && Number(at.color) >= 0 ? Number(at.color) : -1;
+         view.alpha = at != null && at.hidden == true ? 0 : 1;
+         if (!(view is StatsLine))
+         {
+            var tint:Array = Look.multipliers(shown.color >= 0 ? uint(shown.color) : 0xFFFFFF);
+            var now:ColorTransform = view.transform.colorTransform;
+            now.redMultiplier = tint[0];
+            now.greenMultiplier = tint[1];
+            now.blueMultiplier = tint[2];
+            view.transform.colorTransform = now;
          }
       }
 
@@ -282,7 +296,8 @@ package
                warning = uint(dll.HudColor("iHUDColorWarning"));
                colored = true;
             }
-            line.update(dll.HudStats(name), normal, warning, flashOff);
+            var own:Number = Number(widgets[name].color);
+            line.update(dll.HudStats(name), own >= 0 ? uint(own) : normal, warning, flashOff);
          }
       }
 

@@ -105,8 +105,8 @@ def test_the_edit_menu_and_host_use_every_layout_native():
     name; the build compiles layout.cpp and HudWidgets hands each widget its place."""
     layout = _source(REPO / 'dll' / 'framework' / 'layout.cpp')
     natives = re.findall(r'RegisterFunction<\w+>\(plugin, movie, "(\w+)"\);', layout)
-    assert sorted(natives) == ['HudEditDone', 'HudLayout', 'HudMove', 'HudPlaceOf', 'HudReport', 'HudReset',
-                               'HudScale']
+    assert sorted(natives) == ['HudEditDone', 'HudHide', 'HudLayout', 'HudMove', 'HudPlaceOf', 'HudReport',
+                               'HudReset', 'HudScale', 'HudTint']
     host = _source(MENU.sources / f'{MENU.document}.as')
     parts = _source(MENU.sources / 'PartLayout.as')
     edit_menu = menus.BY_NAME['hud_edit']
@@ -162,7 +162,7 @@ def test_only_what_the_layout_changes_is_set():
     takes that as its new base."""
     layout = _source(MENU.sources / 'PartLayout.as')
     assert 'Number(entry.x) != Number(entry.defx)' in layout and 'Number(entry.y) != Number(entry.defy)' in layout
-    assert 'Number(entry.scaleX) != 1' in layout and 'uint(entry.color) != 0xFFFFFF' in layout
+    assert 'Number(entry.scaleX) != 1' in layout and 'uint(part.entry.color) != 0xFFFFFF' in layout
     assert 'if (!near(Number(view[property]), Number(at[property])))' in layout
     assert 'part.base = {x: view.x, y: view.y, scaleX: view.scaleX, scaleY: view.scaleY};' in layout
 
@@ -208,3 +208,27 @@ def test_the_fnv_preset_draws_the_weapon_condition_bar_fnv_has_and_fo4_has_not()
     native = parts[parts.index('class WeaponConditionNative'):parts.index('}  // namespace')]
     assert 'EquippedWeapon(player)' in native and 'g_tracked.count(weapon->formID)' in native
     assert 'health = set < 0.0f ? 1.0 : double(set);' in native
+
+
+def test_the_player_hides_and_colors_widgets_and_parts_without_fighting_the_game():
+    """A place carries hidden and a color (saved as two more columns; a line without them still loads), toggled and
+    stepped in the edit menu by keys from [Keys]. The game's parts are hidden by a mask (never their visible or
+    alpha, which the engine sets) and colored by their color transform's multipliers, put on again every frame; the
+    player's color goes over DEF_HUD.xml's. Our own widgets are hidden by alpha; a stats line draws in the color."""
+    layout = _source(REPO / 'dll' / 'framework' / 'layout.cpp')
+    assert "(place.hidden ? 1 : 0)" in layout and 'color != "-"' in layout and 'if (fields >> hidden)' in layout
+    keys = _source(REPO / 'dll' / 'framework' / 'keys.cpp')
+    assert '{"sHudHide", "H", "", \'H\'}' in keys and '{"sHudColor", "C", "", \'C\'}' in keys
+    look = _source(MENU.sources / 'Look.as')
+    assert 'view.mask = state.mask;' in look and '.visible' not in look and '.alpha' not in look
+    parts = _source(MENU.sources / 'PartLayout.as')
+    assert 'looks.apply(part.view, part.hidden == true,' in parts
+    assert 'part.color = at != null && Number(at.color) >= 0 ? Number(at.color) : own;' in parts
+    host = _source(MENU.sources / f'{MENU.document}.as')
+    assert 'view.alpha = at != null && at.hidden == true ? 0 : 1;' in host and 'parts.draw(hud, dll);' in host
+    edit_menu = menus.BY_NAME['hud_edit']
+    edit = _source(edit_menu.sources / f'{edit_menu.document}.as')
+    assert 'e.keyCode == hideKey' in edit and 'e.keyCode == colorKey' in edit and 'keys.hideName' in edit
+    words = _source(REPO / 'translations' / 'CleanroomUI' / 'en.txt')
+    hint = re.search(r'^\$CRUI_HUD_EDIT_HINT\t(.*)$', words, re.M).group(1)
+    assert all(slot in hint for slot in ('{0}', '{1}', '{2}')) and re.search(r'^\$CRUI_HUD_EDIT_HIDDEN\t', words, re.M)

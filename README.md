@@ -96,7 +96,10 @@ weight, weapons' spawn condition, no combat sprint).
    with the HUD's parts moved and scaled in the edit menu too, built, not
    played), and the [FNV layout preset](docs/swf_framework.md#fnv-preset)
    with its [weapon condition bar](docs/swf_framework.md#fnv-widgets)
-   (built, not played). Next: hiding and recoloring parts in game.
+   (built, not played), and [hiding and recoloring](docs/swf_framework.md#hud-look)
+   any part in the edit menu (built, not played). Next: parts shown on
+   [conditions](docs/swf_framework.md#hud-conditions) (out of combat,
+   on a key).
 5. **An example menu** for authors, and the API in this README.
 6. **CI** that fetches the Flex SDK and builds the movies; release assets.
 7. **The converter uses this repo** as a pinned submodule in `external/`.

@@ -18,7 +18,9 @@ package
    // it draws, over the game dimmed, a box with its name where each widget's place puts it (CleanroomUI.dll's
    // HudLayout, from the host's reports, so the boxes are right while the HUD is paused under the menu). Drag a box to
    // move its widget (HudMove), turn the wheel over it to scale it (HudScale), press the reset key (R, a setting read
-   // through HudKeys) to put the one under the cursor back where its mod (or the game) puts it (HudReset); Esc or Tab
+   // through HudKeys) to put the one under the cursor back where its mod (or the game) puts it, shown, in its own
+   // color (HudReset); the hide key (H) hides or shows it (HudHide), the color key (C) steps it through a few colors
+   // (HudTint); hidden ones keep a dim box, so they can be shown again; Esc or Tab
    // saves the layout and closes (HudEditDone). Mouse and keyboard only. The game's own HUD parts are here too, named
    // by their clips. Widgets HUDFramework hosts are not here: its own editor places them.
    // See docs/swf_framework.md#hud-edit
@@ -39,9 +41,19 @@ package
       private var dragging:String = null;
       private var lastX:Number = 0;
       private var lastY:Number = 0;
-      // The reset key (HudKeys, from CleanroomUI.ini) and its name for the hint.
+      // The reset, hide and color keys (HudKeys, from CleanroomUI.ini) and their names for the hint.
       private var resetKey:uint = 82;
       private var resetName:String = "R";
+      private var hideKey:uint = 72;
+      private var hideName:String = "H";
+      private var colorKey:uint = 67;
+      private var colorName:String = "C";
+      // The colors the color key steps through, from a widget's own (-1): white, FNV's amber, FO3's and FO4's
+      // green, blue and red.
+      private static const COLORS:Array = [-1, 0xFFFFFF, 0xFFB642, 0x1AFF80, 0x2EB4FF, 0xFF4646];
+      // A hidden widget's box (alpha), and the word on its name.
+      private static const HIDDEN_ALPHA:Number = 0.3;
+      private var hiddenWord:String;
 
       public function CRUI_HudEdit()
       {
@@ -64,7 +76,12 @@ package
          {
             resetKey = uint(keys.reset);
             resetName = String(keys.resetName);
+            hideKey = uint(keys.hide);
+            hideName = String(keys.hideName);
+            colorKey = uint(keys.color);
+            colorName = String(keys.colorName);
          }
+         hiddenWord = Text.translate("$CRUI_HUD_EDIT_HIDDEN");
          graphics.beginFill(0, DIM);
          graphics.drawRect(0, 0, stage.stageWidth, stage.stageHeight);
          graphics.endFill();
@@ -92,7 +109,7 @@ package
          if (says != hinted)
          {
             hinted = says;
-            Text.show(hint, says + "\t" + resetName);
+            Text.show(hint, says + "\t" + resetName + "\t" + hideName + "\t" + colorName);
          }
          boxes.graphics.clear();
          while (names.length > layout.length)
@@ -102,7 +119,10 @@ package
          for (var i:int = 0; i < layout.length; i++)
          {
             var box:Rectangle = rectOf(layout[i]);
-            Draw.outline(boxes.graphics, box.x, box.y, box.width, box.height, 2, layout[i].name == dragging ? 1 : 0.7);
+            var hidden:Boolean = layout[i].hidden == true;
+            var color:Number = Number(layout[i].color);
+            Draw.outline(boxes.graphics, box.x, box.y, box.width, box.height, 2,
+                         hidden ? HIDDEN_ALPHA : layout[i].name == dragging ? 1 : 0.7, color >= 0 ? uint(color) : -1);
             if (i == names.length)
             {
                var made:TextField = Text.field(16, null, Text.BOLD);
@@ -111,10 +131,13 @@ package
                names.push(made);
             }
             var label:TextField = TextField(names[i]);
-            if (label.text != shown(String(layout[i].name)))
+            var text:String = shown(String(layout[i].name)) + (hidden ? " (" + hiddenWord + ")" : "");
+            if (label.text != text)
             {
-               Text.show(label, shown(String(layout[i].name)));
+               Text.show(label, text);
             }
+            label.textColor = color >= 0 ? uint(color) : Theme.color;
+            label.alpha = hidden ? 0.6 : 1;
             label.x = box.x;
             label.y = box.y - label.height;
          }
@@ -187,7 +210,21 @@ package
          }
       }
 
-      // The reset key resets the widget under the cursor; Esc or Tab saves and closes.
+      // The entry for widget `name` in the layout, or null.
+      private function entryOf(name:String) : Object
+      {
+         for each (var entry:Object in layout)
+         {
+            if (entry.name == name)
+            {
+               return entry;
+            }
+         }
+         return null;
+      }
+
+      // Over a widget: the reset key resets it, the hide key hides or shows it, the color key gives it the next
+      // color. Esc or Tab saves and closes.
       private function onKey(e:KeyboardEvent) : void
       {
          var dll:Object = bridge.natives(DLL);
@@ -195,9 +232,19 @@ package
          {
             return;
          }
-         if (e.keyCode == resetKey && under() != null)
+         var name:String = under();
+         if (name != null && e.keyCode == resetKey)
          {
-            dll.HudReset(under());
+            dll.HudReset(name);
+         }
+         else if (name != null && e.keyCode == hideKey)
+         {
+            dll.HudHide(name);
+         }
+         else if (name != null && e.keyCode == colorKey)
+         {
+            var at:int = COLORS.indexOf(int(entryOf(name).color));
+            dll.HudTint(name, COLORS[(at + 1) % COLORS.length]);
          }
          else if (e.keyCode == Keyboard.ESCAPE || e.keyCode == Keyboard.TAB)
          {

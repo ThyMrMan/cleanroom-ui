@@ -22,7 +22,7 @@ namespace crui {
 
 // The framework's version (CRUI_Framework.GetVersion, the F4SE version query, F4SEPlugin_Version): raised whenever a
 // native, event or rule changes, so a mod can ask for the one it was built against.
-constexpr UInt32 VERSION = 10;
+constexpr UInt32 VERSION = 11;
 
 // The forms that wear (CRUI_Condition.Track): the Pip-Boy shows their condition.
 extern std::mutex g_lock;
@@ -256,10 +256,16 @@ void ForgetHud();
 void RegisterHudMenu(GFxMovieRoot *movie, GFxValue *plugin);
 
 // A widget's place on our host, set in the edit menu: its offset from where its mod puts it (fractions of the
-// screen) and its scale (layout.cpp).
+// screen), its scale, whether the player hid it, and a color it takes over its own (0xRRGGBB; -1: its own)
+// (layout.cpp).
 struct HudPlace {
     float dx = 0.0f, dy = 0.0f, scale = 1.0f;
+    bool hidden = false;
+    SInt32 color = -1;
 };
+
+// `place` as our movies take it, {dx, dy, scale, hidden, color}, made into `out`.
+void MakePlace(GFxMovieRoot *movie, const HudPlace &place, GFxValue *out);
 
 // Widget `name`'s place (the default for none). Held under g_lock.
 HudPlace PlaceOf(const std::string &name);
@@ -273,8 +279,8 @@ void HudChanged();
 // Read the saved layout (Documents\My Games\Fallout4\F4SE\CleanroomUI_Hud.txt).
 void LoadLayout();
 
-// Give `plugin` the host's HudReport and HudPlaceOf, and the edit menu's HudLayout, HudMove, HudScale, HudReset and
-// HudEditDone.
+// Give `plugin` the host's HudReport and HudPlaceOf, and the edit menu's HudLayout, HudMove, HudScale, HudHide,
+// HudTint, HudReset and HudEditDone.
 void RegisterHudLayout(GFxMovieRoot *movie, GFxValue *plugin);
 
 // Register CRUI_HudNative's natives.
@@ -288,7 +294,7 @@ void RegisterHudParts(GFxMovieRoot *movie, GFxValue *plugin);
 // ---- Our own keys (keys.cpp; docs/swf_framework.md#keys) ----
 
 // The keys the game has no controls for, set under [Keys] in CleanroomUI.ini.
-enum class OurKey { Repair, Ammo, HudReset };
+enum class OurKey { Repair, Ammo, HudReset, HudHide, HudColor };
 
 // Read the keys again from the INI files.
 void ReadKeys();

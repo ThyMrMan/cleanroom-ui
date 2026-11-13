@@ -2,11 +2,13 @@
 //
 // Each widget on our host (not HUDFramework's), and each of the game's own HUD parts (named "part:" and its clip,
 // placed by the host's PartLayout from where the game and DEF_HUD.xml put it), may have a place the player gave it:
-// an offset from where it would be, in fractions of the screen, and a scale. Places are kept by widget name in
+// an offset from where it would be, in fractions of the screen, a scale, whether it is hidden, and a color it takes
+// over its own. Places are kept by widget name in
 // Documents\My Games\Fallout4\F4SE\CleanroomUI_Hud.txt, for every save, read once as the game loads. The host
 // (CRUI_Hud.swf) reports each widget's unmoved origin and bounds (HudReport) and applies its place (HudWidgets'
 // entries carry it). The edit menu (CRUI_HudEdit.swf, opened by CRUI_Hud.EditLayout) draws a box per widget where its
-// place puts it (HudLayout), moves, scales and resets them (HudMove, HudScale, HudReset), and on Done saves the file
+// place puts it (HudLayout), moves, scales, hides, colors and resets them (HudMove, HudScale, HudHide, HudTint,
+// HudReset), and on Done saves the file
 // and closes (HudEditDone). The boxes come from the reports and places alone, so they are right even while the HUD
 // movie is paused under the menu.
 #include "condition.h"
@@ -17,6 +19,8 @@
 #include <shlobj.h>
 
 #include <algorithm>
+#include <cstdio>
+#include <cstdlib>
 #include <fstream>
 #include <map>
 #include <sstream>
@@ -49,8 +53,13 @@ std::string LayoutPath() {
 void Save() {
     std::ofstream out(LayoutPath());
     out << "# Cleanroom UI's HUD layout, set in its edit menu: widget<tab>x offset<tab>y offset (fractions of the "
-           "screen)<tab>scale\n";
-    for (const auto &[name, place] : g_places) out << name << '\t' << place.dx << '\t' << place.dy << '\t' << place.scale << '\n';
+           "screen)<tab>scale<tab>hidden (1) or shown (0)<tab>color (RRGGBB, - for its own)\n";
+    for (const auto &[name, place] : g_places) {
+        char color[8] = "-";
+        if (place.color >= 0) snprintf(color, sizeof(color), "%06X", UInt32(place.color) & 0xFFFFFF);
+        out << name << '\t' << place.dx << '\t' << place.dy << '\t' << place.scale << '\t' << (place.hidden ? 1 : 0)
+            << '\t' << color << '\n';
+    }
     _MESSAGE("HUD layout: %u places saved", UInt32(g_places.size()));
 }
 
@@ -71,7 +80,7 @@ public:
 };
 
 // HudLayout(): our widgets and the HUD's parts the host has reported, where their places put them,
-// [{name, left, top, width, height}] in fractions of the screen.
+// [{name, left, top, width, height, hidden, color}] (the box in fractions of the screen).
 class LayoutNative : public GFxFunctionHandler {
 public:
     void Invoke(Args *args) override {
@@ -83,7 +92,7 @@ public:
             HudPlace place = PlaceOf(name);
             GFxValue entry, text, left(rect.ox + place.dx + (rect.left - rect.ox) * place.scale),
                 top(rect.oy + place.dy + (rect.top - rect.oy) * place.scale), width(rect.width * place.scale),
-                height(rect.height * place.scale);
+                height(rect.height * place.scale), hidden(place.hidden), color(double(place.color));
             movie->CreateObject(&entry);
             movie->CreateString(&text, name.c_str());
             entry.SetMember("name", &text);
@@ -91,12 +100,14 @@ public:
             entry.SetMember("top", &top);
             entry.SetMember("width", &width);
             entry.SetMember("height", &height);
+            entry.SetMember("hidden", &hidden);
+            entry.SetMember("color", &color);
             args->result->PushBack(&entry);
         }
     }
 };
 
-// HudPlaceOf(name): the place the player gave `name`, {dx, dy, scale}, or null for none.
+// HudPlaceOf(name): the place the player gave `name`, {dx, dy, scale, hidden, color}, or null for none.
 class PlaceOfNative : public GFxFunctionHandler {
 public:
     void Invoke(Args *args) override {
@@ -106,11 +117,30 @@ public:
             args->result->SetNull();
             return;
         }
-        GFxValue dx(double(it->second.dx)), dy(double(it->second.dy)), scale(double(it->second.scale));
-        args->movie->movieRoot->CreateObject(args->result);
-        args->result->SetMember("dx", &dx);
-        args->result->SetMember("dy", &dy);
-        args->result->SetMember("scale", &scale);
+        MakePlace(args->movie->movieRoot, it->second, args->result);
+    }
+};
+
+// HudHide(name): hide widget `name`, or show it again when hidden.
+class HideNative : public GFxFunctionHandler {
+public:
+    void Invoke(Args *args) override {
+        std::lock_guard<std::mutex> hold(g_lock);
+        HudPlace &place = g_places[Arg(args, 0)];
+        place.hidden = !place.hidden;
+        HudChanged();
+    }
+};
+
+// HudTint(name, color): give widget `name` a color over its own (0xRRGGBB), or its own again for -1.
+class TintNative : public GFxFunctionHandler {
+public:
+    void Invoke(Args *args) override {
+        if (args->numArgs < 2) return;
+        double color = Num(args->args[1]);
+        std::lock_guard<std::mutex> hold(g_lock);
+        g_places[Arg(args, 0)].color = color < 0.0 ? -1 : SInt32(UInt32(color) & 0xFFFFFF);
+        HudChanged();
     }
 };
 
@@ -139,7 +169,7 @@ public:
     }
 };
 
-// HudReset(name): put widget `name` back where its mod puts it.
+// HudReset(name): put widget `name` back where its mod puts it, shown, in its own color.
 class ResetNative : public GFxFunctionHandler {
 public:
     void Invoke(Args *args) override {
@@ -164,6 +194,17 @@ public:
 
 }  // namespace
 
+void MakePlace(GFxMovieRoot *movie, const HudPlace &place, GFxValue *out) {
+    GFxValue dx(double(place.dx)), dy(double(place.dy)), scale(double(place.scale)), hidden(place.hidden),
+        color(double(place.color));
+    movie->CreateObject(out);
+    out->SetMember("dx", &dx);
+    out->SetMember("dy", &dy);
+    out->SetMember("scale", &scale);
+    out->SetMember("hidden", &hidden);
+    out->SetMember("color", &color);
+}
+
 HudPlace PlaceOf(const std::string &name) {
     auto it = g_places.find(name);
     return it != g_places.end() ? it->second : HudPlace();
@@ -178,8 +219,14 @@ void LoadLayout() {
         std::istringstream fields(line);
         std::string name;
         HudPlace place;
-        if (std::getline(fields, name, '\t') && fields >> place.dx >> place.dy >> place.scale)
-            g_places[name] = {place.dx, place.dy, std::clamp(place.scale, MIN_SCALE, MAX_SCALE)};
+        if (!std::getline(fields, name, '\t') || !(fields >> place.dx >> place.dy >> place.scale)) continue;
+        place.scale = std::clamp(place.scale, MIN_SCALE, MAX_SCALE);
+        // Hidden and color came later (2026-11-13): a line without them is shown in its own color.
+        int hidden = 0;
+        std::string color;
+        if (fields >> hidden) place.hidden = hidden != 0;
+        if (fields >> color && color != "-") place.color = SInt32(std::strtoul(color.c_str(), nullptr, 16) & 0xFFFFFF);
+        g_places[name] = place;
     }
     _MESSAGE("HUD layout: %u places", UInt32(g_places.size()));
 }
@@ -190,6 +237,8 @@ void RegisterHudLayout(GFxMovieRoot *movie, GFxValue *plugin) {
     RegisterFunction<LayoutNative>(plugin, movie, "HudLayout");
     RegisterFunction<MoveNative>(plugin, movie, "HudMove");
     RegisterFunction<ScaleNative>(plugin, movie, "HudScale");
+    RegisterFunction<HideNative>(plugin, movie, "HudHide");
+    RegisterFunction<TintNative>(plugin, movie, "HudTint");
     RegisterFunction<ResetNative>(plugin, movie, "HudReset");
     RegisterFunction<DoneNative>(plugin, movie, "HudEditDone");
 }

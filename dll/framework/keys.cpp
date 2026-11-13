@@ -1,4 +1,5 @@
-// Our own keys (docs/swf_framework.md#keys): the Pip-Boy's Repair and Ammo keys and the HUD edit menu's reset key,
+// Our own keys (docs/swf_framework.md#keys): the Pip-Boy's Repair and Ammo keys and the HUD edit menu's reset, hide
+// and color keys,
 // which the game has no controls for, so its Controls page can't remap them (docs/swf_framework.md#remap).
 //
 // Each is a setting under [Keys]: a letter, a digit or F1 to F12. They are read from Data\F4SE\Plugins\CleanroomUI.ini,
@@ -13,6 +14,7 @@
 #include <atomic>
 #include <cctype>
 #include <string>
+#include <utility>
 
 namespace crui {
 
@@ -30,7 +32,8 @@ struct Setting {
     const char *taken;
     std::atomic<int> code;
 };
-Setting g_keys[] = {{"sRepair", "G", "WSE", 'G'}, {"sAmmo", "B", "WSE", 'B'}, {"sHudReset", "R", "", 'R'}};
+Setting g_keys[] = {{"sRepair", "G", "WSE", 'G'}, {"sAmmo", "B", "WSE", 'B'}, {"sHudReset", "R", "", 'R'},
+                    {"sHudHide", "H", "", 'H'},  {"sHudColor", "C", "", 'C'}};
 
 // `text`'s key code: a letter or a digit, or F1 to F12; 0 for anything else.
 int Parse(std::string text) {
@@ -59,18 +62,23 @@ Setting &Of(OurKey key) {
     return g_keys[int(key)];
 }
 
-// HudKeys(): the edit menu's keys, {reset: code, resetName: name}, read again as it opens.
+// HudKeys(): the edit menu's keys, {reset, resetName, hide, hideName, color, colorName} (each a code and its name),
+// read again as it opens.
 class KeysNative : public GFxFunctionHandler {
 public:
     void Invoke(Args *args) override {
         ReadKeys();
         GFxMovieRoot *movie = args->movie->movieRoot;
-        std::string name = KeyName(OurKey::HudReset);
-        GFxValue code(UInt32(KeyCode(OurKey::HudReset))), text;
-        movie->CreateString(&text, name.c_str());
         movie->CreateObject(args->result);
-        args->result->SetMember("reset", &code);
-        args->result->SetMember("resetName", &text);
+        const std::pair<const char *, OurKey> keys[] = {
+            {"reset", OurKey::HudReset}, {"hide", OurKey::HudHide}, {"color", OurKey::HudColor}};
+        for (const auto &[member, key] : keys) {
+            std::string name = KeyName(key);
+            GFxValue code(UInt32(KeyCode(key))), text;
+            movie->CreateString(&text, name.c_str());
+            args->result->SetMember(member, &code);
+            args->result->SetMember((std::string(member) + "Name").c_str(), &text);
+        }
     }
 };
 
@@ -95,8 +103,17 @@ void ReadKeys() {
         Of(OurKey::Repair).code = 'G';
         Of(OurKey::Ammo).code = 'B';
     }
-    _VMESSAGE("keys: repair %s, ammo %s, HUD reset %s", KeyName(OurKey::Repair).c_str(),
-              KeyName(OurKey::Ammo).c_str(), KeyName(OurKey::HudReset).c_str());
+    // So must the edit menu's three: all go back to their defaults when two are the same.
+    int reset = Of(OurKey::HudReset).code, hide = Of(OurKey::HudHide).code, color = Of(OurKey::HudColor).code;
+    if (reset == hide || reset == color || hide == color) {
+        _WARNING("[%s] sHudReset, sHudHide and sHudColor share a key, keeping R, H and C", SECTION);
+        Of(OurKey::HudReset).code = 'R';
+        Of(OurKey::HudHide).code = 'H';
+        Of(OurKey::HudColor).code = 'C';
+    }
+    _VMESSAGE("keys: repair %s, ammo %s, HUD reset %s, hide %s, color %s", KeyName(OurKey::Repair).c_str(),
+              KeyName(OurKey::Ammo).c_str(), KeyName(OurKey::HudReset).c_str(), KeyName(OurKey::HudHide).c_str(),
+              KeyName(OurKey::HudColor).c_str());
 }
 
 int KeyCode(OurKey key) {

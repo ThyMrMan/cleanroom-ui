@@ -18,7 +18,8 @@ LIBRARY = REPO / 'as3' / 'crui'
 
 def test_movie_draws_only_white_so_the_hud_color_shows():
     """Every fill is white, never a black backdrop (it would draw opaque): the menu fills nothing itself and leaves
-    Theme.color white, and the library's outline and list fill only in Theme.color."""
+    Theme.color white, and the library's outline and list fill only in Theme.color (the outline takes another color
+    only when one is passed, which the menu and the list never do)."""
     menu = MENU_AS.read_text(encoding='utf-8')
     assert 'beginFill' not in menu and 'Theme.color' not in menu
     assert 'public static var color:uint = WHITE;' in (LIBRARY / 'Theme.as').read_text(encoding='utf-8')
@@ -26,7 +27,9 @@ def test_movie_draws_only_white_so_the_hud_color_shows():
         source = (LIBRARY / name).read_text(encoding='utf-8')
         body = source if name == 'ScrollList.as' else source[source.index('function outline'):source.index('function box')]
         fills = re.findall(r'beginFill\(([^,]+),', body)
-        assert fills and set(fills) == {'Theme.color'}, name
+        assert fills and {fill.split(' : ')[-1] for fill in fills} == {'Theme.color'}, name
+    for source in (menu, (LIBRARY / 'ScrollList.as').read_text(encoding='utf-8')):
+        assert all(call.count(',') == 6 for call in re.findall(r'Draw\.outline\(([^;]+)\);', source))
 
 
 def test_backdrop_is_the_games_shaded_background():

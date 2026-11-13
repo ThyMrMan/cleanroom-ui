@@ -2,7 +2,6 @@ package
 {
    import flash.display.DisplayObject;
    import flash.display.Stage;
-   import flash.geom.ColorTransform;
    import flash.geom.Point;
    import flash.geom.Rectangle;
 
@@ -16,8 +15,9 @@ package
    // over it where the file changes them from the game's defaults (a position other than defx, defy; a scale other
    // than 1); DEF's values are absolute in the group, so with DEF_HUD's own HUDMenu.swf installed both set the same.
    // The base is reported to CleanroomUI.dll for the edit menu (HudReport, as a widget's is), then the player's place
-   // moves and scales the part from it. The file's rotation and color (a tint over the HUD color) are set when they
-   // differ from the part's own and white. place() runs again every few frames and whenever a place changes; a part
+   // moves and scales the part from it. The file's rotation is set when it differs from the part's own. The part's
+   // look (Look) is put on each frame: hidden as the player set it, and the player's color, else the file's (a color
+   // other than white), else its own. place() runs again every few frames and whenever a place changes; a part
    // the game moved itself since (power armor, a HUD mode change) takes that as its new base, and a value already
    // right is left alone.
    // Not applied yet: flags (which of a part's pieces are shown; DEF's meaning of each bit is not known), color2,
@@ -40,13 +40,14 @@ package
                           "AmmoCount_mc", "ActionPointMeter_mc", "FatigueWarning_mc", "HUDActiveEffectsWidget_mc"]};
       // Part name (the vanilla parts, and with the FNV preset its own widgets) -> {group, name, entry (DEF_HUD.xml's,
       // or null), base {x, y, scaleX, scaleY}, set (what we last gave it, or null), rotation (its own, as first
-      // found)}.
+      // found), view (found by the last place(), or null), hidden, color (its look, from its place and the file)}.
       private var parts:Object = {};
       private var log:Function;
       private var seen:Object = {};
       // The preset to arrange the parts by ("" none; FnvPreset.NAME), and the FNV preset with its own widgets.
       private var preset:String = "";
       private var fnv:FnvPreset;
+      private var looks:Look = new Look();
 
       // `layout` as HudPartLayout gives it ({preset, settings, parts}, parts empty with no file; or null with no
       // DLL); `log` takes a line.
@@ -143,12 +144,20 @@ package
          }
       }
 
-      // Each frame: the preset's own widgets drawn (FnvPreset.draw).
+      // Each frame: the preset's own widgets drawn (FnvPreset.draw), then every part's look put on (again over any
+      // the game wrote since).
       public function draw(hud:Object, dll:Object) : void
       {
          if (fnv != null)
          {
             fnv.draw(hud, dll);
+         }
+         for each (var part:Object in parts)
+         {
+            if (part.view != null)
+            {
+               looks.apply(part.view, part.hidden == true, part.color != null ? Number(part.color) : -1);
+            }
          }
       }
 
@@ -226,6 +235,10 @@ package
          var name:String = PREFIX + part.name;
          var at:Object = dll.HudPlaceOf != null ? dll.HudPlaceOf(name) : null;
          var target:Object = base;
+         var own:Number = part.entry != null && isNumber(part.entry.color) && uint(part.entry.color) != 0xFFFFFF
+                          ? Number(uint(part.entry.color)) : -1;
+         part.hidden = at != null && at.hidden == true;
+         part.color = at != null && Number(at.color) >= 0 ? Number(at.color) : own;
          if (stage != null)
          {
             var wide:Number = stage.stageWidth, high:Number = stage.stageHeight;
@@ -245,17 +258,14 @@ package
          part.set = target;
       }
 
-      // The file's rotation and color on `view`, and a note for what is not applied yet.
+      // The file's rotation on `view` (its color is part of the look: draw()), and a note for what is not applied
+      // yet.
       private function dress(view:DisplayObject, part:Object, entry:Object) : void
       {
          if (isNumber(entry.rotation) && !sameAngle(Number(entry.rotation), Number(part.rotation))
              && !sameAngle(view.rotation, Number(entry.rotation)))
          {
             view.rotation = Number(entry.rotation);
-         }
-         if (isNumber(entry.color) && uint(entry.color) != 0xFFFFFF)
-         {
-            tint(view, uint(entry.color));
          }
          if (isNumber(entry.color2) && uint(entry.color2) != 0xFFFFFF)
          {
@@ -276,19 +286,6 @@ package
             {
                view[property] = Number(at[property]);
             }
-         }
-      }
-
-      // Tint `view` by `color` (multiplied over what is drawn, the HUD color included), keeping its alpha.
-      private static function tint(view:DisplayObject, color:uint) : void
-      {
-         var red:Number = ((color >> 16) & 0xFF) / 255, green:Number = ((color >> 8) & 0xFF) / 255,
-             blue:Number = (color & 0xFF) / 255;
-         var now:ColorTransform = view.transform.colorTransform;
-         if (now.redMultiplier != red || now.greenMultiplier != green || now.blueMultiplier != blue)
-         {
-            view.transform.colorTransform = new ColorTransform(red, green, blue, now.alphaMultiplier, 0, 0, 0,
-                                                               now.alphaOffset);
          }
       }
 
