@@ -15,7 +15,7 @@ package, `CRUI_*` scripts and movies, `$CRUI_*` keys). The two DLLs are
 | Release | Holds | Needs |
 |---|---|---|
 | **Cleanroom UI** | `CleanroomUI.esl`, `CleanroomUI.dll` (item condition API, the Pip-Boy's item-card lines, repair and ammo lists and STAT tabs, transfer-menu CND lines, `ChangeSex`), the level-up menu, the Pip-Boy movie, the scripts | F4SE |
-| **Dialogue menu** | `CleanroomDialogue.dll` and `Interface/DialogueMenu.swf` | F4SE |
+| **Dialogue menu** | `CleanroomDialogue.dll`, `Interface/DialogueMenu.swf` and `CleanroomDialogue_<language>.txt`; options and their answers from `F4SE/Plugins/CleanroomDialogue/*.txt` | F4SE |
 
 ## Build
 
@@ -26,8 +26,8 @@ python -m pytest
 
 `all` runs five steps, each also on its own (`plugin`, `translations`,
 `movies`, `scripts`, `dll`), and writes a mod folder: `CleanroomUI.esl` (the
-shared forms), `Interface/Translations/CleanroomUI_<language>.txt` (our
-words, from `translations/`), `Interface/` (movies), `Scripts/` (Papyrus),
+shared forms), `Interface/Translations/CleanroomUI_<language>.txt` and
+`CleanroomDialogue_<language>.txt` (our words, from `translations/`), `Interface/` (movies), `Scripts/` (Papyrus),
 `F4SE/Plugins/` (both DLLs). Built
 files never go in git.
 
@@ -55,7 +55,7 @@ mods reach the running one with that plugin as their only master
 |---|---|
 | `crui/` | The build: `plugin.py` (`CleanroomUI.esl`), `mxmlc.py` (byte-stable movies), `swf.py` (SWF reader and writer), `papyrus.py`, `menus.py` (every movie), the `python -m crui` command |
 | `as3/crui/` | The AS3 library: `Host`, `Bridge`, `Theme`, `Draw`, `Text`, `ScrollList`, `Modal`, `Images`, `Input`, `HintBar` |
-| `translations/` | Our words, `$CRUI_KEY<tab>text` per line, one UTF-8 file per language (`en.txt` holds every key) |
+| `translations/` | Our words, `$CRUI_KEY<tab>text` per line: a folder per release (`CleanroomUI/`, `CleanroomDialogue/`), one UTF-8 file per language (`en.txt` holds every key) |
 | `menus/level_up/` | The level-up, tag-skill and trait menu (`Interface/CRUI_LevelUp.swf`) |
 | `menus/pipboy/` | The Pip-Boy overlay CleanroomUI.dll loads (`Interface/CRUI_Pipboy.swf`): item-card lines, the list panel |
 | `menus/dialogue/` | The dialogue menu (`Interface/DialogueMenu.swf`) |
@@ -82,10 +82,10 @@ weight, weapons' spawn condition, no combat sprint).
    `CRUI_LevelUp` once. Its level-up movie still builds on its own `f3ui`
    copy until it takes this repo as a submodule.
 3. **The DLL split, the rest** ([split](docs/spin_offs.md#split-status)):
-   the dialogue release's own words and links folder; the converter on the
-   two DLLs, its F3NV.dll cut to FNV's rules (the
-   [framework rules](docs/spin_offs.md#framework-rules) are built, not
-   played). Then the shared base:
+   the converter on the two DLLs, its F3NV.dll cut to FNV's rules, its
+   dialogue links in `CleanroomDialogue\` (the
+   [framework rules](docs/spin_offs.md#framework-rules) and the dialogue
+   release's own words and links folder are built, not played). Then the shared base:
    CommonLibF4 (Dear-Modding), Address Library, xmake
    ([runtime](docs/spin_offs.md#runtime)).
 4. **An example menu** for authors, and the API in this README.

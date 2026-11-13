@@ -93,3 +93,13 @@ def test_both_dlls_log_at_the_ini_level():
         source = entry.read_text(encoding='utf-8')
         assert f'OpenLog({name});' in source and 'gLog.OpenRelative' not in source
     assert '"iLevel"' in (DLL / 'shared' / 'gfx.cpp').read_text(encoding='utf-8')
+
+
+def test_the_dialogue_release_stands_alone():
+    """CleanroomDialogue.dll loads its own words (no plugin of ours needed) and reads its links from its own folder,
+    the converter's old F3NV_Menus folder still read until the converter writes ours."""
+    plugin = (DIALOGUE / 'plugin.cpp').read_text(encoding='utf-8')
+    assert 'Translation::ParseTranslation(translator, name);' in plugin and 'kMessage_InputLoaded' in plugin
+    dialogue = (DIALOGUE / 'dialogue.cpp').read_text(encoding='utf-8')
+    assert re.search(r'LINKS = "Data.+CleanroomDialogue.+";', dialogue)
+    assert 'ReadFolder(LINKS)' in dialogue and 'ReadFolder(LEGACY_LINKS)' in dialogue

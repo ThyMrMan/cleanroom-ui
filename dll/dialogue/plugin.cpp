@@ -1,10 +1,17 @@
 // CleanroomDialogue.dll: the F4SE plugin for our dialogue menu alone (dialogue.cpp; docs/dialogue_menu_mod.md).
-// It needs no other DLL of ours: the menu movie (Interface/DialogueMenu.swf) reaches it as
-// f4se.plugins.CleanroomDialogue. Built against F4SE 0.7.9 for Fallout4.exe 1.11.240.
+// It needs no other DLL or plugin of ours: the menu movie (Interface/DialogueMenu.swf) reaches it as
+// f4se.plugins.CleanroomDialogue, its words come from its own translation file, and its links from
+// Data\F4SE\Plugins\CleanroomDialogue\. Built against F4SE 0.7.9 for Fallout4.exe 1.11.240.
 #include "dialogue.h"
 
 #include "f4se/PluginAPI.h"
+#include "f4se/ScaleformLoader.h"
+#include "f4se/ScaleformState.h"
+#include "f4se/ScaleformTranslator.h"
+#include "f4se/Translation.h"
 #include "f4se_common/BranchTrampoline.h"
+
+#include <string>
 #include "f4se_common/f4se_version.h"
 
 namespace {
@@ -27,9 +34,32 @@ bool ReserveTrampoline(const F4SEInterface *f4se) {
     return true;
 }
 
-// F4SE messages: hook dialogue once every plugin has loaded, so XDI.dll shows.
+// Add our words (Interface\Translations\CleanroomDialogue_<sLanguage>.txt) to the game's translator, once: F4SE
+// reads one file per active plugin, and this release ships none. False while the game has no Scaleform manager.
+bool LoadWords() {
+    static bool loaded = false;
+    BSScaleformManager *manager = *g_scaleformManager;
+    if (loaded || !manager || !manager->stateBag) return loaded;
+    loaded = true;
+    auto *translator = static_cast<BSScaleformTranslator *>(
+        manager->stateBag->GetStateAddRef(GFxState::kInterface_Translator));
+    if (!translator) {
+        _WARNING("no translator: the menu shows its $CRUI_ keys");
+        return true;
+    }
+    std::string name = NAME;
+    Translation::ParseTranslation(translator, name);
+    _MESSAGE("loaded the words of %s", NAME);
+    return true;
+}
+
+// F4SE messages: hook dialogue once every plugin has loaded, so XDI.dll shows; load our words once the game has
+// made its translator (by the time input loads, else when the game has loaded).
 void OnMessage(F4SEMessagingInterface::Message *msg) {
     if (msg->type == F4SEMessagingInterface::kMessage_PostLoad && g_trampoline) HookDialogue(g_tasks);
+    if (msg->type == F4SEMessagingInterface::kMessage_InputLoaded ||
+        msg->type == F4SEMessagingInterface::kMessage_GameLoaded)
+        LoadWords();
 }
 
 }  // namespace

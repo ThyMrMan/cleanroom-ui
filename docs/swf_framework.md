@@ -13,7 +13,8 @@ and `$F3NV_LU_*`. In Cleanroom UI those are `crui`, `CRUI_LevelUp*`, `CRUI_Array
 (renamed 2026-11-12); the DLL is now `CleanroomUI.dll` (natives on `CRUI_Condition` and the rest,
 `f4se.plugins.CleanroomUI`, `CRUI_Pipboy.swf`) and `CleanroomDialogue.dll`
 ([split](spin_offs.md#split-status)). Our translation files are
-`CleanroomUI_<language>.txt`, from `translations/<language>.txt` (`crui/translations.py`).
+`CleanroomUI_<language>.txt` and `CleanroomDialogue_<language>.txt`, from
+`translations/<release>/<language>.txt` (`crui/translations.py`).
 
 ## <a id="why"></a>Why
 

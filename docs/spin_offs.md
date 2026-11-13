@@ -77,10 +77,22 @@ Not done yet:
   natives (native scripts hold no saved state), its F3NV.dll keeps only
   FNV's rules (with its own menu-open listener for the Hardcore HUD), and it
   ships the two DLLs.
-- **The dialogue release:** its hint words are `$CRUI_` keys in
-  `CleanroomUI_<language>.txt`, which F4SE loads only with `CleanroomUI.esl`
-  active, and it still reads its links from `F4SE\Plugins\F3NV_Menus\`
-  (the converter writes them there).
+- **The converter's dialogue links** still go to `F4SE\Plugins\F3NV_Menus\`;
+  they move to `F4SE\Plugins\CleanroomDialogue\` when it ships
+  `CleanroomDialogue.dll`.
+
+The dialogue release stands alone (built 2026-11-13, not played):
+- **Its words** are `$CRUI_LEAVE`, `$CRUI_HINT_SELECT` and `$CRUI_HINT_LEAVE`
+  in `CleanroomDialogue_<language>.txt` (`translations/CleanroomDialogue/`),
+  every game language written. F4SE reads one translation file per active
+  plugin and this release ships none, so `CleanroomDialogue.dll` loads its
+  own: when input loads (else when the game has loaded) it takes the
+  translator from the game's Scaleform manager and reads the file with F4SE's
+  own `Translation::ParseTranslation`.
+- **Its links** are read from `Data\F4SE\Plugins\CleanroomDialogue\*.txt`,
+  one file per plugin with options, in the same format. The converter's old
+  `F3NV_Menus\` folder is still read after it, logged `DEPRECATED`, until the
+  converter writes ours.
 
 ### <a id="framework-rules"></a>Rules for the framework
 

@@ -24,8 +24,8 @@ def build_plugin(out: Path) -> bool:
 
 
 def build_translations(out: Path) -> bool:
-    """CleanroomUI_<language>.txt for every game language into <out>/Interface/Translations."""
-    print(f'[translations] {translations.install(out)} languages')
+    """CleanroomUI_ and CleanroomDialogue_<language>.txt for every game language into <out>/Interface/Translations."""
+    print(f'[translations] {translations.install(out)} files')
     return True
 
 

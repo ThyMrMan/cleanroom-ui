@@ -1,6 +1,6 @@
 // CleanroomDialogue.dll: our dialogue menu in place of XDI (docs/fork/fo4_dialogue_menu_plan.md#test-build).
 //
-// An option is a player INFO that names an answer topic (the links in Data\F4SE\Plugins\F3NV_Menus\*.txt); its
+// An option is a player INFO that names an answer topic (the links in Data\F4SE\Plugins\CleanroomDialogue\*.txt); its
 // answer is that topic's first passing INFO, chosen by the engine's own picker, so nothing pairs options and answers
 // by position. The option shows that answer line's prompt (FNV shows the first passing line's) and skill check. The menu movie (Interface/DialogueMenu.swf, built by fo4_import.dialogue_menu) asks for the running
 // Player Dialogue action's options and picks one as option index + 5. The engine then asks three call sites for the
@@ -123,7 +123,11 @@ const UInt32 FX_BACKGROUND_QUAD = 1;
 const UInt32 MENU_NO_COLOR_BACKGROUND = 1;
 const float FULL_QUAD = 1.0f;
 const UInt16 END = 0xFFFF;
-const char *LINKS = "Data\\F4SE\\Plugins\\F3NV_Menus\\";
+// Our links folder, one file per plugin that has options (a mod or the converter writes it).
+const char *LINKS = "Data\\F4SE\\Plugins\\CleanroomDialogue\\";
+// The converter's folder from before the dialogue menu was its own release: still read, logged DEPRECATED, until
+// the converter writes ours.
+const char *LEGACY_LINKS = "Data\\F4SE\\Plugins\\F3NV_Menus\\";
 // The links of the XDI-era hub plugin (tools.dialog.menu_rebuild), from before each build wrote its own: still read,
 // logged DEPRECATED. Builds and the deploy delete it.
 const char *LEGACY_HUB = "F3NV_MenuHub.txt";
@@ -231,23 +235,30 @@ void ReadLinks(const std::string &path) {
     _MESSAGE("dialogue menu: %s: %u links, %u resolved, %u skill checks", path.c_str(), read, kept, checks);
 }
 
-// Read every links file once (the data has loaded by the first menu).
-void ReadAllLinks() {
-    if (g_linksRead) return;
-    g_linksRead = true;
+// Read every links file in `folder`; how many were read.
+UInt32 ReadFolder(const char *folder) {
     WIN32_FIND_DATAA found;
-    HANDLE find = FindFirstFileA((std::string(LINKS) + "*.txt").c_str(), &found);
-    if (find == INVALID_HANDLE_VALUE) {
-        _MESSAGE("dialogue menu: no links in %s", LINKS);
-        return;
-    }
+    HANDLE find = FindFirstFileA((std::string(folder) + "*.txt").c_str(), &found);
+    if (find == INVALID_HANDLE_VALUE) return 0;
+    UInt32 files = 0;
     do {
         if (!_stricmp(found.cFileName, LEGACY_HUB))
             _WARNING("dialogue menu: DEPRECATED %s (the XDI-era hub; each plugin now writes its own links)",
                      found.cFileName);
-        ReadLinks(std::string(LINKS) + found.cFileName);
+        ReadLinks(std::string(folder) + found.cFileName);
+        files++;
     } while (FindNextFileA(find, &found));
     FindClose(find);
+    return files;
+}
+
+// Read every links file once (the data has loaded by the first menu): ours, then the converter's old folder.
+void ReadAllLinks() {
+    if (g_linksRead) return;
+    g_linksRead = true;
+    UInt32 ours = ReadFolder(LINKS), legacy = ReadFolder(LEGACY_LINKS);
+    if (legacy) _WARNING("dialogue menu: DEPRECATED %s (%u files): links now go in %s", LEGACY_LINKS, legacy, LINKS);
+    if (!ours && !legacy) _MESSAGE("dialogue menu: no links in %s", LINKS);
 }
 
 // A topic's INFOs in the engine's order.
