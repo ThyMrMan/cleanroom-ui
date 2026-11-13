@@ -44,7 +44,7 @@ licensed way to build menus without starting from decompiled Bethesda files.
 | **Own menu** | Casino (Papyrus `UI.RegisterCustomMenu`), HUD color by the menu itself (spike 2b, played) | Registering from the DLL: not needed for color; only if a later menu needs it |
 | **Replace a vanilla movie** | Dialogue menu on our own movie (spike 3, played); its `mxmlc` build. Level-up: our own registered menu opened in place of `LevelUpMenu` from Papyrus, no vanilla file shipped ([open](fo4_level_up_plan.md#open), built) | Both played; if the moment of `LevelUpMenu` first shows, F3NV.dll swapping its constructor |
 | **Inject into a vanilla menu** | Pip-Boy (spike 4, played under vanilla); CND, lists and item-card API built | Any of it played; FallUI played; container and barter (still C++) |
-| **HUD widget** | Our host movie loaded into any HUD by `CleanroomUI.dll`, widget movies with HUDFramework's `processMessage`, the built-in stats line, `CRUI_Hud` ([host](#hud-built), built, not played) | Played; HUDFramework as host; saved positions and drag-to-edit; [layouts](#hud-layout); the converter's Hardcore needs on it (still C++) |
+| **HUD widget** | `CRUI_Hud`: HUDFramework hosts the widgets when installed, else our host movie loaded into any HUD by `CleanroomUI.dll`; widget movies with HUDFramework's `processMessage`; the built-in stats line ([host](#hud-built), built, not played) | Played; our own saved positions and drag-to-edit; [layouts](#hud-layout); the converter's Hardcore needs on it (still C++) |
 | **DLL side** | GFx helpers (`gfx.cpp`), Pip-Boy injection (`LoadOverlay`), natives the movies call (`HudColor`, `Log`, `PipboyCardLines`, `PipboyList`, `TextureExists`) | Injection by menu URL for other menus, settings INI to the movie, GFx log routing |
 | **Translations** ([translations](#translations)) | Files named after `FalloutHelpers.esl`, every language with English fallback, our fixed words as `$F3NV_` keys, the key check in preflight (spike 5, played) | The keys played; Papyrus key check; slot and per-language counts; a test language |
 | **Controller** ([controller](#controller)) | The casino and dialogue menu on `Input` and `HintBar` (built, not played) | Playing them with a pad; the Pip-Boy "more" button; roulette's board on a pad |
@@ -575,24 +575,16 @@ ask.
 
 ### <a id="hud-built"></a>The host (built 2026-11-13, not played)
 
-`CleanroomUI.dll` (`dll/framework/hud.cpp`, framework version 3) and the host
-movie `Interface/CRUI_Hud.swf` (`menus/hud/`):
-- **Nothing until a mod asks.** The DLL loads the host into the HUD movie
-  only once a mod has added a widget, and again whenever the HUD movie
-  loads. It loads into whatever `HUDMenu.swf` is installed (vanilla,
-  DEF_HUD's, HUDFramework's) with a `Loader`, as the Pip-Boy overlay does,
-  and ships no HUD movie.
-- **`CRUI_Hud.AddWidget(name, movie, x, y, anchor)`** shows a widget movie.
-  `movie` is a path under `Interface`, as HUDFramework's widgets are, and is
-  loaded into the HUD's class domain. `anchor` is a HUD part (clip names from
-  the HUD's root, dotted, e.g. `LeftMeters_mc`); the widget joins that part,
-  so it moves, hides and fades with it, at `x`, `y` from the part's top-left
-  as measured before the widget joined. `""` puts it on the HUD itself.
-- **`CRUI_Hud.Send(name, command, params)`** calls the widget's
-  `processMessage(command, params)`, HUDFramework's widget method, on the
-  host's next frame: no notification text, no throttle. Messages wait until
-  the widget's movie has loaded.
-- **`CRUI_Hud.AddStats(name, labels, values, steps, shown, x, y, anchor)`**
+`CRUI_Hud` (Papyrus) picks each widget's host; `CleanroomUI.dll`
+(`dll/framework/hud.cpp`, natives on `CRUI_HudNative`, framework version 4)
+keeps the list; `menus/hud/` holds our host movie `CRUI_Hud.swf` and the
+stats widget `CRUI_HudStats.swf`.
+- **`AddWidget(owner, name, movie, x, y, anchor)`** shows a widget movie
+  (a path under `Interface`, as HUDFramework's widgets are).
+- **`Send(name, command, params)`** calls the widget's
+  `processMessage(command, params)`, HUDFramework's widget method, held
+  until the widget has loaded.
+- **`AddStats(owner, name, labels, values, steps, shown, x, y, anchor)`**
   is a built-in widget: a line of labels (a `$KEY` is translated) with the
   player's actor values, in the HUD's bold font and color. Below `steps[0]`
   a value is dim, from `steps[1]` it takes the HUD's warning color
@@ -603,17 +595,49 @@ movie `Interface/CRUI_Hud.swf` (`menus/hud/`):
 - **`RemoveWidget(name)`**; a name given again moves or replaces its
   widget. Every widget, stats line and message is forgotten as a save loads
   or a new game starts, so each mod adds its own on every load.
-- **The movie's side:** each frame the host asks `HudWidgets(version)` (null
-  while the list is unchanged), `HudMessages()` and `HudStats(name)`. The
-  shared natives gained `HudColor(prefix)` and `Log(text)` (the framework DLL
-  had no `Log` since the split, so the Pip-Boy movie's lines were lost).
 
-Not built yet: HUDFramework as the host when installed (its saved position,
-scale and drag-to-edit), our own saved positions and drag-to-edit, the
-power armor HUD, the [layout module](#hud-layout), and the converter's
-Hardcore needs on `AddStats` in place of `hardcore.cpp`. **Play check:** a
-test widget and a stats line under vanilla, DEF_HUD and HUDFramework's HUD;
-both come back after a save loads; a widget anchored on a part hides with
+**With HUDFramework installed** (`HUDFramework.esm` or `.esp`), it hosts:
+- `CRUI_Hud` reaches it only through vanilla calls
+  (`Utility.CallGlobalFunction("HUDFramework", "GetInstance")`, then
+  `CallFunction`), so nothing of ours needs its scripts or plugin.
+- A widget movie is registered with it (`RegisterWidget`, loaded now and on
+  every game load) **only when it is not registered yet**: registering
+  again puts back our `x`, `y` over the place the player gave it with
+  HUDFramework's editor. `x`, `y` are its first place in HUDFramework's
+  own coordinates; the HUD-part anchor doesn't apply there. `owner` is its
+  owner: HUDFramework drops a widget whose owner is gone and calls the
+  owner's `HUD_WidgetLoaded(widgetID)` when it loads (a missing function
+  only logs a Papyrus error).
+- `Send` goes through its string channel (`SendMessageString`, the params
+  joined with `" | "`, which it splits back into `params`). On PC that is
+  about once a second, a newer message for the same command replacing an
+  older one, since its own fast path is still switched off.
+- Every stats line is drawn by our one stats widget, registered with it,
+  one line under another: the player moves all of them together.
+- `RemoveWidget` unloads and unregisters a widget there too.
+- Our host movie is loaded only while some widget is ours, so with every
+  widget on HUDFramework nothing of ours joins the HUD but the stats widget.
+
+Without it, our host: `CleanroomUI.dll` loads `CRUI_Hud.swf` into whatever
+`HUDMenu.swf` is installed (vanilla, DEF_HUD's) with a `Loader`, as the
+Pip-Boy overlay does, once a widget of ours is added and again whenever the
+HUD movie loads. A widget there joins its HUD part (`anchor`: clip names
+from the HUD's root, dotted, e.g. `LeftMeters_mc`), so it moves, hides and
+fades with it, at `x`, `y` from that part's top-left as measured before the
+widget joined; `""` puts it on the HUD itself. Messages reach it on the
+host's next frame, with no notification text or throttle. Each frame the
+host asks `HudWidgets(version)` (null while the list is unchanged),
+`HudMessages()` and `HudStats(name)`; the shared natives gained
+`HudColor(prefix)` and `Log(text)` (the framework DLL had no `Log` since the
+split, so the Pip-Boy movie's lines were lost).
+
+Not built yet: our own saved positions and drag-to-edit (for players
+without HUDFramework), the power armor HUD on our host, the
+[layout module](#hud-layout), and the converter's Hardcore needs on
+`AddStats` in place of `hardcore.cpp`. **Play check:** a test widget and a
+stats line under vanilla, DEF_HUD and HUDFramework (registered once, moved
+in its editor, still there after a save loads); a message reaches the
+widget under both hosts; on our host a widget anchored on a part hides with
 it in menus and power armor.
 
 ### <a id="hud-layout"></a>HUD layouts (what DEF_HUD did)

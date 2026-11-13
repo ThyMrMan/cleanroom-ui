@@ -2,12 +2,13 @@
 //
 // A mod adds a widget through CRUI_Hud: a movie of its own (any HUDFramework widget: it implements
 // processMessage(command, params)) or our built-in stats line (labeled actor values with dim, warning and flashing
-// steps). Once the first widget is added, and again each time the HUD movie loads, this file loads our host movie
-// (Interface/CRUI_Hud.swf) into whatever HUD movie is installed: vanilla, DEF_HUD's, HUDFramework's. Each frame the
-// host asks for the widget list (HudWidgets, only when it changed), the messages sent since (HudMessages) and each
-// stats line's values (HudStats), and loads, places and feeds the widgets itself. With no widget added, nothing is
-// loaded. Widgets, stats and messages are forgotten as a save loads or a new game starts; each mod adds its own on
-// every load.
+// steps). CRUI_Hud (Papyrus) picks the host and tells us (CRUI_HudNative): HUDFramework when it is installed, which
+// then loads the widget movies, and our stats widget (Interface/CRUI_HudStats.swf) for the stats lines; else ours.
+// Once a widget of ours is added, and again each time the HUD movie loads, this file loads our host movie
+// (Interface/CRUI_Hud.swf) into whatever HUD movie is installed. Each frame the host and the stats widget ask for the
+// widget list (HudWidgets, only when it changed), the host for the messages sent since (HudMessages), and both for
+// each stats line's values (HudStats). With no widget of ours, our host is not loaded. Widgets, stats and messages
+// are forgotten as a save loads or a new game starts; each mod adds its own on every load.
 #include "condition.h"
 
 #include "f4se/GameMenus.h"
@@ -27,13 +28,14 @@ namespace crui {
 
 namespace {
 
-const char *SCRIPT = "CRUI_Hud", *MENU = "HUDMenu", *HOST = "CRUI_Hud.swf", *HOOKED = "cruiHud";
+const char *SCRIPT = "CRUI_HudNative", *MENU = "HUDMenu", *HOST = "CRUI_Hud.swf", *HOOKED = "cruiHud";
 
-// A widget: its movie ("" for a stats line), the HUD part it sits under ("" for the HUD itself) and its place from
-// that part's top-left.
+// A widget: its movie ("" for a stats line), the HUD part it sits under ("" for the HUD itself), its place from
+// that part's top-left, and its host ("" ours; "HUDFramework").
 struct Widget {
     std::string name, movie, anchor;
     float x = 0.0f, y = 0.0f;
+    std::string host;
 };
 
 // A stats line: a label and actor value per entry, its steps (dim below, warning from, flashing from) and the global
@@ -68,14 +70,23 @@ std::vector<std::string> Strings(VMArray<BSFixedString> &array) {
     return out;
 }
 
-// Load our host into the HUD movie, once per HUD movie and only once a mod has added a widget.
+// Whether a widget is ours to host (none of HUDFramework's).
+bool Ours() {
+    std::lock_guard<std::mutex> hold(g_lock);
+    return std::any_of(g_widgets.begin(), g_widgets.end(), [](const Widget &w) { return w.host.empty(); });
+}
+
+// The widget named `name`, or null (held under g_lock).
+const Widget *Find(const std::string &name) {
+    auto at = std::find_if(g_widgets.begin(), g_widgets.end(), [&](const Widget &w) { return w.name == name; });
+    return at != g_widgets.end() ? &*at : nullptr;
+}
+
+// Load our host into the HUD movie, once per HUD movie and only once a widget of ours has been added.
 class HookTask : public ITaskDelegate {
 public:
     void Run() override {
-        {
-            std::lock_guard<std::mutex> hold(g_lock);
-            if (g_widgets.empty()) return;
-        }
+        if (!Ours()) return;
         BSFixedString name(MENU);
         IMenu *menu = *g_ui ? (*g_ui)->GetMenu(name) : nullptr;
         GFxValue root, flag(true);
@@ -117,23 +128,25 @@ public:
 };
 OpenSink g_openSink;
 
-// ---- Papyrus (CRUI_Hud) ----
+// ---- Papyrus (CRUI_HudNative, called by CRUI_Hud) ----
 
 std::string Text(BSFixedString &text) {
     return text.c_str() ? text.c_str() : "";
 }
 
 // Papyrus: show `movie` (a path under Interface, any HUDFramework widget) as widget `name` under HUD part `anchor`
-// (a clip path from the HUD's root; "" for the HUD itself) at x, y from that part's top-left.
-void AddWidget(StaticFunctionTag *, BSFixedString name, BSFixedString movie, float x, float y, BSFixedString anchor) {
-    Put({Text(name), Text(movie), Text(anchor), x, y});
+// (a clip path from the HUD's root; "" for the HUD itself) at x, y from that part's top-left, on host `host` ("" ours;
+// "HUDFramework", which CRUI_Hud has registered it with).
+void AddWidget(StaticFunctionTag *, BSFixedString name, BSFixedString movie, float x, float y, BSFixedString anchor,
+               BSFixedString host) {
+    Put({Text(name), Text(movie), Text(anchor), x, y, Text(host)});
 }
 
 // Papyrus: show a stats line as widget `name`: each label with its actor value on the player, dim below steps[0],
 // in the HUD's warning color from steps[1] and flashing from steps[2] (fewer steps: those stay off), while `shown`
-// is not 0 (None: always); placed as AddWidget places a widget.
+// is not 0 (None: always); placed and hosted as AddWidget does a widget.
 void AddStats(StaticFunctionTag *, BSFixedString name, VMArray<BSFixedString> labels, VMArray<ActorValueInfo *> values,
-              VMArray<float> steps, TESGlobal *shown, float x, float y, BSFixedString anchor) {
+              VMArray<float> steps, TESGlobal *shown, float x, float y, BSFixedString anchor, BSFixedString host) {
     Stats stats;
     stats.labels = Strings(labels);
     for (UInt32 i = 0; i < values.Length(); i++) {
@@ -151,7 +164,21 @@ void AddStats(StaticFunctionTag *, BSFixedString name, VMArray<BSFixedString> la
         std::lock_guard<std::mutex> hold(g_lock);
         g_stats[Text(name)] = stats;
     }
-    Put({Text(name), "", Text(anchor), x, y});
+    Put({Text(name), "", Text(anchor), x, y, Text(host)});
+}
+
+// Papyrus: widget `name`'s host ("" ours, "HUDFramework"); "none" for no such widget.
+BSFixedString HostOf(StaticFunctionTag *, BSFixedString name) {
+    std::lock_guard<std::mutex> hold(g_lock);
+    const Widget *widget = Find(Text(name));
+    return BSFixedString(widget ? widget->host.c_str() : "none");
+}
+
+// Papyrus: widget `name`'s movie ("" for a stats line or no such widget).
+BSFixedString MovieOf(StaticFunctionTag *, BSFixedString name) {
+    std::lock_guard<std::mutex> hold(g_lock);
+    const Widget *widget = Find(Text(name));
+    return BSFixedString(widget ? widget->movie.c_str() : "");
 }
 
 // Papyrus: take widget `name` off the HUD.
@@ -178,8 +205,8 @@ GFxValue Str(GFxMovieRoot *movie, const std::string &text) {
     return out;
 }
 
-// HudWidgets(version): {version, widgets: [{name, movie, anchor, x, y}]}, or null while the list is still the one
-// numbered `version`.
+// HudWidgets(version): {version, widgets: [{name, movie, anchor, x, y, host}]}, or null while the list is still the
+// one numbered `version`.
 class WidgetsNative : public GFxFunctionHandler {
 public:
     void Invoke(Args *args) override {
@@ -190,7 +217,8 @@ public:
         GFxValue widgets, version(g_version);
         movie->CreateArray(&widgets);
         for (const Widget &w : g_widgets) {
-            GFxValue entry, name = Str(movie, w.name), path = Str(movie, w.movie), anchor = Str(movie, w.anchor);
+            GFxValue entry, name = Str(movie, w.name), path = Str(movie, w.movie), anchor = Str(movie, w.anchor),
+                host = Str(movie, w.host);
             GFxValue x(double(w.x)), y(double(w.y));
             movie->CreateObject(&entry);
             entry.SetMember("name", &name);
@@ -198,6 +226,7 @@ public:
             entry.SetMember("anchor", &anchor);
             entry.SetMember("x", &x);
             entry.SetMember("y", &y);
+            entry.SetMember("host", &host);
             widgets.PushBack(&entry);
         }
         movie->CreateObject(args->result);
@@ -294,11 +323,15 @@ void RegisterHudMenu(GFxMovieRoot *movie, GFxValue *plugin) {
 }
 
 void RegisterHud(VirtualMachine *vm) {
-    vm->RegisterFunction(new NativeFunction5<StaticFunctionTag, void, BSFixedString, BSFixedString, float, float,
-                                             BSFixedString>("AddWidget", SCRIPT, AddWidget, vm));
-    vm->RegisterFunction(new NativeFunction8<StaticFunctionTag, void, BSFixedString, VMArray<BSFixedString>,
+    vm->RegisterFunction(new NativeFunction6<StaticFunctionTag, void, BSFixedString, BSFixedString, float, float,
+                                             BSFixedString, BSFixedString>("AddWidget", SCRIPT, AddWidget, vm));
+    vm->RegisterFunction(new NativeFunction9<StaticFunctionTag, void, BSFixedString, VMArray<BSFixedString>,
                                              VMArray<ActorValueInfo *>, VMArray<float>, TESGlobal *, float, float,
-                                             BSFixedString>("AddStats", SCRIPT, AddStats, vm));
+                                             BSFixedString, BSFixedString>("AddStats", SCRIPT, AddStats, vm));
+    vm->RegisterFunction(new NativeFunction1<StaticFunctionTag, BSFixedString, BSFixedString>("HostOf", SCRIPT,
+                                                                                              HostOf, vm));
+    vm->RegisterFunction(new NativeFunction1<StaticFunctionTag, BSFixedString, BSFixedString>("MovieOf", SCRIPT,
+                                                                                              MovieOf, vm));
     vm->RegisterFunction(new NativeFunction1<StaticFunctionTag, void, BSFixedString>("RemoveWidget", SCRIPT,
                                                                                      RemoveWidget, vm));
     vm->RegisterFunction(new NativeFunction3<StaticFunctionTag, void, BSFixedString, BSFixedString,

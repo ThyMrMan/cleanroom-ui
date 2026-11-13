@@ -13,22 +13,25 @@ MENUS_DIR = REPO / 'menus'
 
 @dataclass(frozen=True)
 class Menu:
-    """One movie: built from menus/<name>/as3 with document class `document`, installed at `movie`."""
+    """One movie: built from menus/<folder, else name>/as3 with document class `document`, installed at `movie`."""
     name: str
     document: str
     movie: str
+    folder: str = ''
 
     @property
     def sources(self) -> Path:
         """The movie's AS3 source folder."""
-        return MENUS_DIR / self.name / 'as3'
+        return MENUS_DIR / (self.folder or self.name) / 'as3'
 
 
 #: The level-up, tag and trait menu (CRUI_LevelUp.psc opens it); the Pip-Boy overlay (pipboy.cpp loads it); the HUD
-#: host (hud.cpp loads it); the dialogue menu (dialogue.cpp drives it).
+#: host (hud.cpp loads it) and the stats widget HUDFramework hosts (CRUI_Hud.psc registers it), from one folder; the
+#: dialogue menu (dialogue.cpp drives it).
 MENUS = (Menu('level_up', 'CRUI_LevelUp', 'Interface/CRUI_LevelUp.swf'),
          Menu('pipboy', 'CRUI_Pipboy', 'Interface/CRUI_Pipboy.swf'),
          Menu('hud', 'CRUI_Hud', 'Interface/CRUI_Hud.swf'),
+         Menu('hud_stats', 'CRUI_HudStats', 'Interface/CRUI_HudStats.swf', 'hud'),
          Menu('dialogue', 'DialogueMenuRoot', 'Interface/DialogueMenu.swf'))
 BY_NAME = {menu.name: menu for menu in MENUS}
 

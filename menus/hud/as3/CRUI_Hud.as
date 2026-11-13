@@ -81,14 +81,18 @@ package
          drawStats(dll);
       }
 
-      // Show the widgets of `list` ({version, widgets}): add the new ones, re-add one whose movie or HUD part
-      // changed, move the rest, and take off those no longer listed.
+      // Show our widgets of `list` ({version, widgets}; HUDFramework hosts those naming it): add the new ones, re-add
+      // one whose movie or HUD part changed, move the rest, and take off those no longer listed.
       private function sync(list:Object) : void
       {
          version = Number(list.version);
          var wanted:Object = {};
          for each (var entry:Object in list.widgets as Array)
          {
+            if (entry.host != "")
+            {
+               continue;
+            }
             wanted[entry.name] = true;
             var shown:Object = widgets[entry.name];
             if (shown != null && (shown.entry.movie != entry.movie || shown.entry.anchor != entry.anchor))
