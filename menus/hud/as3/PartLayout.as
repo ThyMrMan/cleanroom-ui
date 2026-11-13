@@ -40,7 +40,8 @@ package
                           "AmmoCount_mc", "ActionPointMeter_mc", "FatigueWarning_mc", "HUDActiveEffectsWidget_mc"]};
       // Part name (the vanilla parts, and with the FNV preset its own widgets) -> {group, name, entry (DEF_HUD.xml's,
       // or null), base {x, y, scaleX, scaleY}, set (what we last gave it, or null), rotation (its own, as first
-      // found), view (found by the last place(), or null), hidden, color (its look, from its place and the file)}.
+      // found), view (found by the last place(), or null), hidden, color (its look, from its place and the file),
+      // show (its rule: the conditions it shows under, "" always)}.
       private var parts:Object = {};
       private var log:Function;
       private var seen:Object = {};
@@ -145,8 +146,8 @@ package
       }
 
       // Each frame: the preset's own widgets drawn (FnvPreset.draw), then every part's look put on (again over any
-      // the game wrote since).
-      public function draw(hud:Object, dll:Object) : void
+      // the game wrote since): hidden by the player, or by its rule (`rules`) while none of its conditions holds.
+      public function draw(hud:Object, dll:Object, rules:ShowRules) : void
       {
          if (fnv != null)
          {
@@ -156,7 +157,8 @@ package
          {
             if (part.view != null)
             {
-               looks.apply(part.view, part.hidden == true, part.color != null ? Number(part.color) : -1);
+               var hidden:Boolean = part.hidden == true || !rules.shows(PREFIX + part.name, part.show);
+               looks.apply(part.view, hidden, part.color != null ? Number(part.color) : -1);
             }
          }
       }
@@ -238,6 +240,7 @@ package
          var own:Number = part.entry != null && isNumber(part.entry.color) && uint(part.entry.color) != 0xFFFFFF
                           ? Number(uint(part.entry.color)) : -1;
          part.hidden = at != null && at.hidden == true;
+         part.show = at != null && at.show != null ? String(at.show) : "";
          part.color = at != null && Number(at.color) >= 0 ? Number(at.color) : own;
          if (stage != null)
          {

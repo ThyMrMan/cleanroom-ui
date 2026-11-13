@@ -43,8 +43,10 @@ package
       private var widgets:Object = {};
       private var seen:Object = {};
       private var frames:int = 0;
-      // The game's HUD parts' layout (none until the DLL is found).
+      // The game's HUD parts' layout (none until the DLL is found), and the rules that show parts and widgets on
+      // conditions.
       private var parts:PartLayout;
+      private var rules:ShowRules;
 
       public function CRUI_Hud()
       {
@@ -83,7 +85,9 @@ package
          if (parts == null)
          {
             parts = new PartLayout(dll.HudPartLayout != null ? dll.HudPartLayout() : null, log);
+            rules = new ShowRules(log);
          }
+         rules.update(dll);
          var list:Object = dll.HudWidgets(version);
          if (list != null || frames % REPLACE_FRAMES == 0)
          {
@@ -105,7 +109,11 @@ package
             deliver(message);
          }
          drawStats(dll);
-         parts.draw(hud, dll);
+         parts.draw(hud, dll, rules);
+         for each (var widget:Object in widgets)
+         {
+            widget.view.alpha = widget.hidden || !rules.shows(String(widget.entry.name), widget.show) ? 0 : 1;
+         }
       }
 
       // Show our widgets of `list` ({version, widgets}; HUDFramework hosts those naming it): add the new ones, re-add
@@ -149,9 +157,9 @@ package
       }
 
       // Put widget `shown` where its mod puts it and report that to CleanroomUI.dll (origin and bounds, in fractions of
-      // the screen), then move and scale it by the place the player gave it, and give it its look: hidden (alpha 0:
-      // nothing else sets our widgets' alpha) and a color (a stats line draws in it; a widget movie takes it as its
-      // color transform's multipliers, over what it draws).
+      // the screen), then move and scale it by the place the player gave it, and give it its look: a color (a stats
+      // line draws in it; a widget movie takes it as its color transform's multipliers, over what it draws); hidden,
+      // by the player or its rule, goes on each frame (alpha 0: nothing else sets our widgets' alpha).
       private function place(dll:Object, shown:Object) : void
       {
          var view:DisplayObject = shown.view;
@@ -178,7 +186,8 @@ package
             view.scaleX = view.scaleY = Number(at.scale);
          }
          shown.color = at != null && Number(at.color) >= 0 ? Number(at.color) : -1;
-         view.alpha = at != null && at.hidden == true ? 0 : 1;
+         shown.hidden = at != null && at.hidden == true;
+         shown.show = at != null && at.show != null ? String(at.show) : "";
          if (!(view is StatsLine))
          {
             var tint:Array = Look.multipliers(shown.color >= 0 ? uint(shown.color) : 0xFFFFFF);

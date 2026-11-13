@@ -203,7 +203,7 @@ def test_the_fnv_preset_draws_the_weapon_condition_bar_fnv_has_and_fo4_has_not()
     assert 'dll.HudWeaponCondition()' in preset
     layout = _source(MENU.sources / 'PartLayout.as')
     assert 'for (var widget:String in FnvPreset.WIDGETS)' in layout
-    assert 'parts.draw(hud, dll);' in _source(MENU.sources / f'{MENU.document}.as')
+    assert 'parts.draw(hud, dll, rules);' in _source(MENU.sources / f'{MENU.document}.as')
     parts = _source(REPO / 'dll' / 'framework' / 'parts.cpp')
     native = parts[parts.index('class WeaponConditionNative'):parts.index('}  // namespace')]
     assert 'EquippedWeapon(player)' in native and 'g_tracked.count(weapon->formID)' in native
@@ -222,13 +222,41 @@ def test_the_player_hides_and_colors_widgets_and_parts_without_fighting_the_game
     look = _source(MENU.sources / 'Look.as')
     assert 'view.mask = state.mask;' in look and '.visible' not in look and '.alpha' not in look
     parts = _source(MENU.sources / 'PartLayout.as')
-    assert 'looks.apply(part.view, part.hidden == true,' in parts
+    assert 'looks.apply(part.view, hidden,' in parts and 'part.hidden == true ||' in parts
     assert 'part.color = at != null && Number(at.color) >= 0 ? Number(at.color) : own;' in parts
     host = _source(MENU.sources / f'{MENU.document}.as')
-    assert 'view.alpha = at != null && at.hidden == true ? 0 : 1;' in host and 'parts.draw(hud, dll);' in host
+    assert 'widget.view.alpha = widget.hidden ||' in host and 'parts.draw(hud, dll, rules);' in host
     edit_menu = menus.BY_NAME['hud_edit']
     edit = _source(edit_menu.sources / f'{edit_menu.document}.as')
     assert 'e.keyCode == hideKey' in edit and 'e.keyCode == colorKey' in edit and 'keys.hideName' in edit
     words = _source(REPO / 'translations' / 'CleanroomUI' / 'en.txt')
     hint = re.search(r'^\$CRUI_HUD_EDIT_HINT\t(.*)$', words, re.M).group(1)
     assert all(slot in hint for slot in ('{0}', '{1}', '{2}')) and re.search(r'^\$CRUI_HUD_EDIT_HIDDEN\t', words, re.M)
+
+
+def test_parts_and_widgets_show_on_conditions():
+    """Each box's rule (the conditions it shows under) is the player's from the layout file, else the preset's
+    ([Hud] sShow=Immersive); HudState gives the conditions each frame (combat, drawn, vats, the show key) and the
+    linger. A box shows while one of its conditions holds and for the linger after; with no rule, or a condition the
+    DLL doesn't know, it shows. The settings are read as each HUD loads."""
+    show = _source(REPO / 'dll' / 'framework' / 'show.cpp')
+    assert re.findall(r'RegisterFunction<\w+>\(plugin, movie, "(\w+)"\);', show) == ['HudState']
+    assert all(f'SetMember("{name}"' in show for name in ('combat', 'drawn', 'vats', 'peek', 'linger'))
+    assert 'IsInCombat()' in show and 'actorState.IsWeaponDrawn()' in show and '"VATSMenu"' in show
+    assert 'GetAsyncKeyState(key)' in show and 'GameInFront()' in show
+    assert 'Setting("sShow")' in show and 'Setting("fShowLinger")' in show
+    rules = dict(re.findall(r'\{"(part:\w+)", "([\w,]+)"\}', show))
+    assert rules['part:CompassWidget_mc'] == 'peek' and 'combat' in rules['part:HPMeter_mc']
+    assert all('peek' in rule for rule in rules.values())
+    assert set(','.join(rules.values()).split(',')) <= {'combat', 'drawn', 'vats', 'peek'}
+    hud = _source(HUD_CPP)
+    assert 'RegisterHudShow(movie, plugin);' in hud
+    assert hud.index('ReadShowSettings();') < hud.index('if (root.HasMember(HOOKED)) return;')
+    assert 'show.cpp' in _source(REPO / 'dll' / 'build.bat')
+    layout = _source(REPO / 'dll' / 'framework' / 'layout.cpp')
+    assert '(place.show.empty() ? "-" : place.show)' in layout and 'if (fields >> show && show != "-")' in layout
+    assert '{"sHudPeek", "Y", "", \'Y\'}' in _source(REPO / 'dll' / 'framework' / 'keys.cpp')
+    movie = _source(MENU.sources / 'ShowRules.as')
+    assert 'state[condition] === undefined' in movie and 'Number(state.linger) * 1000' in movie
+    host = _source(MENU.sources / f'{MENU.document}.as')
+    assert 'rules.update(dll);' in host and 'dll.HudState' in movie

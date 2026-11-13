@@ -94,6 +94,7 @@ namespace {
 class HookTask : public ITaskDelegate {
 public:
     void Run() override {
+        ReadShowSettings();
         BSFixedString name(MENU);
         IMenu *menu = *g_ui ? (*g_ui)->GetMenu(name) : nullptr;
         GFxValue root, flag(true);
@@ -212,7 +213,8 @@ GFxValue Str(GFxMovieRoot *movie, const std::string &text) {
     return out;
 }
 
-// HudWidgets(version): {version, widgets: [{name, movie, anchor, x, y, host, place: {dx, dy, scale, hidden, color}}]},
+// HudWidgets(version): {version, widgets: [{name, movie, anchor, x, y, host, place: {dx, dy, scale, hidden, color,
+// show}}]},
 // or null while
 // the list is still the one numbered `version` (a widget added or removed, or a place changed in the edit menu).
 class WidgetsNative : public GFxFunctionHandler {
@@ -236,7 +238,7 @@ public:
             entry.SetMember("y", &y);
             entry.SetMember("host", &host);
             GFxValue place;
-            MakePlace(movie, PlaceOf(w.name), &place);
+            MakePlace(movie, w.name, PlaceOf(w.name), &place);
             entry.SetMember("place", &place);
             widgets.PushBack(&entry);
         }
@@ -334,6 +336,7 @@ void RegisterHudMenu(GFxMovieRoot *movie, GFxValue *plugin) {
     RegisterFunction<StatsNative>(plugin, movie, "HudStats");
     RegisterHudLayout(movie, plugin);
     RegisterHudParts(movie, plugin);
+    RegisterHudShow(movie, plugin);
 }
 
 void RegisterHud(VirtualMachine *vm) {

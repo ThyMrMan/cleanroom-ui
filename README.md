@@ -97,9 +97,11 @@ weight, weapons' spawn condition, no combat sprint).
    played), and the [FNV layout preset](docs/swf_framework.md#fnv-preset)
    with its [weapon condition bar](docs/swf_framework.md#fnv-widgets)
    (built, not played), and [hiding and recoloring](docs/swf_framework.md#hud-look)
-   any part in the edit menu (built, not played). Next: parts shown on
-   [conditions](docs/swf_framework.md#hud-conditions) (out of combat,
-   on a key).
+   any part in the edit menu, and parts shown on
+   [conditions](docs/swf_framework.md#hud-conditions) (in combat, with a
+   weapon out, in V.A.T.S., on a key; `[Hud] sShow=Immersive`) (built, not
+   played). Next: the conditions' later steps (a value changing or low,
+   aiming, sneaking, rules edited in the edit menu).
 5. **An example menu** for authors, and the API in this README.
 6. **CI** that fetches the Flex SDK and builds the movies; release assets.
 7. **The converter uses this repo** as a pinned submodule in `external/`.

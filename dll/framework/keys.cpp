@@ -1,5 +1,5 @@
 // Our own keys (docs/swf_framework.md#keys): the Pip-Boy's Repair and Ammo keys and the HUD edit menu's reset, hide
-// and color keys,
+// and color keys, and the show key that brings back the HUD parts shown on conditions,
 // which the game has no controls for, so its Controls page can't remap them (docs/swf_framework.md#remap).
 //
 // Each is a setting under [Keys]: a letter, a digit or F1 to F12. They are read from Data\F4SE\Plugins\CleanroomUI.ini,
@@ -33,7 +33,7 @@ struct Setting {
     std::atomic<int> code;
 };
 Setting g_keys[] = {{"sRepair", "G", "WSE", 'G'}, {"sAmmo", "B", "WSE", 'B'}, {"sHudReset", "R", "", 'R'},
-                    {"sHudHide", "H", "", 'H'},  {"sHudColor", "C", "", 'C'}};
+                    {"sHudHide", "H", "", 'H'},  {"sHudColor", "C", "", 'C'}, {"sHudPeek", "Y", "", 'Y'}};
 
 // `text`'s key code: a letter or a digit, or F1 to F12; 0 for anything else.
 int Parse(std::string text) {
@@ -111,9 +111,9 @@ void ReadKeys() {
         Of(OurKey::HudHide).code = 'H';
         Of(OurKey::HudColor).code = 'C';
     }
-    _VMESSAGE("keys: repair %s, ammo %s, HUD reset %s, hide %s, color %s", KeyName(OurKey::Repair).c_str(),
+    _VMESSAGE("keys: repair %s, ammo %s, HUD reset %s, hide %s, color %s, show %s", KeyName(OurKey::Repair).c_str(),
               KeyName(OurKey::Ammo).c_str(), KeyName(OurKey::HudReset).c_str(), KeyName(OurKey::HudHide).c_str(),
-              KeyName(OurKey::HudColor).c_str());
+              KeyName(OurKey::HudColor).c_str(), KeyName(OurKey::HudPeek).c_str());
 }
 
 int KeyCode(OurKey key) {

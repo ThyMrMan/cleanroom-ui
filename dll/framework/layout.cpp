@@ -53,12 +53,13 @@ std::string LayoutPath() {
 void Save() {
     std::ofstream out(LayoutPath());
     out << "# Cleanroom UI's HUD layout, set in its edit menu: widget<tab>x offset<tab>y offset (fractions of the "
-           "screen)<tab>scale<tab>hidden (1) or shown (0)<tab>color (RRGGBB, - for its own)\n";
+           "screen)<tab>scale<tab>hidden (1) or shown (0)<tab>color (RRGGBB, - for its own)<tab>shown under "
+           "(conditions, comma separated: combat, drawn, vats, peek; always for none; - for the preset's)\n";
     for (const auto &[name, place] : g_places) {
         char color[8] = "-";
         if (place.color >= 0) snprintf(color, sizeof(color), "%06X", UInt32(place.color) & 0xFFFFFF);
         out << name << '\t' << place.dx << '\t' << place.dy << '\t' << place.scale << '\t' << (place.hidden ? 1 : 0)
-            << '\t' << color << '\n';
+            << '\t' << color << '\t' << (place.show.empty() ? "-" : place.show) << '\n';
     }
     _MESSAGE("HUD layout: %u places saved", UInt32(g_places.size()));
 }
@@ -80,7 +81,7 @@ public:
 };
 
 // HudLayout(): our widgets and the HUD's parts the host has reported, where their places put them,
-// [{name, left, top, width, height, hidden, color}] (the box in fractions of the screen).
+// [{name, left, top, width, height, hidden, color, show}] (the box in fractions of the screen; show its rule).
 class LayoutNative : public GFxFunctionHandler {
 public:
     void Invoke(Args *args) override {
@@ -92,7 +93,9 @@ public:
             HudPlace place = PlaceOf(name);
             GFxValue entry, text, left(rect.ox + place.dx + (rect.left - rect.ox) * place.scale),
                 top(rect.oy + place.dy + (rect.top - rect.oy) * place.scale), width(rect.width * place.scale),
-                height(rect.height * place.scale), hidden(place.hidden), color(double(place.color));
+                height(rect.height * place.scale), hidden(place.hidden), color(double(place.color)), show;
+            std::string rule = ShowRule(name, place);
+            movie->CreateString(&show, rule.c_str());
             movie->CreateObject(&entry);
             movie->CreateString(&text, name.c_str());
             entry.SetMember("name", &text);
@@ -102,22 +105,26 @@ public:
             entry.SetMember("height", &height);
             entry.SetMember("hidden", &hidden);
             entry.SetMember("color", &color);
+            entry.SetMember("show", &show);
             args->result->PushBack(&entry);
         }
     }
 };
 
-// HudPlaceOf(name): the place the player gave `name`, {dx, dy, scale, hidden, color}, or null for none.
+// HudPlaceOf(name): the place the player gave `name`, {dx, dy, scale, hidden, color, show}, or null for none and no
+// rule (a part with only the preset's rule gets the default place with it).
 class PlaceOfNative : public GFxFunctionHandler {
 public:
     void Invoke(Args *args) override {
+        std::string name = Arg(args, 0);
         std::lock_guard<std::mutex> hold(g_lock);
-        auto it = g_places.find(Arg(args, 0));
-        if (it == g_places.end()) {
+        auto it = g_places.find(name);
+        HudPlace place = it != g_places.end() ? it->second : HudPlace();
+        if (it == g_places.end() && ShowRule(name, place).empty()) {
             args->result->SetNull();
             return;
         }
-        MakePlace(args->movie->movieRoot, it->second, args->result);
+        MakePlace(args->movie->movieRoot, name, place, args->result);
     }
 };
 
@@ -194,15 +201,18 @@ public:
 
 }  // namespace
 
-void MakePlace(GFxMovieRoot *movie, const HudPlace &place, GFxValue *out) {
+void MakePlace(GFxMovieRoot *movie, const std::string &name, const HudPlace &place, GFxValue *out) {
     GFxValue dx(double(place.dx)), dy(double(place.dy)), scale(double(place.scale)), hidden(place.hidden),
-        color(double(place.color));
+        color(double(place.color)), show;
+    std::string rule = ShowRule(name, place);
+    movie->CreateString(&show, rule.c_str());
     movie->CreateObject(out);
     out->SetMember("dx", &dx);
     out->SetMember("dy", &dy);
     out->SetMember("scale", &scale);
     out->SetMember("hidden", &hidden);
     out->SetMember("color", &color);
+    out->SetMember("show", &show);
 }
 
 HudPlace PlaceOf(const std::string &name) {
@@ -221,11 +231,14 @@ void LoadLayout() {
         HudPlace place;
         if (!std::getline(fields, name, '\t') || !(fields >> place.dx >> place.dy >> place.scale)) continue;
         place.scale = std::clamp(place.scale, MIN_SCALE, MAX_SCALE);
-        // Hidden and color came later (2026-11-13): a line without them is shown in its own color.
+        // Hidden, color and show came later (2026-11-13): a line without them is shown in its own color, under the
+        // preset's rule.
         int hidden = 0;
         std::string color;
         if (fields >> hidden) place.hidden = hidden != 0;
         if (fields >> color && color != "-") place.color = SInt32(std::strtoul(color.c_str(), nullptr, 16) & 0xFFFFFF);
+        std::string show;
+        if (fields >> show && show != "-") place.show = show;
         g_places[name] = place;
     }
     _MESSAGE("HUD layout: %u places", UInt32(g_places.size()));

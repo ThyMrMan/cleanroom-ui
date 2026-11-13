@@ -131,7 +131,9 @@ package
                names.push(made);
             }
             var label:TextField = TextField(names[i]);
-            var text:String = shown(String(layout[i].name)) + (hidden ? " (" + hiddenWord + ")" : "");
+            var rule:String = layout[i].show != null ? String(layout[i].show) : "";
+            var text:String = shown(String(layout[i].name)) + (hidden ? " (" + hiddenWord + ")" : "")
+                              + (rule != "" ? " [" + rule + "]" : "");
             if (label.text != text)
             {
                Text.show(label, text);

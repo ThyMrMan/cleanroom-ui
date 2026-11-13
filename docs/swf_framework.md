@@ -44,7 +44,7 @@ licensed way to build menus without starting from decompiled Bethesda files.
 | **Own menu** | Casino (Papyrus `UI.RegisterCustomMenu`), HUD color by the menu itself (spike 2b, played) | Registering from the DLL: not needed for color; only if a later menu needs it |
 | **Replace a vanilla movie** | Dialogue menu on our own movie (spike 3, played); its `mxmlc` build. Level-up: our own registered menu opened in place of `LevelUpMenu` from Papyrus, no vanilla file shipped ([open](fo4_level_up_plan.md#open), built) | Both played; if the moment of `LevelUpMenu` first shows, F3NV.dll swapping its constructor |
 | **Inject into a vanilla menu** | Pip-Boy (spike 4, played under vanilla); CND, lists and item-card API built | Any of it played; FallUI played; container and barter (still C++) |
-| **HUD widget** | `CRUI_Hud`: HUDFramework hosts the widgets when installed, else our host movie loaded into any HUD by `CleanroomUI.dll`; widget movies with HUDFramework's `processMessage`; the built-in stats line ([host](#hud-built)); our host's saved places and edit menu ([edit](#hud-edit)); DEF_HUD.xml layouts of the game's parts ([layouts](#hud-layout)), moved and scaled in the edit menu too; the [FNV preset](#fnv-preset) with its [CND bar](#fnv-widgets); [hiding and recoloring](#hud-look) in the edit menu; built, not played | Played; parts shown on [conditions](#hud-conditions) (planned), `flags`; the converter's Hardcore needs on it (still C++) |
+| **HUD widget** | `CRUI_Hud`: HUDFramework hosts the widgets when installed, else our host movie loaded into any HUD by `CleanroomUI.dll`; widget movies with HUDFramework's `processMessage`; the built-in stats line ([host](#hud-built)); our host's saved places and edit menu ([edit](#hud-edit)); DEF_HUD.xml layouts of the game's parts ([layouts](#hud-layout)), moved and scaled in the edit menu too; the [FNV preset](#fnv-preset) with its [CND bar](#fnv-widgets); [hiding and recoloring](#hud-look) in the edit menu; parts shown on [conditions](#hud-conditions) (step 1: combat, weapon drawn, V.A.T.S., a show key; the Immersive preset); built, not played | Played; the conditions' steps 2 to 5, `flags`; the converter's Hardcore needs on it (still C++) |
 | **DLL side** | GFx helpers (`gfx.cpp`), Pip-Boy injection (`LoadOverlay`), natives the movies call (`HudColor`, `Log`, `PipboyCardLines`, `PipboyList`, `TextureExists`) | Injection by menu URL for other menus, settings INI to the movie, GFx log routing |
 | **Translations** ([translations](#translations)) | Files named after `FalloutHelpers.esl`, every language with English fallback, our fixed words as `$F3NV_` keys, the key check in preflight (spike 5, played) | The keys played; Papyrus key check; slot and per-language counts; a test language |
 | **Controller** ([controller](#controller)) | The casino and dialogue menu on `Input` and `HintBar` (built, not played) | Playing them with a pad; the Pip-Boy "more" button; roulette's board on a pad |
@@ -855,7 +855,7 @@ or over the whole movie (ours then multiplies with it: green times amber
 is darker); a colored part keeps its color as the HUD color changes in
 the settings.
 
-### <a id="hud-conditions"></a>Parts shown on conditions (plan, 2026-11-13)
+### <a id="hud-conditions"></a>Parts shown on conditions (plan 2026-11-13; step 1 built, not played)
 
 The most used HUD option after moving parts is hiding them while they
 aren't needed: health and ammo out of fights, the compass until a key is
@@ -874,7 +874,7 @@ frame into one native (`HudState()`: a set of names that hold now):
 | `aiming` | Aiming down the sights or the scope | **Research:** the player's gun state (CommonLibF4 names more of `ActorState`; read with the Address Library) |
 | `sneaking` | Sneaking | **Research:** the movement flags in `ActorState` |
 | `vats` | V.A.T.S. is open | `UI::IsMenuOpen("VATSMenu")` |
-| `peek` | Our show key is pressed (or held, or toggled: a setting) | A `BSInputEventUser` of ours, key `sHudPeek` under `[Keys]` (F4SE's `GameInput.h`); ignored while a menu is open |
+| `peek` | Our show key is held (and the linger after) | `GetAsyncKeyState` on `[Keys] sHudPeek` while the game's window is in front (built); a `BSInputEventUser` would add a pad button |
 | `changed` | The part's own value changed (HP, AP, rads, ammo, condition) | The host compares the values it already draws, or the actor values for the game's meters |
 | `low` | The part's value is under a threshold (HP under 50%, ammo under a clip) | The same values, a threshold per rule |
 | `moved` | The location or an objective changed (for the compass) | The game's own location and objective messages, which the HUD already gets |
@@ -890,7 +890,7 @@ switch looks wrong in play.
 **Where rules live.** In the place, as one more column of condition names
 (`combat,drawn,peek`; empty: always shown), so one layout file holds
 everything the edit menu sets. A preset gives every part a rule at once:
-`[Hud] sShow=Immersive` (or MCM's copy): HP and AP on `combat`, `changed`,
+`[Hud] sShow=Immersive` (or MCM's copy; step 1's is below): HP and AP on `combat`, `changed`,
 `low`, `vats`, `peek`; ammo and the CND bar on `drawn`, `changed`, `peek`;
 the crosshair on `drawn`, `aiming`; the compass on `peek`, `moved`,
 `sneaking`; the rest always. A rule set in the edit menu wins over the
@@ -900,8 +900,48 @@ preset's.
 a `ScrollList` of the conditions to tick, with the linger; the box shows
 its rule's names under its own.
 
+**Step 1, built 2026-11-13, not played** (`dll/framework/show.cpp`,
+`menus/hud/as3/ShowRules.as`, framework version 12):
+- **The conditions:** `combat` (`Actor::IsInCombat`), `drawn`
+  (`ActorState::IsWeaponDrawn`), `vats` (`VATSMenu` open) and `peek` (the
+  show key, `[Keys] sHudPeek`, default Y, held while the game's window is
+  in front). `HudState()` gives them to the host once a frame, with the
+  linger.
+- **The show key** is read with `GetAsyncKeyState` in that native, not a
+  `BSInputEventUser` as first planned: no hook, and the HUD only asks
+  during play. Keyboard only. Held, it shows; let go, it stays for the
+  linger, so a tap shows the parts for a few seconds and holding keeps
+  them up.
+- **Rules:** the layout file's seventh column (`combat,drawn,peek`;
+  `always` for none; `-` for the preset's). With none set, the preset's:
+  ```ini
+  [Hud]
+  sShow=Immersive    ; or None (the default): every part always shown
+  fShowLinger=3.0    ; seconds a part stays after its last condition ends (0 to 60)
+  ```
+  read again each time the HUD movie loads (as a game loads), so a change
+  in MCM applies then. `Immersive`: HP and AP on `combat,vats,peek`; the
+  ammo count, the explosives count and the FNV preset's CND bar on
+  `drawn,peek`; the compass on `peek`. Every other part is always shown
+  (the crosshair also aims activation; the engine shows the enemy health
+  and sneak meters itself).
+- **Applied** each frame by the host: a part whose rule holds for none of
+  its conditions (and past its linger) is hidden by the look's mask, as the
+  player's hiding is; a widget of ours by alpha 0. A condition the DLL
+  doesn't know counts as holding (logged once), so a typo never hides a
+  part for good; without the DLL every part shows.
+- **In the edit menu** each box shows its rule in brackets after its name;
+  editing it there is step 4 (until then, the layout file).
+
+**Play check (step 1):** with `sShow=Immersive`, HP and AP fade in as a
+fight starts and out three seconds after it ends, and show in V.A.T.S.;
+the ammo count and CND bar with a weapon out; the compass only while Y is
+held and three seconds after; Y doesn't count while typing in the console
+or with the game in the background; whether `IsInCombat` is safe to call
+from the HUD's thread each frame (it is the engine's own combat check).
+
 **Order of work**, each its own play test:
-1. The DLL's state (`combat`, `drawn`, `vats`) and the peek key
+1. **Built.** The DLL's state (`combat`, `drawn`, `vats`) and the peek key
    (`BSInputEventUser`, press shows for the linger), the rule column and
    the `Immersive` preset, instant show and hide.
 2. `changed` and `low` from the values the host already reads; `moved`
@@ -1357,6 +1397,7 @@ sAmmo=B       ; Pip-Boy: open (and close) the ammo list
 sHudReset=R   ; HUD edit menu: put the widget under the cursor back
 sHudHide=H    ; HUD edit menu: hide the widget under the cursor, or show it
 sHudColor=C   ; HUD edit menu: give the widget under the cursor the next color
+sHudPeek=Y    ; in play: show the HUD parts shown on conditions (held, then the linger)
 ```
 - `Data\MCM\Settings\CleanroomUI.ini` is read after it and wins: that is
   where an MCM page saves a setting with id `sRepair:Keys` and so on, so a
