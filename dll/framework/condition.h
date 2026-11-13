@@ -22,7 +22,7 @@ namespace crui {
 
 // The framework's version (CRUI_Framework.GetVersion, the F4SE version query, F4SEPlugin_Version): raised whenever a
 // native, event or rule changes, so a mod can ask for the one it was built against.
-constexpr UInt32 VERSION = 2;
+constexpr UInt32 VERSION = 3;
 
 // The forms that wear (CRUI_Condition.Track): the Pip-Boy shows their condition.
 extern std::mutex g_lock;
@@ -240,6 +240,20 @@ void ResetPages();
 
 // Register CRUI_Pipboy's native SetTab.
 void RegisterPages(VirtualMachine *vm);
+
+// ---- The HUD host (hud.cpp; docs/swf_framework.md#hud) ----
+
+// Listen for the HUD opening (F4SE's task interface `tasks`), to load our host into it once a mod adds a widget.
+void InstallHud(void *tasks);
+
+// Forget every mod's widgets, stats lines and messages (a save loads or a new game starts).
+void ForgetHud();
+
+// Give `plugin` (a movie's f4se.plugins.CleanroomUI) the host movie's natives HudWidgets, HudMessages and HudStats.
+void RegisterHudMenu(GFxMovieRoot *movie, GFxValue *plugin);
+
+// Register CRUI_Hud's natives.
+void RegisterHud(VirtualMachine *vm);
 
 // ---- Sex change (sex.cpp; docs/fork/fo4_pipeline.md#sex-change) ----
 

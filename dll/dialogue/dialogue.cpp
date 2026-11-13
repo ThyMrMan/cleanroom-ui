@@ -685,13 +685,13 @@ public:
 bool RegisterDialogueMenu(GFxMovieView *view, GFxValue *plugin) {
     GFxMovieRoot *movie = view ? view->movieRoot : nullptr;
     if (!movie || !plugin) return false;
+    RegisterSharedNatives(movie, plugin);
     RegisterFunction<GetOptionsNative>(plugin, movie, "GetDialogueOptions");
     RegisterFunction<SelectNative>(plugin, movie, "SelectDialogueOption");
     RegisterFunction<LogNative>(plugin, movie, "Log");
     RegisterFunction<LeaveNative>(plugin, movie, "LeaveDialogue");
     RegisterFunction<ShadeNative>(plugin, movie, "ShadeList");
     RegisterFunction<TintFailedNative>(plugin, movie, "TintFailed");
-    RegisterSharedNatives(movie, plugin);
     return true;
 }
 

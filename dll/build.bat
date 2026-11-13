@@ -21,7 +21,7 @@ if not exist "%F4SE_ROOT%\f4se\PluginAPI.h" (
 if not exist "%OUT%" mkdir "%OUT%"
 cd /d "%~dp0"
 
-call :plugin CleanroomUI framework plugin.cpp pipboy.cpp repair.cpp transfer.cpp vendor.cpp pages.cpp ammo.cpp card.cpp sex.cpp
+call :plugin CleanroomUI framework plugin.cpp pipboy.cpp repair.cpp transfer.cpp vendor.cpp pages.cpp ammo.cpp card.cpp sex.cpp hud.cpp
 if errorlevel 1 exit /b 1
 call :plugin CleanroomDialogue dialogue plugin.cpp dialogue.cpp
 if errorlevel 1 exit /b 1

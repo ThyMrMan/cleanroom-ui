@@ -34,11 +34,16 @@ bool Listen(GFxMovieRoot *movie, GFxValue &target, const char *event) {
     return target.Invoke("addEventListener", nullptr, args, 2);
 }
 
+// Load movie `path` (under Interface) into Flash object `parent` with a Loader, as F4SE's UI.Load does; false when
+// the Loader could not be added or started.
+bool LoadChild(GFxMovieRoot *movie, GFxValue &parent, const char *path);
+
 // INI color `prefix`R/G/B:Interface (the player's HUD colors, e.g. iHUDColor) as 0xRRGGBB; white when not found.
 UInt32 HudColor(const char *prefix);
 
-// Give `plugin` (a movie's f4se.plugins.<our DLL>) the natives crui's Images and Theme call: TextureExists and
-// HudColor (docs/swf_framework.md#images).
+// Give `plugin` (a movie's f4se.plugins.<our DLL>) the natives every movie of ours may call: TextureExists (crui's
+// Images), HudColor([prefix]) (its Theme) and Log(text) (docs/swf_framework.md#images). A DLL registering its own
+// native of one of these names does so after this call.
 void RegisterSharedNatives(GFxMovieRoot *movie, GFxValue *plugin);
 
 // Open our log, Documents\My Games\Fallout4\F4SE\<name>.log, at the level Data\F4SE\Plugins\<name>.ini gives

@@ -99,12 +99,21 @@ public:
     }
 };
 
-// HudColor(): the player's HUD color (iHUDColor) as 0xRRGGBB, read on every call, for menus of ours that draw their
-// text and lines in it.
+// HudColor([prefix]): the player's HUD color (iHUDColor, or the INI colors `prefix`, e.g. iHUDColorWarning) as
+// 0xRRGGBB, read on every call, for menus of ours that draw their text and lines in it.
 class HudColorNative : public GFxFunctionHandler {
 public:
     void Invoke(Args *args) override {
-        args->result->SetUInt(HudColor("iHUDColor"));
+        bool named = args->numArgs > 0 && args->args[0].IsString();
+        args->result->SetUInt(HudColor(named ? args->args[0].GetString() : "iHUDColor"));
+    }
+};
+
+// Log(text): a line from one of our movies in the DLL's log, at the verbose level.
+class LogNative : public GFxFunctionHandler {
+public:
+    void Invoke(Args *args) override {
+        if (args->numArgs > 0 && args->args[0].IsString()) _VMESSAGE("%s", args->args[0].GetString());
     }
 };
 
@@ -113,6 +122,17 @@ public:
 void RegisterSharedNatives(GFxMovieRoot *movie, GFxValue *plugin) {
     RegisterFunction<TextureExistsNative>(plugin, movie, "TextureExists");
     RegisterFunction<HudColorNative>(plugin, movie, "HudColor");
+    RegisterFunction<LogNative>(plugin, movie, "Log");
+}
+
+bool LoadChild(GFxMovieRoot *movie, GFxValue &parent, const char *path) {
+    GFxValue loader, url, args[2];
+    movie->CreateObject(&loader, "flash.display.Loader");
+    movie->CreateString(&url, path);
+    movie->CreateObject(&args[0], "flash.net.URLRequest", &url, 1);
+    args[1].SetNull();
+    return loader.IsObject() && parent.Invoke("addChild", nullptr, &loader, 1) &&
+           loader.Invoke("load", nullptr, args, 2);
 }
 
 UInt32 HudColor(const char *prefix) {

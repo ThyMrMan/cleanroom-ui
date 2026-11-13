@@ -123,15 +123,21 @@ void OnMessage(F4SEMessagingInterface::Message *msg) {
         msg->type == F4SEMessagingInterface::kMessage_NewGame) {
         ForgetCardLines();
         ForgetAmmoLists();
+        ForgetHud();
     }
-    if (msg->type == F4SEMessagingInterface::kMessage_GameLoaded) InstallPipboy(g_tasks);
+    if (msg->type == F4SEMessagingInterface::kMessage_GameLoaded) {
+        InstallPipboy(g_tasks);
+        InstallHud(g_tasks);
+    }
 }
 
-// F4SE's Scaleform callback: give a movie's f4se.plugins.CleanroomUI the Pip-Boy movie's natives and the shared ones.
+// F4SE's Scaleform callback: give a movie's f4se.plugins.CleanroomUI the Pip-Boy and HUD movies' natives and the
+// shared ones.
 bool RegisterMovie(GFxMovieView *view, GFxValue *plugin) {
     GFxMovieRoot *movie = view ? view->movieRoot : nullptr;
     if (!movie || !plugin) return false;
     RegisterPipboyMenu(movie, plugin);
+    RegisterHudMenu(movie, plugin);
     RegisterSharedNatives(movie, plugin);
     return true;
 }
@@ -272,6 +278,7 @@ bool Register(VirtualMachine *vm) {
     RegisterAmmo(vm);
     RegisterItemCard(vm);
     RegisterSex(vm, g_tasks);
+    RegisterHud(vm);
     vm->RegisterFunction(new NativeFunction2<StaticFunctionTag, float, TESObjectREFR *, TESForm *>(
         "GetHealth", SCRIPT, GetHealth, vm));
     vm->RegisterFunction(new NativeFunction3<StaticFunctionTag, bool, TESObjectREFR *, TESForm *, float>(

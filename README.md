@@ -58,8 +58,9 @@ mods reach the running one with that plugin as their only master
 | `translations/` | Our words, `$CRUI_KEY<tab>text` per line: a folder per release (`CleanroomUI/`, `CleanroomDialogue/`), one UTF-8 file per language (`en.txt` holds every key) |
 | `menus/level_up/` | The level-up, tag-skill and trait menu (`Interface/CRUI_LevelUp.swf`) |
 | `menus/pipboy/` | The Pip-Boy overlay CleanroomUI.dll loads (`Interface/CRUI_Pipboy.swf`): item-card lines, the list panel |
+| `menus/hud/` | The HUD host CleanroomUI.dll loads (`Interface/CRUI_Hud.swf`): mods' widget movies and the built-in stats line |
 | `menus/dialogue/` | The dialogue menu (`Interface/DialogueMenu.swf`) |
-| `papyrus/` | The level-up host, its holder and its per-plugin tables (`CRUI_LevelUp`, `CRUI_LevelUpHolder`, `CRUI_LevelUpTable`), `CRUI_Array`, and the scripts declaring CleanroomUI.dll's natives (`CRUI_Condition`, `CRUI_ItemCard`, `CRUI_Pipboy`, `CRUI_PipboyAmmo`, `CRUI_Sex`) |
+| `papyrus/` | The level-up host, its holder and its per-plugin tables (`CRUI_LevelUp`, `CRUI_LevelUpHolder`, `CRUI_LevelUpTable`), `CRUI_Array`, and the scripts declaring CleanroomUI.dll's natives (`CRUI_Condition`, `CRUI_Framework`, `CRUI_Hud`, `CRUI_ItemCard`, `CRUI_Pipboy`, `CRUI_PipboyAmmo`, `CRUI_Sex`) |
 | `dll/` | `build.bat` (both DLLs); `framework/` (CleanroomUI.dll: condition API, Pip-Boy overlay, card lines, tabs, repair and ammo lists, transfer menus, `ChangeSex`); `dialogue/` (CleanroomDialogue.dll); `shared/` (Flash helpers and the natives every movie may call, compiled into both) |
 | `docs/` | The framework, level-up and spin-off plans, as written for the converter |
 | `tests/` | Contract tests between movies, scripts and the DLL, and the reproducible builds |
@@ -88,9 +89,14 @@ weight, weapons' spawn condition, no combat sprint).
    release's own words and links folder are built, not played). Then the shared base:
    CommonLibF4 (Dear-Modding), Address Library, xmake
    ([runtime](docs/spin_offs.md#runtime)).
-4. **An example menu** for authors, and the API in this README.
-5. **CI** that fetches the Flex SDK and builds the movies; release assets.
-6. **The converter uses this repo** as a pinned submodule in `external/`.
+4. **The HUD, the rest** ([host](docs/swf_framework.md#hud-built), built,
+   not played): HUDFramework as host when installed, saved positions and
+   drag-to-edit, the [layout module](docs/swf_framework.md#hud-layout)
+   (reads `DEF_HUD.xml`), then an FNV layout preset with FNV-style widgets
+   drawn by our own code.
+5. **An example menu** for authors, and the API in this README.
+6. **CI** that fetches the Flex SDK and builds the movies; release assets.
+7. **The converter uses this repo** as a pinned submodule in `external/`.
 
 ## License
 

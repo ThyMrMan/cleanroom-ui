@@ -511,14 +511,7 @@ public:
 const char *OVERLAY = "CRUI_Pipboy.swf";
 
 void LoadOverlay(GFxMovieRoot *movie, GFxValue &menu) {
-    GFxValue loader, path, args[2];
-    movie->CreateObject(&loader, "flash.display.Loader");
-    movie->CreateString(&path, OVERLAY);
-    movie->CreateObject(&args[0], "flash.net.URLRequest", &path, 1);
-    args[1].SetNull();
-    bool added = loader.IsObject() && menu.Invoke("addChild", nullptr, &loader, 1);
-    bool loading = added && loader.Invoke("load", nullptr, args, 2);
-    _VMESSAGE("Pip-Boy: %s %s", OVERLAY, loading ? "loading" : added ? "not loaded" : "not added");
+    _VMESSAGE("Pip-Boy: %s %s", OVERLAY, LoadChild(movie, menu, OVERLAY) ? "loading" : "not loaded");
 }
 
 // A display object joined the menu: when it is a newly loaded STAT page, give it our tabs at once, before the
