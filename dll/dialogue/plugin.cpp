@@ -7,8 +7,6 @@
 #include "f4se_common/BranchTrampoline.h"
 #include "f4se_common/f4se_version.h"
 
-#include <shlobj.h>
-
 namespace {
 
 using namespace crui;
@@ -50,16 +48,16 @@ __declspec(dllexport) F4SEPluginVersionData F4SEPlugin_Version = {
 };
 
 __declspec(dllexport) bool F4SEPlugin_Load(const F4SEInterface *f4se) {
-    gLog.OpenRelative(CSIDL_MYDOCUMENTS, "\\My Games\\Fallout4\\F4SE\\CleanroomDialogue.log");
+    OpenLog(NAME);
     g_handle = f4se->GetPluginHandle();
     _MESSAGE("%s loaded, runtime %08X", NAME, f4se->runtimeVersion);
     g_tasks = f4se->QueryInterface(kInterface_Task);
     g_trampoline = ReserveTrampoline(f4se);
     auto *scaleform = static_cast<F4SEScaleformInterface *>(f4se->QueryInterface(kInterface_Scaleform));
-    if (!scaleform || !scaleform->Register(NAME, RegisterDialogueMenu)) _MESSAGE("no dialogue menu natives");
+    if (!scaleform || !scaleform->Register(NAME, RegisterDialogueMenu)) _WARNING("no dialogue menu natives");
     auto *messaging = static_cast<F4SEMessagingInterface *>(f4se->QueryInterface(kInterface_Messaging));
     if (!g_trampoline || !g_tasks || !messaging || !messaging->RegisterListener(g_handle, "F4SE", OnMessage))
-        _MESSAGE("dialogue menu off (trampoline %d, task %p, messaging %p)", g_trampoline, g_tasks, messaging);
+        _WARNING("dialogue menu off (trampoline %d, task %p, messaging %p)", g_trampoline, g_tasks, messaging);
     return true;
 }
 

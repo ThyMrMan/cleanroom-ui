@@ -9,13 +9,15 @@
 
 #include <algorithm>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace crui {
 
 namespace {
 
-std::unordered_map<UInt32, BGSListForm *> g_repairLists;  // item form ID -> its repair list (under g_lock)
-std::unordered_map<UInt32, SInt32> g_juryGroups;           // item form ID -> its Jury Rigging group (under g_lock)
+// Item form ID -> the repair lists and Jury Rigging groups mods gave it (under g_lock).
+std::unordered_map<UInt32, std::vector<BGSListForm *>> g_repairLists;
+std::unordered_map<UInt32, std::unordered_set<SInt32>> g_juryGroups;
 ActorValueInfo *g_repairSkill = nullptr;
 bool g_juryRigging = false;
 
@@ -29,21 +31,27 @@ float Whole(float health) {
     return health < 0.0f ? 1.0f : health;
 }
 
-// Whether `form` can repair `item` (FalloutNV.exe 0x47BB50): the same item, one in its repair list, or, with Jury
-// Rigging, one of its Jury Rigging group (docs/fork/fo4_condition.md#jury-rigging).
+// Whether `item` and `form` share a Jury Rigging group.
+bool SameJuryGroup(TESForm *item, TESForm *form) {
+    auto ours = g_juryGroups.find(item->formID), theirs = g_juryGroups.find(form->formID);
+    if (ours == g_juryGroups.end() || theirs == g_juryGroups.end()) return false;
+    for (SInt32 group : ours->second)
+        if (theirs->second.count(group)) return true;
+    return false;
+}
+
+// Whether `form` can repair `item` (FalloutNV.exe 0x47BB50): the same item, one in any of its repair lists, or,
+// with Jury Rigging, one sharing a Jury Rigging group (docs/fork/fo4_condition.md#jury-rigging).
 bool CanRepairWith(TESForm *item, TESForm *form) {
-    if (form == item) return true;
-    auto group = g_juryGroups.find(item->formID), theirs = g_juryGroups.find(form->formID);
-    if (g_juryRigging && group != g_juryGroups.end() && theirs != g_juryGroups.end() && group->second &&
-        group->second == theirs->second)
-        return true;
+    if (form == item || (g_juryRigging && SameJuryGroup(item, form))) return true;
     auto it = g_repairLists.find(item->formID);
-    if (it == g_repairLists.end() || !it->second) return false;
-    for (UInt32 i = 0; i < it->second->forms.count; i++) {
-        TESForm *member = nullptr;
-        it->second->forms.GetNthItem(i, member);
-        if (member == form) return true;
-    }
+    if (it == g_repairLists.end()) return false;
+    for (BGSListForm *list : it->second)
+        for (UInt32 i = 0; i < list->forms.count; i++) {
+            TESForm *member = nullptr;
+            list->forms.GetNthItem(i, member);
+            if (member == form) return true;
+        }
     return false;
 }
 
@@ -124,7 +132,11 @@ float RepairWith(Actor *holder, TESForm *item, SInt32 stack, TESForm *spare, SIn
 
 void TrackRepair(TESForm *item, BGSListForm *list, SInt32 group, ActorValueInfo *skill) {
     std::lock_guard<std::mutex> hold(g_lock);
-    if (item) g_repairLists[item->formID] = list, g_juryGroups[item->formID] = group;
+    if (item && list) {
+        std::vector<BGSListForm *> &lists = g_repairLists[item->formID];
+        if (std::find(lists.begin(), lists.end(), list) == lists.end()) lists.push_back(list);
+    }
+    if (item && group) g_juryGroups[item->formID].insert(group);
     if (skill) g_repairSkill = skill;
 }
 

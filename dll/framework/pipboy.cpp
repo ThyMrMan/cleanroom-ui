@@ -97,7 +97,7 @@ bool Resolve(UInt32 formID, UInt32 nodeID) {
     PlayerCharacter *player = *g_player;
     SInt32 stack = LineStack(formID, nodeID);
     static bool logged = false;
-    if (stack < 0 && !logged) _MESSAGE("no StackID for Pip-Boy line %u of %08X; using the equipped or first stack",
+    if (stack < 0 && !logged) _WARNING("no StackID for Pip-Boy line %u of %08X; using the equipped or first stack",
                                        nodeID, formID);
     logged = logged || stack < 0;
     std::lock_guard<std::mutex> hold(g_lock);
@@ -113,9 +113,15 @@ bool Resolve(UInt32 formID, UInt32 nodeID) {
     return true;
 }
 
+// Whether a mod tracks an item (CRUI_Condition.Track): only then do the REPAIR hint and G open a list.
+bool RepairInUse() {
+    std::lock_guard<std::mutex> hold(g_lock);
+    return !g_tracked.empty();
+}
+
 // Ask Papyrus to repair the highlighted item: F3NV_ConditionPlayer listens for the F4SE external event.
 void SendRepair(GFxMovieRoot *movie, const char *why) {
-    _MESSAGE("Pip-Boy repair (%s): %s %s", why, REPAIR_EVENT, SendExternal(movie, REPAIR_EVENT) ? "sent" : "not sent");
+    _VMESSAGE("Pip-Boy repair (%s): %s %s", why, REPAIR_EVENT, SendExternal(movie, REPAIR_EVENT) ? "sent" : "not sent");
 }
 
 // ---- The repair list ----
@@ -202,7 +208,7 @@ void SayOnCard(const char *why, const char *label) {
 
 bool PipboyMovieThere() {
     static bool logged = false;
-    if (!g_movieThere && !logged) _MESSAGE("Pip-Boy: no list without our movie (%s)", "CRUI_Pipboy.swf");
+    if (!g_movieThere && !logged) _WARNING("Pip-Boy: no list without our movie (%s)", "CRUI_Pipboy.swf");
     logged = logged || !g_movieThere;
     return g_movieThere;
 }
@@ -221,7 +227,7 @@ bool MakeHint(GFxMovieRoot *movie, const char *label, const char *key, MakeClick
     args[4] = GFxValue(UInt32(1));
     click(movie, &args[5]);
     movie->CreateObject(hint, HINT_CLASS, args, 6);
-    if (!hint->IsObject()) _MESSAGE("could not create the Pip-Boy %s hint (%s)", label, HINT_CLASS);
+    if (!hint->IsObject()) _WARNING("could not create the Pip-Boy %s hint (%s)", label, HINT_CLASS);
     return hint->IsObject();
 }
 
@@ -232,7 +238,7 @@ namespace {
 void OpenOffer(GFxMovieRoot *movie, GFxValue &page) {
     g_list.offer = VendorOffer(g_list.health, ItemValue(LookupFormByID(g_list.item)), g_list.skill);
     g_list.caps = Caps(*g_player);
-    _MESSAGE("vendor repair offer for %08X stack %d: %.3f for %u caps (held %u)", g_list.item, g_list.stack,
+    _VMESSAGE("vendor repair offer for %08X stack %d: %.3f for %u caps (held %u)", g_list.item, g_list.stack,
              g_list.offer.health, g_list.offer.cost, g_list.caps);
     if (!g_list.offer.cost) {
         SayOnCard(g_list.health >= 0.995f ? "$CRUI_NOT_NEEDED" : "$CRUI_BEYOND_VENDOR");
@@ -263,7 +269,7 @@ void OpenList(GFxMovieRoot *movie) {
     }
     g_list.spares = Spares(player, LookupFormByID(selected.form), selected.stack);
     g_list.skill = RepairSkill(player);
-    _MESSAGE("Pip-Boy repair list for %08X stack %d: %u spares", selected.form, selected.stack,
+    _VMESSAGE("Pip-Boy repair list for %08X stack %d: %u spares", selected.form, selected.stack,
              UInt32(g_list.spares.size()));
     bool whole = g_list.health >= 0.995f;
     if (whole || g_list.spares.empty()) {
@@ -320,7 +326,7 @@ public:
         int key = int(Num(code));
         if (!g_list.open && AmmoKey(movie, key)) return;
         if (!g_list.open) {
-            if (key == KEY_G) OpenList(movie);
+            if (key == KEY_G && RepairInUse()) OpenList(movie);
             return;
         }
         SInt32 last = SInt32(g_list.spares.size()) - 1;
@@ -335,19 +341,20 @@ public:
     }
 };
 
-// Give inventory page `page` the REPAIR and AMMO hints, once per page, on keyboard and mouse only.
+// Give inventory page `page` the REPAIR hint once a mod tracks an item and the AMMO hint once one gives ammo lists,
+// once per page, on keyboard and mouse only.
 void AddHint(GFxMovieRoot *movie, GFxValue &root, GFxValue &page) {
     if (page.data.obj == g_hintPage) return;
-    GFxValue hints, bar, hint, ammo, platform;
-    if (!Get(page, "buttonHintDataV", &hints) || !Get(root, "ButtonHintBar_mc", &bar)) return;
+    bool repair = RepairInUse(), ammo = AmmoInUse();
+    GFxValue hints, bar, hint, ammoHint, platform;
+    if ((!repair && !ammo) || !Get(page, "buttonHintDataV", &hints) || !Get(root, "ButtonHintBar_mc", &bar)) return;
     g_hintPage = page.data.obj;
     if (Get(root, "uiPlatform", &platform) && Num(platform) != KEYBOARD_MOUSE) return;
     MakeClick click = [](GFxMovieRoot *m, GFxValue *out) { CreateFunction<HintClick>(out, m); };
-    if (!MakeHint(movie, HINT, HINT_KEY, click, &hint)) return;
-    hints.Invoke("push", nullptr, &hint, 1);
-    if (MakeAmmoHint(movie, &ammo)) hints.Invoke("push", nullptr, &ammo, 1);
+    if (repair && MakeHint(movie, HINT, HINT_KEY, click, &hint)) hints.Invoke("push", nullptr, &hint, 1);
+    if (ammo && MakeAmmoHint(movie, &ammoHint)) hints.Invoke("push", nullptr, &ammoHint, 1);
     bar.Invoke("SetButtonHintData", nullptr, &hints, 1);
-    _MESSAGE("added the Pip-Boy %s and ammo hints", HINT);
+    _VMESSAGE("added the Pip-Boy hints (repair %d, ammo %d)", repair, ammo);
 }
 
 
@@ -376,7 +383,7 @@ void FixEquipMarks(GFxValue &list, UInt32 formID) {
     }
     if (changed) {
         list.Invoke("UpdateList", nullptr, nullptr, 0);
-        _MESSAGE("fixed the Pip-Boy equipped marks of %08X", formID);
+        _VMESSAGE("fixed the Pip-Boy equipped marks of %08X", formID);
     }
 }
 
@@ -415,7 +422,7 @@ void Update(GFxMovieRoot *movie) {
         g_lastKey = key;
         g_wears = !key.empty() && Resolve(formID, UInt32(Num(node)));
         if (g_wears)
-            _MESSAGE("Pip-Boy line %u of %08X: stack %d at %.3f", UInt32(Num(node)), formID, g_selection.stack,
+            _VMESSAGE("Pip-Boy line %u of %08X: stack %d at %.3f", UInt32(Num(node)), formID, g_selection.stack,
                      g_health);
     }
     if (force && formID) FixEquipMarks(list, formID);
@@ -511,7 +518,7 @@ void LoadOverlay(GFxMovieRoot *movie, GFxValue &menu) {
     args[1].SetNull();
     bool added = loader.IsObject() && menu.Invoke("addChild", nullptr, &loader, 1);
     bool loading = added && loader.Invoke("load", nullptr, args, 2);
-    _MESSAGE("Pip-Boy: %s %s", OVERLAY, loading ? "loading" : added ? "not loaded" : "not added");
+    _VMESSAGE("Pip-Boy: %s %s", OVERLAY, loading ? "loading" : added ? "not loaded" : "not added");
 }
 
 // A display object joined the menu: when it is a newly loaded STAT page, give it our tabs at once, before the
@@ -534,12 +541,12 @@ public:
         IMenu *menu = (*g_ui)->GetMenu(name);
         GFxValue root, code, flag(true);
         if (!menu || !menu->movie || !menu->movie->movieRoot) {
-            _MESSAGE("Pip-Boy opened, but its menu has no movie");
+            _WARNING("Pip-Boy opened, but its menu has no movie");
             return;
         }
         GFxMovieRoot *movie = menu->movie->movieRoot;
         if (!FindMenu(movie, {"root", "root.Menu_mc"}, nullptr, &g_base, &root, &code)) {
-            _MESSAGE("Pip-Boy opened, but neither root nor root.Menu_mc has a BGSCodeObj; root's members:");
+            _WARNING("Pip-Boy opened, but neither root nor root.Menu_mc has a BGSCodeObj; root's members:");
             if (movie->GetVariable(&root, "root")) LogMembers(root);
             return;
         }
@@ -547,7 +554,7 @@ public:
         Listen<FrameHandler>(movie, root, "enterFrame");
         bool listening = Listen<KeyHandler>(movie, root, "keyUp");
         Listen<AddedHandler>(movie, root, "added");
-        _MESSAGE("Pip-Boy key listener %s", listening ? "added" : "not added");
+        _VMESSAGE("Pip-Boy key listener %s", listening ? "added" : "not added");
         code.SetMember(HOOKED, &flag);
         g_movieThere = false;
         LoadOverlay(movie, root);
@@ -557,7 +564,7 @@ public:
         ForgetAmmoList();
         g_lastKey.clear();
         GFxValue f4se;
-        _MESSAGE("hooked the Pip-Boy menu at %s (root.f4se: %s)", g_base.c_str(),
+        _VMESSAGE("hooked the Pip-Boy menu at %s (root.f4se: %s)", g_base.c_str(),
                  movie->GetVariable(&f4se, "root.f4se") && f4se.IsObject() ? "yes" : "no");
     }
 };

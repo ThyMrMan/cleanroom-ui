@@ -20,6 +20,10 @@
 
 namespace crui {
 
+// The framework's version (CRUI_Framework.GetVersion, the F4SE version query, F4SEPlugin_Version): raised whenever a
+// native, event or rule changes, so a mod can ask for the one it was built against.
+constexpr UInt32 VERSION = 2;
+
 // The forms that wear (CRUI_Condition.Track): the Pip-Boy shows their condition.
 extern std::mutex g_lock;
 extern std::unordered_set<UInt32> g_tracked;
@@ -50,7 +54,8 @@ struct Spare {
     UInt32 count;
 };
 
-// `item`'s FNV repair list and Jury Rigging group, and the Repair skill's actor value (CRUI_Condition.TrackRepair).
+// Add `item`'s FNV repair list and Jury Rigging group (to those other mods gave it), and the Repair skill's actor
+// value (CRUI_Condition.TrackRepair).
 void TrackRepair(TESForm *item, BGSListForm *list, SInt32 group, ActorValueInfo *skill);
 
 // Whether the player has Jury Rigging (CRUI_Condition.SetJuryRigging).
@@ -205,6 +210,12 @@ void RegisterPipboyMenu(GFxMovieRoot *movie, GFxValue *plugin);
 
 // Whether the ammo list is open.
 bool AmmoListOpen();
+
+// Whether a mod gave ammo lists (CRUI_PipboyAmmo.SetLists): only then do the AMMO hint and B open a list.
+bool AmmoInUse();
+
+// Forget every mod's ammo lists (a save loads or a new game starts; each mod gives its own again).
+void ForgetAmmoLists();
 
 // Forget an open ammo list (the page changed or the Pip-Boy opened again).
 void ForgetAmmoList();

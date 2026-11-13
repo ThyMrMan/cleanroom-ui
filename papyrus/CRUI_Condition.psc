@@ -20,7 +20,7 @@ Bool Function SetStackHealth(ObjectReference akHolder, Form akItem, Int aiStack,
 {SetHealth on stack aiStack of akItem, chosen as GetStackHealth chooses it.}
 
 Function Track(Form[] akItems) Global Native
-{akItems wear: the Pip-Boy shows their condition (CND) on the item card.}
+{akItems wear: the Pip-Boy shows their condition (CND) on the item card. Adds to the items other mods track; the REPAIR hint and G key appear only once some mod tracks an item.}
 
 Form Function PipboySelection() Global Native
 {The item highlighted in the Pip-Boy's inventory when it wears; None otherwise.}
@@ -32,7 +32,7 @@ Function PipboyRefresh() Global Native
 {Show the highlighted item's condition again on the Pip-Boy's item card (after a repair).}
 
 Function TrackRepair(Form[] akWeapons, Form[] akArmors, Form[] akRepairLists, Int[] aiJuryGroups, ActorValue akRepair) Global Native
-{The FNV repair lists (akRepairLists: akWeapons' first, then akArmors'; a FormList or None each), the Jury Rigging groups (parallel; 0 for none) and the Repair skill, for repair and the Pip-Boy's repair list.}
+{The FNV repair lists (akRepairLists: akWeapons' first, then akArmors'; a FormList or None each), the Jury Rigging groups (parallel; 0 for none) and the Repair skill, for repair and the Pip-Boy's repair list. They add to what other mods gave: an item repairs from any list it was given, and with Jury Rigging from any item sharing one of its groups (group numbers are shared by every mod). The last skill given is used.}
 
 Function SetJuryRigging(Bool abHas) Global Native
 {Whether the player has Jury Rigging: a spare of the item's Jury Rigging group repairs it too.}

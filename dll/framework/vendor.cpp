@@ -37,7 +37,7 @@ void SetVendor(Actor *vendor) {
     g_vendor = vendor != nullptr;
     g_vendorName = name ? name : "";
     g_vendorSkill = skill;
-    _MESSAGE("repair vendor %s (Repair %.0f)", g_vendor ? g_vendorName.c_str() : "cleared", skill);
+    _VMESSAGE("repair vendor %s (Repair %.0f)", g_vendor ? g_vendorName.c_str() : "cleared", skill);
 }
 
 bool Vendor(std::string *name, float *skill) {

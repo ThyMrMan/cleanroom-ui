@@ -41,6 +41,10 @@ UInt32 HudColor(const char *prefix);
 // HudColor (docs/swf_framework.md#images).
 void RegisterSharedNatives(GFxMovieRoot *movie, GFxValue *plugin);
 
+// Open our log, Documents\My Games\Fallout4\F4SE\<name>.log, at the level Data\F4SE\Plugins\<name>.ini gives
+// ([Log] iLevel: 0 errors, 1 warnings, 2 messages (the default), 3 every open, list and key).
+void OpenLog(const char *name);
+
 // Whether the call instruction at `site` still calls `target`.
 bool CallsTarget(uintptr_t site, uintptr_t target);
 

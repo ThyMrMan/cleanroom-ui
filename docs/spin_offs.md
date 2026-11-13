@@ -77,9 +77,6 @@ Not done yet:
   natives (native scripts hold no saved state), its F3NV.dll keeps only
   FNV's rules (with its own menu-open listener for the Hardcore HUD), and it
   ships the two DLLs.
-- **The framework rules below:** the REPAIR and AMMO hints still appear on
-  every inventory page; `TrackRepair` and `SetTab` still replace rather than
-  add; no `GetVersion` or INI log level yet.
 - **The dialogue release:** its hint words are `$CRUI_` keys in
   `CleanroomUI_<language>.txt`, which F4SE loads only with `CleanroomUI.esl`
   active, and it still reads its links from `F4SE\Plugins\F3NV_Menus\`
@@ -87,18 +84,39 @@ Not done yet:
 
 ### <a id="framework-rules"></a>Rules for the framework
 
+Built 2026-11-13, not played (`CleanroomUI.dll` version 2):
 - **Changes nothing on load.** A hook changes game behavior only after a mod
-  asks for it through a Papyrus call or an INI line. Today combat sprinting
-  and the spawn-health redirect apply at load. Both move to F3NV.dll.
+  asks for it through a Papyrus call. Combat sprinting and the spawn-health
+  redirect moved to F3NV.dll. The REPAIR hint and G key appear only once a
+  mod tracks an item (`CRUI_Condition.Track`); the AMMO hint and B key only
+  once a mod gives ammo lists (`CRUI_PipboyAmmo.SetLists`).
 - **Renames.** The Papyrus scripts get the framework's own prefix. F3NV
   keeps thin `F3NV_*` wrappers until the converter's scripts are regenerated.
-- **Several mods at once.** `Track`, `SetTab` and the repair lists add to a
-  shared table instead of replacing it, so two mods can each register their
-  own items and tabs.
-- **Version and API checks.** A `GetVersion()` native and an F4SE message
-  other plugins can query.
-- **Log** to `Documents\My Games\Fallout4\F4SE\<name>.log`, at an
-  INI-selected level.
+- **Several mods at once.** Each call adds to what other mods gave:
+  - `Track`: the tracked items.
+  - `SetTab`: tabs, by name (a name given again replaces that tab).
+  - `TrackRepair`: an item repairs from every list it was given, and with
+    Jury Rigging from any item sharing one of its groups. Group numbers are
+    shared by every mod; the last Repair skill given is used.
+  - `SetLists`: ammo lists, by keyword (a list given again replaces its
+    rounds), forgotten as a save loads, so each mod gives its own on every
+    load. `ChosenList` names the chosen round's list, so a mod takes only
+    its own choices; `TakeChoice` is the index in that mod's rounds.
+- **Version and API checks.** `CRUI_Framework.GetVersion()`, F4SE's plugin
+  version, and an F4SE message: another plugin dispatches type `'CRUV'` to
+  `CleanroomUI` and gets the version back (a `UInt32`, same type). All read
+  `VERSION` in `dll/framework/condition.h`, raised whenever a native, event
+  or rule changes.
+- **Log** to `Documents\My Games\Fallout4\F4SE\<name>.log` at the level in
+  `Data\F4SE\Plugins\<name>.ini`, both DLLs (`OpenLog`):
+  ```ini
+  [Log]
+  ; 0 errors, 1 warnings, 2 messages (the default), 3 every open, list and key
+  iLevel=2
+  ```
+  Per-open and per-key lines (Pip-Boy lists, repairs, the dialogue menu's
+  picks and timings) are level 3; a menu not laid out as expected is a
+  warning.
 
 ## <a id="runtime"></a>One base for both game versions
 

@@ -108,14 +108,14 @@ void HookTransferMenu(const char *name) {
     // The transfer menu's root holds only FilterHolder_mc (played: its members were f4se and FilterHolder_mc).
     if (!FindMenu(movie, {"root.FilterHolder_mc.Menu_mc", "root.FilterHolder_mc", "root.Menu_mc", "root"},
                   "ItemCard_mc", &g_base, &root, &code)) {
-        _MESSAGE("%s opened, but no known path has its item card; root.FilterHolder_mc's members:", name);
+        _WARNING("%s opened, but no known path has its item card; root.FilterHolder_mc's members:", name);
         if (movie->GetVariable(&root, "root.FilterHolder_mc")) LogMembers(root);
         return;
     }
     if (code.HasMember(HOOKED)) return;
     Listen<FrameHandler>(movie, root, "enterFrame");
     code.SetMember(HOOKED, &flag);
-    _MESSAGE("hooked %s at %s", name, g_base.c_str());
+    _VMESSAGE("hooked %s at %s", name, g_base.c_str());
 }
 
 }  // namespace crui

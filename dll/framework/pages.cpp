@@ -122,7 +122,7 @@ bool Install(GFxMovieRoot *movie, GFxValue &page, const std::vector<Tab> &tabs) 
         movie->CreateObject(&copy, "SPECIALTab");
         movie->CreateObject(&clip, "flash.display.MovieClip");
         if (!copy.IsObject() || !clip.IsObject() || !Get(copy, "List_mc", &args[0])) {
-            _MESSAGE("could not copy the Pip-Boy's SPECIAL tab for the %s tab", tabs[i].name.c_str());
+            _WARNING("could not copy the Pip-Boy's SPECIAL tab for the %s tab", tabs[i].name.c_str());
             return false;
         }
         args[0].SetMember("numListItems", &count);
@@ -139,7 +139,7 @@ bool Install(GFxMovieRoot *movie, GFxValue &page, const std::vector<Tab> &tabs) 
         movie->CreateString(&name, upper.c_str());
         names.PushBack(&name);
     }
-    _MESSAGE("added %u Pip-Boy STAT tabs after its %u", UInt32(tabs.size()), g_first);
+    _VMESSAGE("added %u Pip-Boy STAT tabs after its %u", UInt32(tabs.size()), g_first);
     return true;
 }
 

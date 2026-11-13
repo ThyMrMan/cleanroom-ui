@@ -28,7 +28,7 @@ def test_each_dll_is_built_and_named_as_its_movies_ask():
         source = entry.read_text(encoding='utf-8')
         assert f'call :plugin {name} {entry.parent.name} plugin.cpp' in build
         assert _scaleform_name(entry) == name and f'"{name}",\n    "cleanroom-ui",' in source.replace('\r\n', '\n')
-        assert f'\\\\{name}.log"' in source
+        assert re.search(rf'OpenLog\(("{name}"|NAME)\);', source)
         assert f'private static const DLL:String = "{name}";' in movie.read_text(encoding='utf-8')
     bridge = (REPO / 'as3' / 'crui' / 'Bridge.as').read_text(encoding='utf-8')
     assert 'natives("CleanroomUI")' in bridge and 'natives("CleanroomDialogue")' in bridge
@@ -49,5 +49,47 @@ def test_every_native_script_the_dlls_register_exists():
     scripts = set()
     for source in DLL.rglob('*.cpp'):
         scripts |= set(re.findall(r'\b\w*SCRIPT = "(\w+)"', source.read_text(encoding='utf-8')))
-    assert scripts == {'CRUI_Condition', 'CRUI_ItemCard', 'CRUI_Pipboy', 'CRUI_PipboyAmmo', 'CRUI_Sex'}
+    assert scripts == {'CRUI_Condition', 'CRUI_Framework', 'CRUI_ItemCard', 'CRUI_Pipboy', 'CRUI_PipboyAmmo',
+                       'CRUI_Sex'}
     assert all((REPO / 'papyrus' / f'{name}.psc').is_file() for name in scripts)
+
+
+def _body(source, signature):
+    """The text of the C++ function starting at `signature` in `source`, up to its closing brace at column 0."""
+    start = source.index(signature)
+    return source[start:source.index('\n}', start)]
+
+
+def test_hints_and_keys_wait_for_a_mod():
+    """The REPAIR hint and G wait for a tracked item, the AMMO hint and B for a mod's ammo lists."""
+    pipboy = (FRAMEWORK / 'pipboy.cpp').read_text(encoding='utf-8')
+    ammo = (FRAMEWORK / 'ammo.cpp').read_text(encoding='utf-8')
+    hint = _body(pipboy, 'void AddHint(')
+    assert 'repair && MakeHint(' in hint and 'ammo && MakeAmmoHint(' in hint
+    assert 'key == KEY_G && RepairInUse()' in pipboy
+    assert "key != KEY_B || !AmmoInUse()" in _body(ammo, 'bool AmmoKey(')
+
+
+def test_several_mods_add_their_lists():
+    """A mod's ammo lists and repair lists add to other mods' (a list given again replaces only its own entry);
+    ammo lists are forgotten as a save loads, so each mod gives its own again."""
+    ammo = (FRAMEWORK / 'ammo.cpp').read_text(encoding='utf-8')
+    assert '.clear()' not in _body(ammo, 'void SetLists(')
+    assert 'ForgetAmmoLists();' in (FRAMEWORK / 'plugin.cpp').read_text(encoding='utf-8')
+    repair = _body((FRAMEWORK / 'repair.cpp').read_text(encoding='utf-8'), 'void TrackRepair(')
+    assert 'push_back(list)' in repair and '.insert(group)' in repair
+
+
+def test_one_version_everywhere():
+    """GetVersion, the version query and F4SE's plugin version all read the one VERSION constant."""
+    plugin = (FRAMEWORK / 'plugin.cpp').read_text(encoding='utf-8')
+    assert 'crui::VERSION,' in plugin and 'return VERSION;' in plugin and 'UInt32 version = VERSION;' in plugin
+    assert re.search(r'constexpr UInt32 VERSION = \d+;', (FRAMEWORK / 'condition.h').read_text(encoding='utf-8'))
+
+
+def test_both_dlls_log_at_the_ini_level():
+    """Each DLL opens its log through OpenLog, which reads [Log] iLevel from its own INI."""
+    for entry, name in ((FRAMEWORK / 'plugin.cpp', '"CleanroomUI"'), (DIALOGUE / 'plugin.cpp', 'NAME')):
+        source = entry.read_text(encoding='utf-8')
+        assert f'OpenLog({name});' in source and 'gLog.OpenRelative' not in source
+    assert '"iLevel"' in (DLL / 'shared' / 'gfx.cpp').read_text(encoding='utf-8')

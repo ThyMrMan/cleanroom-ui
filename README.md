@@ -82,10 +82,10 @@ weight, weapons' spawn condition, no combat sprint).
    `CRUI_LevelUp` once. Its level-up movie still builds on its own `f3ui`
    copy until it takes this repo as a submodule.
 3. **The DLL split, the rest** ([split](docs/spin_offs.md#split-status)):
-   the framework rules (REPAIR and AMMO hints only once a mod gives lists,
-   several mods' repair lists and tabs at once, `GetVersion`, an INI log
-   level); the dialogue release's own words and links folder; the converter
-   on the two DLLs, its F3NV.dll cut to FNV's rules. Then the shared base:
+   the dialogue release's own words and links folder; the converter on the
+   two DLLs, its F3NV.dll cut to FNV's rules (the
+   [framework rules](docs/spin_offs.md#framework-rules) are built, not
+   played). Then the shared base:
    CommonLibF4 (Dear-Modding), Address Library, xmake
    ([runtime](docs/spin_offs.md#runtime)).
 4. **An example menu** for authors, and the API in this README.

@@ -42,7 +42,7 @@ public:
         TESForm *form = LookupFormByID(formID_);
         ObScriptCommand *command = SexChangeCommand();
         if (!form || form->formType != kFormType_ACHR || !command || !command->execute) {
-            _MESSAGE("SexChange on %08X not run (form %p, command %p)", formID_, form, command);
+            _WARNING("SexChange on %08X not run (form %p, command %p)", formID_, form, command);
             return;
         }
         UInt8 data[8] = {};  // the command's compiled arguments: a count of 0 at offset 0
@@ -50,7 +50,7 @@ public:
         double result = 0;
         command->execute(command->params, data, static_cast<TESObjectREFR *>(form), nullptr, nullptr, nullptr,
                          &result, &offset);
-        _MESSAGE("SexChange on %08X run", formID_);
+        _VMESSAGE("SexChange on %08X run", formID_);
     }
 
 private:

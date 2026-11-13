@@ -33,8 +33,9 @@ struct Group {
     std::vector<TESForm *> rounds;
     std::vector<UInt32> mods;
 };
-std::vector<Group> g_groups;  // under g_lock
-UInt32 g_chosenGun = 0;       // the confirmed gun and round (its index in F3NV_AmmoSwitch.Rounds), under g_lock
+std::vector<Group> g_groups;  // every mod's, under g_lock
+UInt32 g_chosenGun = 0;       // the confirmed gun, its list and round (its index in that mod's Rounds), under g_lock
+TESForm *g_chosenList = nullptr;
 SInt32 g_chosenRound = -1;
 
 // The open list: `shown` holds the indexes in `group` of the rounds listed (carried, or loaded), `counts` their
@@ -130,7 +131,7 @@ void Open(GFxMovieRoot *movie) {
     g_ammo.chosen = g_ammo.loaded;
     g_ammo.gun = formID;
     g_ammo.open = true;
-    _MESSAGE("Pip-Boy ammo list for %08X: %u of %u rounds carried or loaded, loaded %d", formID,
+    _VMESSAGE("Pip-Boy ammo list for %08X: %u of %u rounds carried or loaded, loaded %d", formID,
              UInt32(g_ammo.shown.size()), UInt32(g_ammo.group.rounds.size()), loaded);
     SetModal(page, true);
 }
@@ -141,6 +142,7 @@ void Close(GFxMovieRoot *movie, bool load) {
     if (load) {
         std::lock_guard<std::mutex> hold(g_lock);
         g_chosenGun = g_ammo.gun;
+        g_chosenList = g_ammo.group.list;
         g_chosenRound = g_ammo.group.start + g_ammo.shown[g_ammo.chosen];
     }
     g_ammo.open = false;
@@ -149,7 +151,7 @@ void Close(GFxMovieRoot *movie, bool load) {
         page.Invoke("onListSelectionChange", nullptr, nullptr, 0);
     }
     if (load)
-        _MESSAGE("Pip-Boy ammo: %08X round %d, %s %s", g_ammo.gun, g_ammo.group.start + g_ammo.shown[g_ammo.chosen],
+        _VMESSAGE("Pip-Boy ammo: %08X round %d, %s %s", g_ammo.gun, g_ammo.group.start + g_ammo.shown[g_ammo.chosen],
                  EVENT, SendExternal(movie, EVENT) ? "sent" : "not sent");
 }
 
@@ -163,12 +165,11 @@ public:
 
 // ---- Papyrus (CRUI_PipboyAmmo) ----
 
-// Papyrus: F3NV_AmmoSwitch's lists (its Lists, Starts, Rounds and Mods arrays); the plugin forgets them each game
-// start. Lists of one round are left out.
+// Papyrus: a mod's ammo lists (F3NV_AmmoSwitch's Lists, Starts, Rounds and Mods arrays), added to other mods'; a
+// list given again replaces its old rounds. The plugin forgets them each game start. Lists of one round are left out.
 void SetLists(StaticFunctionTag *, VMArray<TESForm *> lists, VMArray<SInt32> starts, VMArray<TESForm *> rounds,
               VMArray<TESForm *> mods) {
     std::lock_guard<std::mutex> hold(g_lock);
-    g_groups.clear();
     for (UInt32 g = 0; g < lists.Length() && g + 1 < starts.Length(); g++) {
         Group group;
         SInt32 end = 0;
@@ -183,7 +184,10 @@ void SetLists(StaticFunctionTag *, VMArray<TESForm *> lists, VMArray<SInt32> sta
             group.rounds.push_back(round);
             group.mods.push_back(mod ? mod->formID : 0);
         }
-        if (group.list && group.rounds.size() > 1) g_groups.push_back(group);
+        if (!group.list || group.rounds.size() < 2) continue;
+        auto at = std::find_if(g_groups.begin(), g_groups.end(), [&](const Group &g) { return g.list == group.list; });
+        if (at != g_groups.end()) *at = group;
+        else g_groups.push_back(group);
     }
     _MESSAGE("ammo lists: %u", UInt32(g_groups.size()));
 }
@@ -194,7 +198,13 @@ TESForm *ChosenGun(StaticFunctionTag *) {
     return g_chosenRound >= 0 ? LookupFormByID(g_chosenGun) : nullptr;
 }
 
-// Papyrus: the chosen round's index in F3NV_AmmoSwitch.Rounds, cleared as it is taken; -1 with none.
+// Papyrus: the list of the chosen round (a mod takes the choice only from its own lists); None with no choice.
+TESForm *ChosenList(StaticFunctionTag *) {
+    std::lock_guard<std::mutex> hold(g_lock);
+    return g_chosenRound >= 0 ? g_chosenList : nullptr;
+}
+
+// Papyrus: the chosen round's index in the Rounds array of ChosenList's mod, cleared as it is taken; -1 with none.
 SInt32 TakeChoice(StaticFunctionTag *) {
     std::lock_guard<std::mutex> hold(g_lock);
     SInt32 round = g_chosenRound;
@@ -208,14 +218,26 @@ bool AmmoListOpen() {
     return g_ammo.open;
 }
 
+bool AmmoInUse() {
+    std::lock_guard<std::mutex> hold(g_lock);
+    return !g_groups.empty();
+}
+
+void ForgetAmmoLists() {
+    std::lock_guard<std::mutex> hold(g_lock);
+    g_groups.clear();
+    g_chosenRound = -1;
+}
+
 void ForgetAmmoList() {
     g_ammo.open = false;
 }
 
 bool AmmoKey(GFxMovieRoot *movie, int key) {
     if (!g_ammo.open) {
-        if (key == KEY_B) Open(movie);
-        return key == KEY_B;
+        if (key != KEY_B || !AmmoInUse()) return false;
+        Open(movie);
+        return true;
     }
     SInt32 last = SInt32(g_ammo.shown.size()) - 1;
     if (key == KEY_UP || key == KEY_W || key == KEY_DOWN || key == KEY_S) {
@@ -253,6 +275,7 @@ void RegisterAmmo(VirtualMachine *vm) {
     vm->RegisterFunction(new NativeFunction4<StaticFunctionTag, void, VMArray<TESForm *>, VMArray<SInt32>,
                                              VMArray<TESForm *>, VMArray<TESForm *>>("SetLists", SCRIPT, SetLists, vm));
     vm->RegisterFunction(new NativeFunction0<StaticFunctionTag, TESForm *>("ChosenGun", SCRIPT, ChosenGun, vm));
+    vm->RegisterFunction(new NativeFunction0<StaticFunctionTag, TESForm *>("ChosenList", SCRIPT, ChosenList, vm));
     vm->RegisterFunction(new NativeFunction0<StaticFunctionTag, SInt32>("TakeChoice", SCRIPT, TakeChoice, vm));
 }
 

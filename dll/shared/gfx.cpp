@@ -7,6 +7,7 @@
 #include "f4se/GameStreams.h"
 
 #include <windows.h>
+#include <shlobj.h>
 
 #include <algorithm>
 #include <cctype>
@@ -17,6 +18,14 @@
 #include <unordered_set>
 
 namespace crui {
+
+void OpenLog(const char *name) {
+    gLog.OpenRelative(CSIDL_MYDOCUMENTS, (std::string("\\My Games\\Fallout4\\F4SE\\") + name + ".log").c_str());
+    std::string ini = std::string(".\\Data\\F4SE\\Plugins\\") + name + ".ini";
+    int level = std::clamp(int(GetPrivateProfileIntA("Log", "iLevel", 2, ini.c_str())), 0, 3);
+    gLog.SetLogLevel(IDebugLog::LogLevel(IDebugLog::kLevel_Error + level));
+    _MESSAGE("log level %d (%s)", level, ini.c_str());
+}
 
 namespace {
 

@@ -243,7 +243,7 @@ void ReadAllLinks() {
     }
     do {
         if (!_stricmp(found.cFileName, LEGACY_HUB))
-            _MESSAGE("dialogue menu: DEPRECATED %s (the XDI-era hub; each plugin now writes its own links)",
+            _WARNING("dialogue menu: DEPRECATED %s (the XDI-era hub; each plugin now writes its own links)",
                      found.cFileName);
         ReadLinks(std::string(LINKS) + found.cFileName);
     } while (FindNextFileA(find, &found));
@@ -374,7 +374,7 @@ std::vector<Option> ListOptions(void *action, TESObjectREFR *npc, Census *census
 
 // Why a waiting menu lists none of ours: its scene, its NPC and how far its lines got.
 void LogNoOptions(void *scene, TESObjectREFR *npc, const Census &census) {
-    _MESSAGE("dialogue menu: none of ours in scene %08X with NPC %08X: %u lines, %u linked, %u pass, %u answered; "
+    _VMESSAGE("dialogue menu: none of ours in scene %08X with NPC %08X: %u lines, %u linked, %u pass, %u answered; "
              "first failing linked line %08X", reinterpret_cast<TESForm *>(scene)->formID, npc ? npc->formID : 0,
              census.lines, census.linked, census.passing, census.answered, census.failed);
 }
@@ -447,12 +447,12 @@ TESForm *PlayerSlot(void *action, void *scene, TESObjectREFR *target, SInt32 opt
     if (chosen < FIRST_OURS) return g_optionInfo(action, scene, target, option);
     Chosen picked;
     if (!PickedOption(action, chosen, &picked)) {
-        _MESSAGE("dialogue menu: option %u was not picked through the menu; none taken", chosen);
+        _VMESSAGE("dialogue menu: option %u was not picked through the menu; none taken", chosen);
         At<UInt32>(action, ACTION_OPTION) = NO_OPTION;
         return nullptr;
     }
     MarkSaid(picked.option.info);
-    _MESSAGE("dialogue menu: picked %u, %08X '%s', answer topic %08X", picked.index, picked.option.info->formID,
+    _VMESSAGE("dialogue menu: picked %u, %08X '%s', answer topic %08X", picked.index, picked.option.info->formID,
              picked.option.prompt.c_str(), picked.option.answer->formID);
     return picked.option.info;
 }
@@ -473,7 +473,7 @@ TESForm *Again(const Chosen &picked, void *action, void *scene) {
     }
     NiPointer<TESObjectREFR> npc = ActionActor(action, scene);
     if (asks == 1 || asks % 100 == 0)
-        _MESSAGE("dialogue menu: +%llu ms: asked again (%u) for %08X; NPC 3D loading %d", GetTickCount64() - g_pickedAt,
+        _VMESSAGE("dialogue menu: +%llu ms: asked again (%u) for %08X; NPC 3D loading %d", GetTickCount64() - g_pickedAt,
                  asks, picked.line->formID, Loading3D(npc));
     return picked.line;
 }
@@ -490,7 +490,7 @@ TESForm *Answer(void *owner, void *action, void *scene, UInt32 chosen, const cha
         std::lock_guard<std::mutex> hold(g_dialogueLock);
         if (g_chosen.action == picked.action) g_chosen.line = info, g_chosen.answeredBy = action;
     }
-    _MESSAGE("dialogue menu: %s answers %u from topic %08X with %08X", where, picked.index,
+    _VMESSAGE("dialogue menu: %s answers %u from topic %08X with %08X", where, picked.index,
              picked.option.answer->formID, info ? info->formID : 0);
     return info;
 }
@@ -526,7 +526,7 @@ void TraceWaits(void *action, void *scene) {
                    (Loading3D(npc) ? 32 : 0);
     if (waits == g_lastWaits) return;
     g_lastWaits = waits;
-    _MESSAGE("dialogue menu: +%llu ms: player line %s, NPC line %s, player talking %d (no-wait flag %d), NPC talking %d"
+    _VMESSAGE("dialogue menu: +%llu ms: player line %s, NPC line %s, player talking %d (no-wait flag %d), NPC talking %d"
              ", NPC 3D loading %d", GetTickCount64() - g_pickedAt, waits & 1 ? "done" : "pending",
              waits & 2 ? "said" : "not said", (waits & 4) != 0, (waits & 8) != 0, (waits & 16) != 0, (waits & 32) != 0);
 }
@@ -546,12 +546,12 @@ public:
         PlayerCharacter *player = *g_player;
         BGSScene *scene = player ? player->GetCurrentScene() : nullptr;
         if (!scene) {
-            _MESSAGE("dialogue menu: leave: the player is in no scene");
+            _VMESSAGE("dialogue menu: leave: the player is in no scene");
             return;
         }
         StopScene(scene);
         At<UInt32>(scene, SCENE_FLAGS) |= SCENE_STOPPING;
-        _MESSAGE("dialogue menu: left the talk (stopped scene %08X)", reinterpret_cast<TESForm *>(scene)->formID);
+        _VMESSAGE("dialogue menu: left the talk (stopped scene %08X)", reinterpret_cast<TESForm *>(scene)->formID);
     }
 };
 
@@ -588,10 +588,10 @@ public:
             entry.SetMember("said", &said);
             entry.SetMember("failed", &failed);
             args->result->PushBack(&entry);
-            _MESSAGE("dialogue menu: option %u: %08X '%s' -> topic %08X%s", i, o.info->formID, o.prompt.c_str(),
+            _VMESSAGE("dialogue menu: option %u: %08X '%s' -> topic %08X%s", i, o.info->formID, o.prompt.c_str(),
                      o.answer->formID, o.said ? " (said)" : "");
         }
-        if (!g_menu.options.empty()) _MESSAGE("dialogue menu: %u options listed", UInt32(g_menu.options.size()));
+        if (!g_menu.options.empty()) _VMESSAGE("dialogue menu: %u options listed", UInt32(g_menu.options.size()));
     }
 };
 
@@ -641,7 +641,7 @@ public:
         void *target = HolderTarget(args->movie, MENU_QUESTION_TARGET, &menu);
         if (target && on) EnableShadedBackground(target, MENU_NO_COLOR_BACKGROUND, FULL_QUAD);
         if (target && !on) At<UInt32>(target, TARGET_FX_FLAGS) &= ~FX_BACKGROUND_QUAD;
-        if (!target) _MESSAGE("dialogue menu: no shader target for the list's background");
+        if (!target) _WARNING("dialogue menu: no shader target for the list's background");
         args->result->SetBool(target != nullptr);
     }
 };
@@ -654,7 +654,7 @@ public:
         IMenu *menu = nullptr;
         void *target = HolderTarget(args->movie, MENU_NEGATIVE_TARGET, &menu);
         if (target) TintChallenge(menu, target, CHALLENGE_HARD, false);
-        else _MESSAGE("dialogue menu: no shader target for failed skill checks");
+        else _WARNING("dialogue menu: no shader target for failed skill checks");
         args->result->SetBool(target != nullptr);
     }
 };
@@ -664,8 +664,8 @@ class LogNative : public GFxFunctionHandler {
 public:
     void Invoke(Args *args) override {
         if (args->numArgs < 1 || !args->args[0].IsString()) return;
-        if (g_pickedAt) _MESSAGE("dialogue menu: +%llu ms: %s", GetTickCount64() - g_pickedAt, args->args[0].GetString());
-        else _MESSAGE("dialogue menu: %s", args->args[0].GetString());
+        if (g_pickedAt) _VMESSAGE("dialogue menu: +%llu ms: %s", GetTickCount64() - g_pickedAt, args->args[0].GetString());
+        else _VMESSAGE("dialogue menu: %s", args->args[0].GetString());
     }
 };
 
@@ -695,7 +695,7 @@ bool HookDialogue(void *tasks) {
     g_responseInfo = Target<ResponseFn>(RESPONSE_CALL.GetUIntPtr(), ResponseInfo.GetUIntPtr());
     auto *slot = reinterpret_cast<RunFn *>(PLAYER_DIALOGUE_VTABLE.GetUIntPtr() + RUN_SLOT * sizeof(void *));
     if (!g_optionInfo || !npc || !g_responseInfo) {
-        _MESSAGE("dialogue menu: a call site no longer calls the vanilla function (player %d, NPC %d, response %d); "
+        _WARNING("dialogue menu: a call site no longer calls the vanilla function (player %d, NPC %d, response %d); "
                  "not hooked", g_optionInfo != nullptr, npc, g_responseInfo != nullptr);
         return false;
     }

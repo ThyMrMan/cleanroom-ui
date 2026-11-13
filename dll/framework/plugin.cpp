@@ -16,8 +16,6 @@
 #include "f4se/PapyrusVM.h"
 #include "f4se_common/f4se_version.h"
 
-#include <shlobj.h>
-
 namespace crui {
 
 std::mutex g_lock;
@@ -98,17 +96,35 @@ namespace {
 
 using namespace crui;
 
-const char *SCRIPT = "CRUI_Condition";
+const char *SCRIPT = "CRUI_Condition", *FRAMEWORK_SCRIPT = "CRUI_Framework";
+// The F4SE message type another plugin sends us (to "CleanroomUI") to ask our version; the answer comes back to it
+// with the same type and VERSION as a UInt32.
+const UInt32 VERSION_QUERY = 'CRUV';
 PluginHandle g_handle = kPluginHandle_Invalid;
 void *g_tasks = nullptr;
+F4SEMessagingInterface *g_messaging = nullptr;
 
-// F4SE messages: hook the Pip-Boy once the game has loaded (the UI exists then); forget mods' item-card lines as a
-// save loads or a new game starts.
+// Another plugin's message: answer a version query.
+void OnPluginMessage(F4SEMessagingInterface::Message *msg) {
+    if (msg->type != VERSION_QUERY || !msg->sender) return;
+    UInt32 version = VERSION;
+    _MESSAGE("version %u asked by %s", version, msg->sender);
+    g_messaging->Dispatch(g_handle, VERSION_QUERY, &version, sizeof(version), msg->sender);
+}
+
+// F4SE messages: once every plugin has loaded, listen for other plugins' version queries; hook the Pip-Boy once the
+// game has loaded (the UI exists then); forget mods' item-card lines and ammo lists as a save loads or a new game
+// starts.
 void OnMessage(F4SEMessagingInterface::Message *msg) {
-    if (msg->type == F4SEMessagingInterface::kMessage_PreLoadGame || msg->type == F4SEMessagingInterface::kMessage_NewGame)
+    if (msg->type == F4SEMessagingInterface::kMessage_PostLoad &&
+        !g_messaging->RegisterListener(g_handle, nullptr, OnPluginMessage))
+        _WARNING("no version queries: could not listen for other plugins");
+    if (msg->type == F4SEMessagingInterface::kMessage_PreLoadGame ||
+        msg->type == F4SEMessagingInterface::kMessage_NewGame) {
         ForgetCardLines();
-    if (msg->type != F4SEMessagingInterface::kMessage_GameLoaded) return;
-    InstallPipboy(g_tasks);
+        ForgetAmmoLists();
+    }
+    if (msg->type == F4SEMessagingInterface::kMessage_GameLoaded) InstallPipboy(g_tasks);
 }
 
 // F4SE's Scaleform callback: give a movie's f4se.plugins.CleanroomUI the Pip-Boy movie's natives and the shared ones.
@@ -191,8 +207,13 @@ void PipboyRefresh(StaticFunctionTag *) {
     RefreshPipboy();
 }
 
-// Papyrus: the FNV repair lists (`lists`: weapons' first, then armors', parallel to the two), the Jury Rigging
-// groups (parallel to `lists`) and the Repair skill.
+// Papyrus: the framework's version (VERSION).
+UInt32 GetVersion(StaticFunctionTag *) {
+    return VERSION;
+}
+
+// Papyrus: FNV repair lists (`lists`: weapons' first, then armors', parallel to the two), the Jury Rigging groups
+// (parallel to `lists`) and the Repair skill, added to what other mods gave.
 void TrackRepairLists(StaticFunctionTag *, VMArray<TESForm *> weapons, VMArray<TESForm *> armors,
                       VMArray<TESForm *> lists, VMArray<SInt32> groups, ActorValueInfo *skill) {
     for (UInt32 i = 0; i < weapons.Length() + armors.Length() && i < lists.Length(); i++) {
@@ -284,7 +305,8 @@ bool Register(VirtualMachine *vm) {
         "SetServiceRules", SCRIPT, SetServiceRulesNative, vm));
     vm->RegisterFunction(new NativeFunction1<StaticFunctionTag, float, Actor *>("PipboyRepair", SCRIPT,
                                                                                 PipboyRepair, vm));
-    _MESSAGE("registered %s natives", SCRIPT);
+    vm->RegisterFunction(new NativeFunction0<StaticFunctionTag, UInt32>("GetVersion", FRAMEWORK_SCRIPT, GetVersion, vm));
+    _MESSAGE("registered %s and %s natives", SCRIPT, FRAMEWORK_SCRIPT);
     return true;
 }
 
@@ -294,7 +316,7 @@ extern "C" {
 
 __declspec(dllexport) F4SEPluginVersionData F4SEPlugin_Version = {
     F4SEPluginVersionData::kVersion,
-    1,
+    crui::VERSION,
     "CleanroomUI",
     "cleanroom-ui",
     0,
@@ -304,21 +326,21 @@ __declspec(dllexport) F4SEPluginVersionData F4SEPlugin_Version = {
 };
 
 __declspec(dllexport) bool F4SEPlugin_Load(const F4SEInterface *f4se) {
-    gLog.OpenRelative(CSIDL_MYDOCUMENTS, "\\My Games\\Fallout4\\F4SE\\CleanroomUI.log");
+    OpenLog("CleanroomUI");
     g_handle = f4se->GetPluginHandle();
     auto *papyrus = static_cast<F4SEPapyrusInterface *>(f4se->QueryInterface(kInterface_Papyrus));
     if (!papyrus) {
-        _MESSAGE("no Papyrus interface");
+        _ERROR("no Papyrus interface");
         return false;
     }
-    _MESSAGE("CleanroomUI loaded, runtime %08X", f4se->runtimeVersion);
+    _MESSAGE("CleanroomUI %u loaded, runtime %08X", VERSION, f4se->runtimeVersion);
     g_tasks = f4se->QueryInterface(kInterface_Task);
-    auto *messaging = static_cast<F4SEMessagingInterface *>(f4se->QueryInterface(kInterface_Messaging));
+    g_messaging = static_cast<F4SEMessagingInterface *>(f4se->QueryInterface(kInterface_Messaging));
     auto *scaleform = static_cast<F4SEScaleformInterface *>(f4se->QueryInterface(kInterface_Scaleform));
-    if (!scaleform || !scaleform->Register("CleanroomUI", RegisterMovie)) _MESSAGE("no movie natives");
+    if (!scaleform || !scaleform->Register("CleanroomUI", RegisterMovie)) _WARNING("no movie natives");
     InstallTransfer();
-    if (!messaging || !g_tasks || !messaging->RegisterListener(g_handle, "F4SE", OnMessage))
-        _MESSAGE("no Pip-Boy display (messaging %p, task %p)", messaging, g_tasks);
+    if (!g_messaging || !g_tasks || !g_messaging->RegisterListener(g_handle, "F4SE", OnMessage))
+        _WARNING("no Pip-Boy display (messaging %p, task %p)", g_messaging, g_tasks);
     return papyrus->Register(Register);
 }
 
