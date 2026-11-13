@@ -15,6 +15,15 @@ ActorValue[] suggestions
 ; The running host
 ; ---------------------------------------------------------------------------
 
+F3NV_LevelUpHolder Function Shared() Global
+  {The holder quest of Cleanroom UI's own plugin (CleanroomUI.esl 0x800, crui/plugin.py), which every host announces
+  itself to; None when the plugin is not loaded.}
+  If !Game.IsPluginInstalled("CleanroomUI.esl")
+    Return None
+  EndIf
+  Return Game.GetFormFromFile(0x800, "CleanroomUI.esl") as F3NV_LevelUpHolder
+EndFunction
+
 F3NV_LevelUp Function Running()
   {The running host Get() hands to other mods; None before it registers.}
   Return Host as F3NV_LevelUp

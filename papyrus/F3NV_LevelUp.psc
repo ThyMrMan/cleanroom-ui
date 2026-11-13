@@ -76,10 +76,17 @@ Var[] ready
 ; ---------------------------------------------------------------------------
 
 F3NV_LevelUp Function Get() Global
-  {The running game's level-up, for other mods: F3NV_LevelUp.Get().AddPerkPoints(1). The holder quest 0x901 of
-  FalloutHelpers.esl holds it, set as its owner starts and each time our menu opens; None before that.
-  See docs/level_up_plan.md#holder}
-  F3NV_LevelUpHolder holder = Game.GetFormFromFile(0x901, "FalloutHelpers.esl") as F3NV_LevelUpHolder
+  {The running game's level-up, for other mods: F3NV_LevelUp.Get().AddPerkPoints(1). Cleanroom UI's shared holder
+  (F3NV_LevelUpHolder.Shared) holds it, set as its owner starts and each time our menu opens; without that plugin,
+  the FO3/FNV conversion's holder (FalloutHelpers.esl 0x901); None before either is set.
+  See docs/level_up_plan.md#plugin}
+  F3NV_LevelUpHolder holder = F3NV_LevelUpHolder.Shared()
+  If holder && holder.Running()
+    Return holder.Running()
+  ElseIf !Game.IsPluginInstalled("FalloutHelpers.esl")
+    Return None
+  EndIf
+  holder = Game.GetFormFromFile(0x901, "FalloutHelpers.esl") as F3NV_LevelUpHolder
   If !holder
     Return None
   EndIf
@@ -95,10 +102,14 @@ F3NV_LevelUpHolder Function Holder()
 EndFunction
 
 Function Announce()
-  {Be the level-up Get() finds.}
+  {Be the level-up Get() finds: held by this host's holder and by Cleanroom UI's shared one.}
   F3NV_LevelUpHolder holder = Holder()
   If holder
     holder.Hold(Self)
+  EndIf
+  F3NV_LevelUpHolder shared = F3NV_LevelUpHolder.Shared()
+  If shared && shared != holder
+    shared.Hold(Self)
   EndIf
 EndFunction
 

@@ -379,9 +379,24 @@ overrides what it needs.
 `Show(mode, count, bonus)` is the plain opener: gather (`Prepare`), wait
 until no menu, the Pip-Boy and ours included, is open, then `Open`.
 
-**`Get()` still reads the holder at `FalloutHelpers.esl` `0x901`**, the
-FO3/FNV conversion's helper quest: a data lookup, not a compile dependency.
-A holder anyone can reach needs Cleanroom UI's own plugin, still to come.
+### <a id="plugin"></a>Cleanroom UI's own plugin (built 2026-11-12, not played)
+
+`CleanroomUI.esl` (`crui/plugin.py`, `python -m crui plugin`) is a light
+master with no masters, holding one start-game, run-once quest:
+`CleanroomUI_LevelUpHolder` at object id `0x800`, carrying
+`F3NV_LevelUpHolder` with nothing set. Its bytes match what the FO3/FNV
+conversion's writer makes for the same quest (its `FalloutHelpers.esl` is
+written the same way and loads in game; compared 2026-11-12). Object ids are
+a save contract: append only.
+
+- `F3NV_LevelUpHolder.Shared()` (global) is that quest's holder, None
+  while the plugin isn't loaded (`Game.IsPluginInstalled` first, so no
+  missing-file log line).
+- Every host's `Announce` holds itself in its own holder and in the shared
+  one, so `Get()` finds any running host with no master but
+  `CleanroomUI.esl`.
+- `Get()` reads the shared holder first, then, while the conversion
+  doesn't require Cleanroom UI, its holder at `FalloutHelpers.esl` `0x901`.
 
 ### <a id="holder-converter"></a>The FO3/FNV conversion as a holder
 

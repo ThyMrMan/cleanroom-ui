@@ -17,12 +17,14 @@ python -m crui all --out dist/CleanroomUI
 python -m pytest
 ```
 
-`all` runs three steps, each also on its own (`movies`, `scripts`, `dll`), and
-writes a mod folder: `Interface/` (movies), `Scripts/` (Papyrus), `F4SE/Plugins/`
-(the DLL). Built movies, scripts and DLLs never go in git.
+`all` runs four steps, each also on its own (`plugin`, `movies`, `scripts`,
+`dll`), and writes a mod folder: `CleanroomUI.esl` (the shared forms),
+`Interface/` (movies), `Scripts/` (Papyrus), `F4SE/Plugins/` (the DLL). Built
+files never go in git.
 
 | Step | Needs | Found at |
 |---|---|---|
+| `plugin` | Python alone | |
 | `movies` | Java and the Apache Flex SDK 4.16.1 with playerglobal 11.2 ([setup](docs/swf_framework.md#mxmlc-setup)) | `CRUI_FLEX`, else `../tools_ext/FlexSDK` |
 | `scripts` | Fallout 4's Creation Kit (the Papyrus compiler and `Base.zip`) and F4SE's script sources | `CRUI_FALLOUT4`, else the registered install, else Steam's default; F4SE's in `CRUI_F4SE_SCRIPTS`, else `Data/Scripts/Source` |
 | `dll` | Visual Studio with the C++ x64 tools (found by vswhere); F4SE 0.7.9's source and ianpatt's `common`, built as static libraries | `TOOLS_EXT` (default `../tools_ext`), or `F4SE_ROOT` and `COMMON_ROOT` |
@@ -33,13 +35,16 @@ hasn't unpacked it yet.
 Every script, movie and the DLL builds here alone. The level-up host's
 partner, `F3NV_LevelUpHolder`, keeps the tagged skills, is where `Get()`
 finds the host, and decides what opening each menu does; a mod with rules of
-its own extends it ([holder](docs/level_up_plan.md#holder)).
+its own extends it ([holder](docs/level_up_plan.md#holder)). Every host
+also announces itself to the shared holder in `CleanroomUI.esl`, so other
+mods reach the running one with that plugin as their only master
+([plugin](docs/level_up_plan.md#plugin)).
 
 ## What's here
 
 | Folder | Holds |
 |---|---|
-| `crui/` | The build: `mxmlc.py` (byte-stable movies), `swf.py` (SWF reader and writer), `papyrus.py`, `menus.py` (every movie), the `python -m crui` command |
+| `crui/` | The build: `plugin.py` (`CleanroomUI.esl`), `mxmlc.py` (byte-stable movies), `swf.py` (SWF reader and writer), `papyrus.py`, `menus.py` (every movie), the `python -m crui` command |
 | `as3/f3ui/` | The AS3 library: `Host`, `Bridge`, `Theme`, `Draw`, `Text`, `ScrollList`, `Modal`, `Images`, `Input`, `HintBar` |
 | `menus/level_up/` | The level-up, tag-skill and trait menu (`Interface/F3NV_LevelUp.swf`) |
 | `menus/pipboy/` | The Pip-Boy overlay F3NV.dll loads (`Interface/F3NV_Pipboy.swf`): item-card lines, the list panel |
@@ -55,10 +60,11 @@ Pip-Boy tab quests, the dialogue links writer and test mod, and the casino.
 
 ## Next
 
-1. **Level-up host, the rest.** The converter adopts the holder
-   ([its change](docs/level_up_plan.md#holder-converter)); our own plugin
-   with the holder quest `Get()` reads, in place of `FalloutHelpers.esl`
-   `0x901`; skills of other mods; an MCM page for the host's own options
+1. **Level-up host, the rest.** Play `CleanroomUI.esl` in game; the
+   converter adopts the holder
+   ([its change](docs/level_up_plan.md#holder-converter)) and ships
+   `CleanroomUI.esl`, after which `Get()` drops its `FalloutHelpers.esl`
+   fallback; skills of other mods; an MCM page for the host's own options
    (`SkillCap`, `ShowAllPerks`).
 2. **Rename** `f3ui` → `crui`, `F3NV_` → `CRUI_`, and the `$F3NV_`/`$F3UI_`
    translation keys. The converter keeps thin `F3NV_*` wrappers until its

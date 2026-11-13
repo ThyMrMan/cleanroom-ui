@@ -1,4 +1,5 @@
-"""Build Cleanroom UI into a mod folder: Interface/ (movies), Scripts/ (Papyrus), F4SE/Plugins/ (the DLL).
+"""Build Cleanroom UI into a mod folder: CleanroomUI.esl, Interface/ (movies), Scripts/ (Papyrus), F4SE/Plugins/
+(the DLL).
 
     python -m crui all --out dist/CleanroomUI
     python -m crui scripts --imports <folder>    # extra Papyrus import folders, searched before the game's
@@ -9,11 +10,17 @@ import subprocess
 import sys
 from pathlib import Path
 
-from crui import POPEN_FLAGS, REPO, menus, mxmlc, papyrus
+from crui import POPEN_FLAGS, REPO, menus, mxmlc, papyrus, plugin
 
-STEPS = ('movies', 'scripts', 'dll')
+STEPS = ('plugin', 'movies', 'scripts', 'dll')
 DEFAULT_OUT = REPO / 'dist' / 'CleanroomUI'
 DLL_BUILD = REPO / 'dll' / 'f3nv' / 'build.bat'
+
+
+def build_plugin(out: Path) -> bool:
+    """CleanroomUI.esl into <out>."""
+    print(f'[plugin] {plugin.build(out)}')
+    return True
 
 
 def build_movies(out: Path) -> bool:
@@ -57,7 +64,7 @@ def main(argv=None) -> int:
     parser.add_argument('--imports', type=Path, action='append', default=[], help='extra Papyrus import folder')
     args = parser.parse_args(argv)
     steps = STEPS if 'all' in args.steps else args.steps
-    ok = {'movies': lambda: build_movies(args.out), 'scripts': lambda: build_scripts(args.out, args.imports),
+    ok = {'plugin': lambda: build_plugin(args.out), 'movies': lambda: build_movies(args.out), 'scripts': lambda: build_scripts(args.out, args.imports),
           'dll': lambda: build_dll(args.out)}
     results = [ok[step]() for step in steps]
     return 0 if all(results) else 1
