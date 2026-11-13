@@ -128,7 +128,8 @@ Built 2026-11-13, not played (`CleanroomUI.dll` version 2):
   ```
   The framework's INI also holds its [keys](swf_framework.md#keys)
   (`[Keys]`: the Pip-Boy's repair and ammo keys, the HUD edit menu's reset
-  key).
+  key) and the HUD's [preset](swf_framework.md#fnv-preset) (`[Hud]
+  sPreset=FNV`).
   Per-open and per-key lines (Pip-Boy lists, repairs, the dialogue menu's
   picks and timings) are level 3; a menu not laid out as expected is a
   warning.

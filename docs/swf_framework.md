@@ -44,7 +44,7 @@ licensed way to build menus without starting from decompiled Bethesda files.
 | **Own menu** | Casino (Papyrus `UI.RegisterCustomMenu`), HUD color by the menu itself (spike 2b, played) | Registering from the DLL: not needed for color; only if a later menu needs it |
 | **Replace a vanilla movie** | Dialogue menu on our own movie (spike 3, played); its `mxmlc` build. Level-up: our own registered menu opened in place of `LevelUpMenu` from Papyrus, no vanilla file shipped ([open](fo4_level_up_plan.md#open), built) | Both played; if the moment of `LevelUpMenu` first shows, F3NV.dll swapping its constructor |
 | **Inject into a vanilla menu** | Pip-Boy (spike 4, played under vanilla); CND, lists and item-card API built | Any of it played; FallUI played; container and barter (still C++) |
-| **HUD widget** | `CRUI_Hud`: HUDFramework hosts the widgets when installed, else our host movie loaded into any HUD by `CleanroomUI.dll`; widget movies with HUDFramework's `processMessage`; the built-in stats line ([host](#hud-built)); our host's saved places and edit menu ([edit](#hud-edit)); DEF_HUD.xml layouts of the game's parts ([layouts](#hud-layout)), moved and scaled in the edit menu too; built, not played | Played; hiding and recoloring parts in game, `flags`; the converter's Hardcore needs on it (still C++) |
+| **HUD widget** | `CRUI_Hud`: HUDFramework hosts the widgets when installed, else our host movie loaded into any HUD by `CleanroomUI.dll`; widget movies with HUDFramework's `processMessage`; the built-in stats line ([host](#hud-built)); our host's saved places and edit menu ([edit](#hud-edit)); DEF_HUD.xml layouts of the game's parts ([layouts](#hud-layout)), moved and scaled in the edit menu too; the [FNV preset](#fnv-preset); built, not played | Played; FNV-only parts as widgets; hiding and recoloring parts in game, `flags`; the converter's Hardcore needs on it (still C++) |
 | **DLL side** | GFx helpers (`gfx.cpp`), Pip-Boy injection (`LoadOverlay`), natives the movies call (`HudColor`, `Log`, `PipboyCardLines`, `PipboyList`, `TextureExists`) | Injection by menu URL for other menus, settings INI to the movie, GFx log routing |
 | **Translations** ([translations](#translations)) | Files named after `FalloutHelpers.esl`, every language with English fallback, our fixed words as `$F3NV_` keys, the key check in preflight (spike 5, played) | The keys played; Papyrus key check; slot and per-language counts; a test language |
 | **Controller** ([controller](#controller)) | The casino and dialogue menu on `Input` and `HintBar` (built, not played) | Playing them with a pad; the Pip-Boy "more" button; roulette's board on a pad |
@@ -726,8 +726,8 @@ with no replaced movie (`dll/framework/parts.cpp`,
 - **Edited in game** in the [edit menu](#hud-edit): moves and scales a
   part from where the game and the file put it, saved in our own layout
   file; DEF_HUD.xml itself is never written.
-- **Not built yet:** hiding parts and recoloring in game, and the FNV
-  preset.
+- **Not built yet:** hiding parts and recoloring in game. The
+  [FNV preset](#fnv-preset) is built.
 
 **Play check:** with DEF's default file, nothing moves; a moved, scaled
 and rotated part (one per group) sits where DEF's own movie puts it, at
@@ -738,6 +738,42 @@ which is the game's own.
 
 Together with the widget host this covers both of the HUD's frameworks
 in one injected movie, with no `HUDMenu.swf` shipped by anyone.
+
+### <a id="fnv-preset"></a>The FNV layout preset (built 2026-11-13, not played)
+
+`[Hud] sPreset=FNV` in `CleanroomUI.ini` (or MCM's saved copy) arranges
+the game's own HUD parts as Fallout: New Vegas arranges its HUD
+(`menus/hud/as3/FnvPreset.as`, framework version 9). Read from FNV's
+`menus/main/hud_main_menu.xml` (in `Fallout - Misc.bsa`, for reference
+only): it names the parts (`HitPoints`, `ActionPoints`, `EnemyHealth`,
+`SneakMeter`, `ReticleCenter`, `QuestReminder`, `XPMeter`,
+`RadiationMeter`, `HardcoreMode`, `crippled_limb_indicator`, ...) but
+sets no positions; FNV's engine places them from the safe area. So the
+preset is rules, worked out each time from each part's own bounds where
+the game put it, right at any screen shape and HUD size:
+- **Bottom left:** the compass under the HP bar, left edges together, at
+  the HP bar's bottom; the HP bar, the rads meter and the location text go
+  up above it (FNV's HP bracket holds the compass).
+- **Bottom right:** the ammo count under the AP bar, right edges together;
+  the AP bar goes up above it (FNV: AP, then weapon condition and ammo).
+- **Bottom center:** the enemy health meter just above the critical meter.
+- **Center:** the sneak meter just above the screen's middle, over the
+  crosshair.
+- No part leaves its group (the engine may reach a part by its path);
+  each moves within it. A part that draws nothing is left where it is.
+- It runs after each part's base and before the player's places
+  (`PartLayout`: lay, arrange, then report and place), so the edit menu
+  moves parts from the preset's positions and R puts them back there. With
+  a preset, `DEF_HUD.xml` is left aside (logged).
+
+Not built yet: FNV's parts that FO4's HUD has no part for, as widgets
+drawn by our own code (FNV's art can't ship): the weapon condition bar
+beside the ammo count, the crippled limb figure, the Hardcore needs (the
+converter's `AddStats` line can sit there), and hiding the critical meter
+(FNV has none). **Play check:** each rule at 16:9 and 21:9, in and out of
+combat and sneaking; the ammo count, right-aligned, as its digits change;
+the HP bar and compass with the rads meter showing; power armor's own HUD
+is a different movie and is not touched.
 
 ## <a id="level-up"></a>Our own level-up menu (built 2026-11-12, not played)
 

@@ -22,7 +22,7 @@ namespace crui {
 
 // The framework's version (CRUI_Framework.GetVersion, the F4SE version query, F4SEPlugin_Version): raised whenever a
 // native, event or rule changes, so a mod can ask for the one it was built against.
-constexpr UInt32 VERSION = 8;
+constexpr UInt32 VERSION = 9;
 
 // The forms that wear (CRUI_Condition.Track): the Pip-Boy shows their condition.
 extern std::mutex g_lock;

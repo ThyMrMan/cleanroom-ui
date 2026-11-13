@@ -6,8 +6,9 @@ package
    import flash.geom.Point;
    import flash.geom.Rectangle;
 
-   // The game's own HUD parts: laid out from DEF_HUD.xml, as CleanroomUI.dll reads it (HudPartLayout, parts.cpp), then
-   // moved and scaled by the place the player gave each in our edit menu (HudPlaceOf, the same places our widgets
+   // The game's own HUD parts: laid out from DEF_HUD.xml, as CleanroomUI.dll reads it (HudPartLayout, parts.cpp), or
+   // by a preset ([Hud] sPreset in CleanroomUI.ini; FnvPreset), then moved and scaled by the place the player gave each
+   // in our edit menu (HudPlaceOf, the same places our widgets
    // have, kept under "part:" and the clip's name).
    //
    // Each part is found by its clip name in its HUD group (one of the seven groups the game pins to the safe area, so
@@ -42,8 +43,11 @@ package
       private var parts:Object = {};
       private var log:Function;
       private var seen:Object = {};
+      // The preset to arrange the parts by ("" none; FnvPreset.NAME).
+      private var preset:String = "";
 
-      // `layout` as HudPartLayout gives it ({settings, parts}, or null for no file); `log` takes a line.
+      // `layout` as HudPartLayout gives it ({preset, settings, parts}, parts empty with no file; or null with no
+      // DLL); `log` takes a line.
       public function PartLayout(layout:Object, log:Function)
       {
          this.log = log;
@@ -56,6 +60,18 @@ package
          }
          if (layout == null)
          {
+            return;
+         }
+         preset = String(layout.preset || "").toUpperCase();
+         if (preset != "" && preset != FnvPreset.NAME)
+         {
+            once("no preset " + layout.preset + ", none used");
+            preset = "";
+         }
+         if (preset != "")
+         {
+            var ignored:int = (layout.parts as Array || []).length;
+            log("HUD layout: the " + preset + " preset" + (ignored > 0 ? " (DEF_HUD.xml left aside)" : ""));
             return;
          }
          var count:int = 0;
@@ -88,16 +104,28 @@ package
          log("HUD layout: " + count + " parts from DEF_HUD.xml");
       }
 
-      // Lay out and place every part found under `hud` (the HUD's root), reporting each to `dll`.
+      // Lay out and place every part found under `hud` (the HUD's root), reporting each to `dll`: each part at its
+      // base with DEF_HUD.xml's changes, then the preset over all of them, then each reported and moved by its place.
       public function place(hud:Object, dll:Object, stage:Stage) : void
       {
+         var found:Object = {};
          for each (var part:Object in parts)
          {
             var view:DisplayObject = find(hud, part.group, part.name);
-            if (view != null && view.parent != null)
+            part.view = view != null && view.parent != null ? view : null;
+            if (part.view != null)
             {
-               placeOne(view, part, dll, stage);
+               lay(part);
+               found[part.name] = part;
             }
+         }
+         if (preset == FnvPreset.NAME && stage != null)
+         {
+            FnvPreset.arrange(found, stage);
+         }
+         for each (part in found)
+         {
+            finish(part, dll, stage);
          }
       }
 
@@ -124,8 +152,11 @@ package
          return found;
       }
 
-      private function placeOne(view:DisplayObject, part:Object, dll:Object, stage:Stage) : void
+      // Part `part` at its base, with DEF_HUD.xml's position and scale over it (part.now), and the file's rotation
+      // and color.
+      private function lay(part:Object) : void
       {
+         var view:DisplayObject = part.view;
          var set:Object = part.set;
          if (set == null || !near(view.x, set.x) || !near(view.y, set.y) || !near(view.scaleX, set.scaleX)
              || !near(view.scaleY, set.scaleY))
@@ -139,6 +170,7 @@ package
          }
          var entry:Object = part.entry;
          var base:Object = {x: part.base.x, y: part.base.y, scaleX: part.base.scaleX, scaleY: part.base.scaleY};
+         part.now = base;
          if (entry != null)
          {
             if (isNumber(entry.x) && isNumber(entry.defx) && Number(entry.x) != Number(entry.defx))
@@ -159,13 +191,20 @@ package
             }
             dress(view, part, entry);
          }
+         write(view, base);
+      }
+
+      // Part `part`, at part.now, reported to `dll` (origin and bounds, in fractions of the screen), then moved and
+      // scaled by its place.
+      private function finish(part:Object, dll:Object, stage:Stage) : void
+      {
+         var view:DisplayObject = part.view;
+         var base:Object = part.now;
          var name:String = PREFIX + part.name;
          var at:Object = dll.HudPlaceOf != null ? dll.HudPlaceOf(name) : null;
          var target:Object = base;
          if (stage != null)
          {
-            // Measure at the base, report it, then move and scale by the place.
-            write(view, base);
             var wide:Number = stage.stageWidth, high:Number = stage.stageHeight;
             var origin:Point = view.parent.localToGlobal(new Point(base.x, base.y));
             var bounds:Rectangle = view.getBounds(stage);

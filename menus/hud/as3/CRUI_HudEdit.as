@@ -18,9 +18,9 @@ package
    // it draws, over the game dimmed, a box with its name where each widget's place puts it (CleanroomUI.dll's
    // HudLayout, from the host's reports, so the boxes are right while the HUD is paused under the menu). Drag a box to
    // move its widget (HudMove), turn the wheel over it to scale it (HudScale), press the reset key (R, a setting read
-   // through HudKeys) to put the one under the cursor back where its mod puts it (HudReset); Esc or Tab saves the layout and closes (HudEditDone). Mouse and keyboard
-   // only. The game's own HUD parts are here too, named by their clips. Widgets HUDFramework hosts are not here: its
-   // own editor places them.
+   // through HudKeys) to put the one under the cursor back where its mod (or the game) puts it (HudReset); Esc or Tab
+   // saves the layout and closes (HudEditDone). Mouse and keyboard only. The game's own HUD parts are here too, named
+   // by their clips. Widgets HUDFramework hosts are not here: its own editor places them.
    // See docs/swf_framework.md#hud-edit
    public class CRUI_HudEdit extends MovieClip
    {

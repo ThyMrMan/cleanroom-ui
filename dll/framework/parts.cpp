@@ -1,5 +1,6 @@
-// The game's own HUD parts laid out from DEF_HUD.xml (docs/swf_framework.md#hud-layout), with no HUDMenu.swf
-// replaced: this file reads the layout, our host movie (CRUI_Hud.swf, PartLayout) applies it.
+// The game's own HUD parts laid out from DEF_HUD.xml (docs/swf_framework.md#hud-layout) or a preset ([Hud] sPreset
+// in CleanroomUI.ini; docs/swf_framework.md#fnv-preset), with no HUDMenu.swf replaced: this file reads them, our
+// host movie (CRUI_Hud.swf, PartLayout) applies them.
 //
 // DEF_HUD.xml (Data\Interface\DEF_CONF\, written by DEF_HUD's own editor) is <HUD> holding a few settings (SafeX,
 // SafeY, globalscaleX, globalscaleY, ...) and one element per HUD part, named by its clip, holding x, y, scaleX,
@@ -21,6 +22,8 @@ namespace crui {
 namespace {
 
 const char *FILE_PATH = ".\\Data\\Interface\\DEF_CONF\\DEF_HUD.xml";
+// Our INI, then MCM's saved copy of it (as keys.cpp reads them).
+const char *INI_FILES[] = {".\\Data\\F4SE\\Plugins\\CleanroomUI.ini", ".\\Data\\MCM\\Settings\\CleanroomUI.ini"};
 
 // File `path`'s text; "" when it can't be read.
 std::string ReadText(const char *path) {
@@ -69,20 +72,27 @@ void SetValue(GFxMovieRoot *movie, GFxValue *object, const std::string &name, co
     object->SetMember(name.c_str(), &member);
 }
 
-// HudPartLayout(): DEF_HUD.xml as {settings: {name: value}, parts: [{name, parname, x, y, defx, defy, scaleX,
-// scaleY, rotation, color, color2, flags}]} (each element's fields under their own names); null when there is no
-// file or no <HUD> in it.
+// The HUD preset set in the INI files ([Hud] sPreset; MCM's saved copy wins), "" for none.
+std::string Preset() {
+    std::string preset;
+    char buffer[64];
+    for (const char *file : INI_FILES)
+        if (GetPrivateProfileStringA("Hud", "sPreset", "", buffer, sizeof(buffer), file) > 0) preset = buffer;
+    return Trim(preset);
+}
+
+// HudPartLayout(): the preset and DEF_HUD.xml, as {preset, settings: {name: value}, parts: [{name, parname, x, y,
+// defx, defy, scaleX, scaleY, rotation, color, color2, flags}]} (each element's fields under their own names);
+// settings and parts are empty when there is no file or no <HUD> in it.
 class PartLayoutNative : public GFxFunctionHandler {
 public:
     void Invoke(Args *args) override {
-        std::string body = Body(ReadText(FILE_PATH));
-        if (body.empty()) {
-            args->result->SetNull();
-            return;
-        }
+        std::string body = Body(ReadText(FILE_PATH)), preset = Preset();
         GFxMovieRoot *movie = args->movie->movieRoot;
-        GFxValue settings, parts;
+        GFxValue settings, parts, presetText;
         movie->CreateObject(args->result);
+        movie->CreateString(&presetText, preset.c_str());
+        args->result->SetMember("preset", &presetText);
         movie->CreateObject(&settings);
         movie->CreateArray(&parts);
         for (const auto &[name, value] : Children(body)) {
@@ -99,7 +109,7 @@ public:
         }
         args->result->SetMember("settings", &settings);
         args->result->SetMember("parts", &parts);
-        _VMESSAGE("HUD layout: %u parts from %s", parts.GetArraySize(), FILE_PATH);
+        _VMESSAGE("HUD layout: preset \"%s\", %u parts from %s", preset.c_str(), parts.GetArraySize(), FILE_PATH);
     }
 };
 

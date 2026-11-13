@@ -84,8 +84,8 @@ def test_the_movie_builds_the_same_twice(tmp_path):
     raw = menus.compile_movie(MENU, tmp_path / 'a.swf').read_bytes()
     assert raw == menus.compile_movie(MENU, tmp_path / 'b.swf').read_bytes() and raw[:3] == b'FWS'
     assert not {t.code for t in Swf.parse(raw).tags} & set(mxmlc.DATED)
-    for name in (b'CRUI_Hud', b'StatsLine', b'PartLayout', b'HudWidgets', b'HudMessages', b'HudStats', b'HudPartLayout',
-                 b'processMessage', b'crui'):
+    for name in (b'CRUI_Hud', b'StatsLine', b'PartLayout', b'FnvPreset', b'HudWidgets', b'HudMessages', b'HudStats',
+                 b'HudPartLayout', b'processMessage', b'crui'):
         assert name in raw
 
 
@@ -164,3 +164,22 @@ def test_only_what_the_layout_changes_is_set():
     assert 'Number(entry.scaleX) != 1' in layout and 'uint(entry.color) != 0xFFFFFF' in layout
     assert 'if (!near(Number(view[property]), Number(at[property])))' in layout
     assert 'part.base = {x: view.x, y: view.y, scaleX: view.scaleX, scaleY: view.scaleY};' in layout
+
+
+def test_the_fnv_preset_is_a_setting_run_between_def_and_the_places():
+    """[Hud] sPreset (our INI, then MCM's copy) picks the preset; PartLayout lays each part at its base, arranges them
+    by the preset, then reports and places them; with a preset DEF_HUD.xml is left aside. The preset moves parts only
+    within their own groups."""
+    parts = _source(REPO / 'dll' / 'framework' / 'parts.cpp')
+    assert 'GetPrivateProfileStringA("Hud", "sPreset"' in parts and 'MCM' in parts
+    assert 'args->result->SetMember("preset", &presetText);' in parts
+    layout = _source(MENU.sources / 'PartLayout.as')
+    body = layout[layout.index('public function place('):layout.index('private function find(')]
+    order = [body.index(step) for step in ('lay(part);', 'FnvPreset.arrange(found, stage);', 'finish(part, dll, stage);')]
+    assert order == sorted(order)
+    preset = _source(MENU.sources / 'FnvPreset.as')
+    assert 'public static const NAME:String = "FNV";' in preset
+    assert 'addChild' not in preset and 'removeChild' not in preset
+    named = set(re.findall(r'"(\w+_mc)"', preset))
+    table = layout[layout.index('GROUPS:Object = {'):layout.index('};', layout.index('GROUPS:Object = {'))]
+    assert named and named <= set(re.findall(r'"(\w+_mc)"', table))
