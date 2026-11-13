@@ -22,7 +22,7 @@ namespace crui {
 
 // The framework's version (CRUI_Framework.GetVersion, the F4SE version query, F4SEPlugin_Version): raised whenever a
 // native, event or rule changes, so a mod can ask for the one it was built against.
-constexpr UInt32 VERSION = 6;
+constexpr UInt32 VERSION = 7;
 
 // The forms that wear (CRUI_Condition.Track): the Pip-Boy shows their condition.
 extern std::mutex g_lock;
@@ -275,6 +275,14 @@ void RegisterHudLayout(GFxMovieRoot *movie, GFxValue *plugin);
 
 // Register CRUI_HudNative's natives.
 void RegisterHud(VirtualMachine *vm);
+
+// ---- The game's HUD parts laid out from DEF_HUD.xml (parts.cpp; docs/swf_framework.md#hud-layout) ----
+
+// Whether Data\Interface\DEF_CONF\DEF_HUD.xml is there (our host then loads with no widget of ours).
+bool HasPartLayout();
+
+// Give `plugin` the host's HudPartLayout.
+void RegisterHudParts(GFxMovieRoot *movie, GFxValue *plugin);
 
 // ---- Our own keys (keys.cpp; docs/swf_framework.md#keys) ----
 

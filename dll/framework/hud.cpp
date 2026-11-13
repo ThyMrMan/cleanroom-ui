@@ -5,9 +5,10 @@
 // steps). CRUI_Hud (Papyrus) picks the host and tells us (CRUI_HudNative): HUDFramework when it is installed, which
 // then loads the widget movies, and our stats widget (Interface/CRUI_HudStats.swf) for the stats lines; else ours.
 // Once a widget of ours is added, and again each time the HUD movie loads, this file loads our host movie
-// (Interface/CRUI_Hud.swf) into whatever HUD movie is installed. Each frame the host and the stats widget ask for the
+// (Interface/CRUI_Hud.swf) into whatever HUD movie is installed; with a DEF_HUD.xml layout it loads it too, to lay
+// out the game's own HUD parts (parts.cpp). Each frame the host and the stats widget ask for the
 // widget list (HudWidgets, only when it changed), the host for the messages sent since (HudMessages), and both for
-// each stats line's values (HudStats). With no widget of ours, our host is not loaded. Widgets, stats and messages
+// each stats line's values (HudStats). With no widget of ours and no layout, our host is not loaded. Widgets, stats and messages
 // are forgotten as a save loads or a new game starts; each mod adds its own on every load.
 #include "condition.h"
 
@@ -95,11 +96,12 @@ void HudChanged() {
 
 namespace {
 
-// Load our host into the HUD movie, once per HUD movie and only once a widget of ours has been added.
+// Load our host into the HUD movie, once per HUD movie and only once a widget of ours has been added or there is a
+// layout for the HUD's parts.
 class HookTask : public ITaskDelegate {
 public:
     void Run() override {
-        if (!Ours()) return;
+        if (!Ours() && !HasPartLayout()) return;
         BSFixedString name(MENU);
         IMenu *menu = *g_ui ? (*g_ui)->GetMenu(name) : nullptr;
         GFxValue root, flag(true);
@@ -342,6 +344,7 @@ void RegisterHudMenu(GFxMovieRoot *movie, GFxValue *plugin) {
     RegisterFunction<MessagesNative>(plugin, movie, "HudMessages");
     RegisterFunction<StatsNative>(plugin, movie, "HudStats");
     RegisterHudLayout(movie, plugin);
+    RegisterHudParts(movie, plugin);
 }
 
 void RegisterHud(VirtualMachine *vm) {

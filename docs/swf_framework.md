@@ -44,7 +44,7 @@ licensed way to build menus without starting from decompiled Bethesda files.
 | **Own menu** | Casino (Papyrus `UI.RegisterCustomMenu`), HUD color by the menu itself (spike 2b, played) | Registering from the DLL: not needed for color; only if a later menu needs it |
 | **Replace a vanilla movie** | Dialogue menu on our own movie (spike 3, played); its `mxmlc` build. Level-up: our own registered menu opened in place of `LevelUpMenu` from Papyrus, no vanilla file shipped ([open](fo4_level_up_plan.md#open), built) | Both played; if the moment of `LevelUpMenu` first shows, F3NV.dll swapping its constructor |
 | **Inject into a vanilla menu** | Pip-Boy (spike 4, played under vanilla); CND, lists and item-card API built | Any of it played; FallUI played; container and barter (still C++) |
-| **HUD widget** | `CRUI_Hud`: HUDFramework hosts the widgets when installed, else our host movie loaded into any HUD by `CleanroomUI.dll`; widget movies with HUDFramework's `processMessage`; the built-in stats line ([host](#hud-built)); our host's saved places and edit menu ([edit](#hud-edit)); built, not played | Played; [layouts](#hud-layout); the converter's Hardcore needs on it (still C++) |
+| **HUD widget** | `CRUI_Hud`: HUDFramework hosts the widgets when installed, else our host movie loaded into any HUD by `CleanroomUI.dll`; widget movies with HUDFramework's `processMessage`; the built-in stats line ([host](#hud-built)); our host's saved places and edit menu ([edit](#hud-edit)); DEF_HUD.xml layouts of the game's parts ([layouts](#hud-layout)); built, not played | Played; editing the parts in game, `flags`; the converter's Hardcore needs on it (still C++) |
 | **DLL side** | GFx helpers (`gfx.cpp`), Pip-Boy injection (`LoadOverlay`), natives the movies call (`HudColor`, `Log`, `PipboyCardLines`, `PipboyList`, `TextureExists`) | Injection by menu URL for other menus, settings INI to the movie, GFx log routing |
 | **Translations** ([translations](#translations)) | Files named after `FalloutHelpers.esl`, every language with English fallback, our fixed words as `$F3NV_` keys, the key check in preflight (spike 5, played) | The keys played; Papyrus key check; slot and per-language counts; a test language |
 | **Controller** ([controller](#controller)) | The casino and dialogue menu on `Input` and `HintBar` (built, not played) | Playing them with a pad; the Pip-Boy "more" button; roulette's board on a pad |
@@ -632,8 +632,8 @@ host asks `HudWidgets(version)` (null while the list is unchanged),
 split, so the Pip-Boy movie's lines were lost).
 
 Not built yet: the power armor HUD on our host ([saved places and the
-edit menu](#hud-edit) are built), the
-[layout module](#hud-layout), and the converter's Hardcore needs on
+edit menu](#hud-edit) and the [layout module](#hud-layout) are built), and
+the converter's Hardcore needs on
 `AddStats` in place of `hardcore.cpp`. **Play check:** a test widget and a
 stats line under vanilla, DEF_HUD and HUDFramework (registered once, moved
 in its editor, still there after a save loads); a message reaches the
@@ -674,31 +674,51 @@ stages line up, since the boxes map the host's fractions of its stage onto
 the menu's; a moved and scaled widget stays put after a save loads and a
 restart.
 
-### <a id="hud-layout"></a>HUD layouts (what DEF_HUD did)
+### <a id="hud-layout"></a>HUD layouts (what DEF_HUD did; reading built 2026-11-13, not played)
 
 DEF_HUD lets players move, rotate, resize, recolor and hide every part of
 the HUD, but it does so by replacing `HUDMenu.swf` (one copy per screen
 shape), so it fights every other HUD mod and needs a merged copy for
-HUDFramework ([DEF_UI](spin_offs.md#def-ui)). The same result needs no
-replaced movie:
-- **A layout module** in our injected HUD movie: once the HUD has loaded,
-  it finds each of the game's HUD parts by name and sets its position,
-  scale, rotation, color and visibility.
-- **Reads `DEF_HUD.xml`**, so players' existing layouts carry over. Per
-  element it holds `x`, `y`, `scaleX`, `scaleY`, `rotation`, `color`,
-  `color2`, `flags`, `parname` (the parent clip) and the defaults. What
-  `flags` and `color2` switch is to be worked out from the XML and the
-  game's HUD parts, not from DEF's movies (its permissions forbid reuse).
-- **One layout for every screen shape:** positions relative to the safe
-  area, instead of five copies.
-- **Edited in game:** a drag-to-edit mode, as HUDFramework has for widgets,
-  instead of DEF's outside programs.
-- **Kept applied:** re-applied when the game moves parts itself (power
-  armor, safe-area changes, HUD mode switches).
-- **Colors:** the engine tints HUD parts with the HUD color; whether our
-  color on a part survives that tint is a test to run first.
-- **Stands down** when DEF_HUD's own `HUDMenu.swf` is installed, since that
-  movie already applies the layout.
+HUDFramework ([DEF_UI](spin_offs.md#def-ui)). Our host does the same
+with no replaced movie (`dll/framework/parts.cpp`,
+`menus/hud/as3/PartLayout.as`, framework version 7):
+- **Reads `Data\Interface\DEF_CONF\DEF_HUD.xml`**, where DEF_HUD's editor
+  saves it, so players' layouts carry over. The DLL parses it
+  (`HudPartLayout`: the settings, and per part its fields under DEF's
+  names); our host loads for a layout even with no widget of ours.
+- **The format** (read from DEF_UI 1.6.0's default files, 27 parts): per
+  part, named by its clip, `x`, `y`, `scaleX`, `scaleY`, `rotation`,
+  `color`, `color2`, `flags`, `parname` and `defx`, `defy` (where the game
+  puts it); and `SafeX`, `SafeY`, `globalscaleX`, `globalscaleY`, `trunc`.
+  Every `parname` is one of the seven groups the vanilla `HUDMenu.swf`
+  pins to the safe area's corners and middles (`LockToSafeRect` in its
+  `onSetSafeRect`), and every part is a clip of that name in it. So the
+  positions are already relative to the safe area, and DEF's five screen
+  shapes ship the same file: **one layout serves every screen shape**.
+- **What is set:** a part's position when it differs from `defx`, `defy`;
+  a scale other than 1; a rotation other than the part's own; a color other
+  than white, as a tint multiplied over what is drawn. The values are
+  DEF's own, absolute in the group, so with DEF_HUD's own `HUDMenu.swf`
+  installed both set the same values and nothing needs to stand down.
+  Everything the file leaves at its default stays the game's.
+- **Kept applied:** again every 15 frames, for parts the game moved or
+  made again (power armor, HUD mode switches); a value already right is
+  left alone.
+- **Not applied yet, logged once:** `flags` (the readme: hiding pieces of
+  a part, such as the HP meter's tag; which bit is which piece is only in
+  DEF's movies, so it is to be worked out from the game's parts in play),
+  `color2`, `SafeX`/`SafeY` (the game's own safe area is kept),
+  `globalscaleX`/`globalscaleY`.
+- **Not built yet:** editing the parts in game (the [edit menu](#hud-edit)
+  for widgets, extended to the HUD's parts), saving a layout of our own,
+  and the FNV preset.
+
+**Play check:** with DEF's default file, nothing moves; a moved, scaled
+and rotated part (one per group) sits where DEF's own movie puts it, at
+16:9 and 21:9; it stays put through power armor and a save load; whether
+a color survives the engine's HUD tint; `ExplosiveIndicatorBase_mc`
+(rotation 180 in DEF's standalone default, 0 in its HUDFramework one):
+which is the game's own.
 
 Together with the widget host this covers both of the HUD's frameworks
 in one injected movie, with no `HUDMenu.swf` shipped by anyone.

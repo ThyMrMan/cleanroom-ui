@@ -22,12 +22,12 @@ def _source(path):
 
 def test_the_dll_loads_the_host_the_build_installs_only_for_a_widget_of_ours():
     """hud.cpp loads HOST (the movie the build installs under Interface) into the HUD's root, and its hook gives up
-    while no widget of ours (none HUDFramework hosts) has been added, so a game with no mod using our host loads
-    nothing; the host skips HUDFramework's widgets too."""
+    while no widget of ours (none HUDFramework hosts) has been added and there is no HUD layout, so a game with no
+    mod using our host loads nothing; the host skips HUDFramework's widgets too."""
     source = _source(HUD_CPP)
     assert 'Interface/' + re.search(r'HOST = "([^"]+)"', source).group(1) == MENU.movie
     hook = source[source.index('class HookTask'):source.index('void Hook()')]
-    assert hook.index('if (!Ours()) return;') < hook.index('LoadChild(movie, root, HOST)')
+    assert hook.index('if (!Ours() && !HasPartLayout()) return;') < hook.index('LoadChild(movie, root, HOST)')
     assert 'return w.host.empty();' in source and 'hud.cpp' in _source(REPO / 'dll' / 'build.bat')
     assert 'if (entry.host != "")' in _source(MENU.sources / f'{MENU.document}.as')
 
@@ -83,7 +83,8 @@ def test_the_movie_builds_the_same_twice(tmp_path):
     raw = menus.compile_movie(MENU, tmp_path / 'a.swf').read_bytes()
     assert raw == menus.compile_movie(MENU, tmp_path / 'b.swf').read_bytes() and raw[:3] == b'FWS'
     assert not {t.code for t in Swf.parse(raw).tags} & set(mxmlc.DATED)
-    for name in (b'CRUI_Hud', b'StatsLine', b'HudWidgets', b'HudMessages', b'HudStats', b'processMessage', b'crui'):
+    for name in (b'CRUI_Hud', b'StatsLine', b'PartLayout', b'HudWidgets', b'HudMessages', b'HudStats', b'HudPartLayout',
+                 b'processMessage', b'crui'):
         assert name in raw
 
 
@@ -124,3 +125,31 @@ def test_places_are_kept_for_every_save_and_only_for_our_host():
     assert 'LoadLayout();' in _source(HUD_CPP)
     done = layout[layout.index('class DoneNative'):layout.index('}  // namespace')]
     assert done.index('Save();') < done.index('kMessage_Close')
+
+
+def test_the_host_lays_out_the_hud_parts_from_def_hud_xml():
+    """parts.cpp reads DEF_HUD.xml from where DEF_HUD's editor saves it and hands it to the host (HudPartLayout),
+    which loads for a layout even with no widget of ours and lays out the parts through PartLayout, again every few
+    frames; a part is looked for only in the seven groups the game pins to the safe area."""
+    parts = _source(REPO / 'dll' / 'framework' / 'parts.cpp')
+    assert r'".\\Data\\Interface\\DEF_CONF\\DEF_HUD.xml"' in parts
+    assert re.findall(r'RegisterFunction<\w+>\(plugin, movie, "(\w+)"\);', parts) == ['HudPartLayout']
+    assert 'if (!Ours() && !HasPartLayout()) return;' in _source(HUD_CPP)
+    assert 'RegisterHudParts(movie, plugin);' in _source(HUD_CPP)
+    assert 'parts.cpp' in _source(REPO / 'dll' / 'build.bat')
+    host = _source(MENU.sources / f'{MENU.document}.as')
+    assert 'new PartLayout(dll.HudPartLayout != null ? dll.HudPartLayout() : null, log);' in host
+    assert host.count('parts.apply(hud);') == 2
+    layout = _source(MENU.sources / 'PartLayout.as')
+    groups = set(re.findall(r'(\w+_mc): true', layout))
+    assert groups == {'HUDNotificationsGroup_mc', 'TopCenterGroup_mc', 'TopRightGroup_mc', 'CenterGroup_mc',
+                      'LeftMeters_mc', 'BottomCenterGroup_mc', 'RightMeters_mc'}
+
+
+def test_only_what_the_layout_changes_is_set():
+    """A position is set only when it differs from the game's (defx, defy), a scale other than 1, a color other than
+    white; a value already right is left alone, so DEF_HUD's own movie and ours agree."""
+    layout = _source(MENU.sources / 'PartLayout.as')
+    assert 'Number(entry.x) != Number(entry.defx)' in layout and 'Number(entry.y) != Number(entry.defy)' in layout
+    assert 'Number(entry.scaleX) != 1' in layout and 'uint(entry.color) != 0xFFFFFF' in layout
+    assert 'Math.abs(Number(part[property]) - value) > 0.001' in layout

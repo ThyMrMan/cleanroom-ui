@@ -21,7 +21,8 @@ package
    // line, under the HUD part the widget names; hands each widget the messages sent to it (HudMessages) through
    // processMessage(command, params), HUDFramework's widget method, held until the widget has loaded; and redraws
    // the stats lines (HudStats). Each widget is moved and scaled by the place the player gave it in the edit menu,
-   // and where its mod puts it is reported for that menu (HudReport). It takes no input.
+   // and where its mod puts it is reported for that menu (HudReport). With a DEF_HUD.xml layout (HudPartLayout) it
+   // also lays out the game's own HUD parts (PartLayout), again every few frames. It takes no input.
    // See docs/swf_framework.md#hud
    public class CRUI_Hud extends MovieClip
    {
@@ -40,6 +41,8 @@ package
       private var widgets:Object = {};
       private var seen:Object = {};
       private var frames:int = 0;
+      // The game's HUD parts' layout (none until the DLL is found).
+      private var parts:PartLayout;
 
       public function CRUI_Hud()
       {
@@ -66,13 +69,23 @@ package
          addEventListener(Event.ENTER_FRAME, onFrame);
       }
 
-      // Each frame: the widget list when it changed, the messages sent since, and the stats lines.
+      // Each frame: the widget list when it changed, the messages sent since, and the stats lines; the HUD parts'
+      // layout on the first frame and every few after.
       private function onFrame(e:Event) : void
       {
          var dll:Object = bridge.natives(DLL);
          if (dll == null)
          {
             return;
+         }
+         if (parts == null)
+         {
+            parts = new PartLayout(dll.HudPartLayout != null ? dll.HudPartLayout() : null, log);
+            parts.apply(hud);
+         }
+         else if (frames % REPLACE_FRAMES == 0)
+         {
+            parts.apply(hud);
          }
          var list:Object = dll.HudWidgets(version);
          if (list != null)
