@@ -100,6 +100,46 @@ def test_an_added_perk_is_described_and_tested_by_the_game():
     assert 'public static const GAME:int = 4;' in CHARACTER and '"$F3NV_LU_OWN_TEST"' in CHARACTER
 
 
+HOLDER = (PAPYRUS / 'F3NV_LevelUpHolder.psc').read_text(encoding='utf-8')
+
+
+def test_the_api_opens_each_menu_through_the_holder():
+    """OpenLevelUpMenu, OpenTagMenu and OpenTraitMenu announce the host, then call the holder's opener, whose own
+    version shows our menu in the matching mode."""
+    for api, opener, mode in (('OpenLevelUpMenu', 'OpenLevelUp()', 'LevelUpMode'), ('OpenTagMenu', 'OpenTags(aiTags)',
+                              'TagsMode'), ('OpenTraitMenu', 'OpenTraits(aiTraits)', 'TraitsMode')):
+        body = _function(SCRIPT, api)
+        assert body.index('Announce()') < body.index(f'Holder().{opener}'), api
+        assert f'Running().Show(Running().{mode},' in _function(HOLDER, opener.split('(')[0])
+
+
+def test_every_holder_call_is_a_holder_function():
+    """Each function the host calls on the holder is one the holder defines, so a holder of another mod's overrides
+    exactly these."""
+    called = set(re.findall(r'(?:Holder\(\)|holder)\.(\w+)\(', SCRIPT))
+    defined = set(re.findall(r'^\S*\s*Function (\w+)\(', HOLDER, re.M))
+    assert called == {'Hold', 'IsTagged', 'IsSuggested', 'Tag', 'Untag', 'OpenLevelUp', 'OpenTags', 'OpenTraits',
+                      'Running'}
+    assert called <= defined, called - defined
+
+
+def test_tags_go_through_the_holder_and_send_the_hosts_events():
+    """Tag and Untag change the holder's tags and send SkillTagged and SkillUntagged; the tag menu's picks use them."""
+    for name, event in (('Tag', 'SkillTagged'), ('Untag', 'SkillUntagged')):
+        body = _function(SCRIPT, name)
+        assert f'Holder().{name}(akSkill)' in body and f'SendCustomEvent("{event}"' in body
+        assert f'CustomEvent {event}' in SCRIPT
+    picks = _function(SCRIPT, 'OnMenuTags')
+    assert '      Tag(skill)' in picks and '      Untag(skill)' in picks
+
+
+def test_show_gathers_while_menus_close_then_opens():
+    """Show prepares first, waits out every menu (ours, the Pip-Boy) without a settle, then opens."""
+    show = _function(SCRIPT, 'Show')
+    assert show.index('Prepare(') < show.index('While Utility.IsInMenuMode()') < show.index('Open(aiMode')
+    assert 'Utility.Wait(' not in show
+
+
 def test_level_up_menu_ex_is_never_named():
     """Neither script compiles against LevelUpMenuEx."""
     assert 'PRKF:' not in SCRIPT and 'PRKF:' not in TABLE

@@ -3,7 +3,7 @@ ScriptName F3NV_LevelUpTable extends Quest Const
 descriptions and images SEP between, levels, rank chains) and its perks' requirement rows. The game's is on the
 character rules quest beside F3NV_LevelUp; a DLC's on a start-game quest of its own, which adds itself to Tables as it
 starts, so plugins stack in any load order. F3NV_LevelUp joins every table each time the menu opens.
-See docs/fork/fo4_level_up_plan.md#tables}
+See docs/level_up_plan.md#tables}
 
 FormList Property Tables Auto Const
 {The game's registry of every plugin's table (FNV_LevelUpTables).}

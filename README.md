@@ -30,13 +30,10 @@ writes a mod folder: `Interface/` (movies), `Scripts/` (Papyrus), `F4SE/Plugins/
 The game's `Base.zip` is unpacked into `out/cache/` when the Creation Kit
 hasn't unpacked it yet.
 
-**Known gap:** `F3NV_LevelUp.psc` still reads the converter's
-`F3NV_CharacterRules` (its menu openers) and `F3NV_CharacterEvents` (the
-tagged skills, and the holder `Get()` finds it through in `FalloutHelpers.esl`).
-Until the generic API below, it compiles only with the converter's scripts
-added: `--imports <fo3fnv-in-fo4>/script_convert/static_scripts/fallout4`
-(plus a `TES4Polyfill` stub). The other nine scripts, all three movies and
-the DLL build here alone.
+Every script, movie and the DLL builds here alone. The level-up host's
+partner, `F3NV_LevelUpHolder`, keeps the tagged skills, is where `Get()`
+finds the host, and decides what opening each menu does; a mod with rules of
+its own extends it ([holder](docs/level_up_plan.md#holder)).
 
 ## What's here
 
@@ -47,7 +44,7 @@ the DLL build here alone.
 | `menus/level_up/` | The level-up, tag-skill and trait menu (`Interface/F3NV_LevelUp.swf`) |
 | `menus/pipboy/` | The Pip-Boy overlay F3NV.dll loads (`Interface/F3NV_Pipboy.swf`): item-card lines, the list panel |
 | `menus/dialogue/` | The dialogue menu (`Interface/DialogueMenu.swf`) |
-| `papyrus/` | The level-up host and its per-plugin tables (`F3NV_LevelUp`, `F3NV_LevelUpTable`), `F3NV_Array`, and the scripts declaring the DLL's natives (`F3NV_Condition`, `F3NV_ItemCard`, `F3NV_Pipboy`, `F3NV_PipboyAmmo`, `F3NV_Sex`, `F3NV_Damage`, `F3NV_HardcoreNative`) |
+| `papyrus/` | The level-up host, its holder and its per-plugin tables (`F3NV_LevelUp`, `F3NV_LevelUpHolder`, `F3NV_LevelUpTable`), `F3NV_Array`, and the scripts declaring the DLL's natives (`F3NV_Condition`, `F3NV_ItemCard`, `F3NV_Pipboy`, `F3NV_PipboyAmmo`, `F3NV_Sex`, `F3NV_Damage`, `F3NV_HardcoreNative`) |
 | `dll/f3nv/` | F3NV.dll as it is today: GFx helpers, Pip-Boy overlay, tabs, card lines, ammo list, condition API, dialogue menu, plus the FNV-only rules |
 | `docs/` | The framework, level-up and spin-off plans, as written for the converter |
 | `tests/` | Contract tests between movies, scripts and the DLL, and the reproducible builds |
@@ -58,11 +55,11 @@ Pip-Boy tab quests, the dialogue links writer and test mod, and the casino.
 
 ## Next
 
-1. **Generic level-up host.** Move the tagged skills and the `Get()` holder
-   into the framework, and let the menu openers be any mod's (an event or a
-   registered opener) instead of `F3NV_CharacterRules`. Then
-   `F3NV_LevelUp` compiles here alone. Saves matter: the converter's tags
-   live on `F3NV_CharacterEvents` today.
+1. **Level-up host, the rest.** The converter adopts the holder
+   ([its change](docs/level_up_plan.md#holder-converter)); our own plugin
+   with the holder quest `Get()` reads, in place of `FalloutHelpers.esl`
+   `0x901`; skills of other mods; an MCM page for the host's own options
+   (`SkillCap`, `ShowAllPerks`).
 2. **Rename** `f3ui` → `crui`, `F3NV_` → `CRUI_`, and the `$F3NV_`/`$F3UI_`
    translation keys. The converter keeps thin `F3NV_*` wrappers until its
    scripts are regenerated, so saves keep working.
