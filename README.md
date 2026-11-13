@@ -93,7 +93,8 @@ weight, weapons' spawn condition, no combat sprint).
    HUDFramework as host when installed, and our own
    [saved places and edit menu](docs/swf_framework.md#hud-edit), and the
    [layout module](docs/swf_framework.md#hud-layout) reading `DEF_HUD.xml`,
-   built, not played): editing the HUD's parts in game, then an FNV layout
+   with the HUD's parts moved and scaled in the edit menu too, built, not
+   played): hiding and recoloring parts in game, then an FNV layout
    preset with FNV-style widgets drawn by our own code.
 5. **An example menu** for authors, and the API in this README.
 6. **CI** that fetches the Flex SDK and builds the movies; release assets.

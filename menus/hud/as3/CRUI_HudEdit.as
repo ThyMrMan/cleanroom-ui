@@ -19,7 +19,8 @@ package
    // HudLayout, from the host's reports, so the boxes are right while the HUD is paused under the menu). Drag a box to
    // move its widget (HudMove), turn the wheel over it to scale it (HudScale), press the reset key (R, a setting read
    // through HudKeys) to put the one under the cursor back where its mod puts it (HudReset); Esc or Tab saves the layout and closes (HudEditDone). Mouse and keyboard
-   // only. Widgets HUDFramework hosts are not here: its own editor places them.
+   // only. The game's own HUD parts are here too, named by their clips. Widgets HUDFramework hosts are not here: its
+   // own editor places them.
    // See docs/swf_framework.md#hud-edit
    public class CRUI_HudEdit extends MovieClip
    {
@@ -110,13 +111,24 @@ package
                names.push(made);
             }
             var label:TextField = TextField(names[i]);
-            if (label.text != layout[i].name)
+            if (label.text != shown(String(layout[i].name)))
             {
-               Text.show(label, String(layout[i].name));
+               Text.show(label, shown(String(layout[i].name)));
             }
             label.x = box.x;
             label.y = box.y - label.height;
          }
+      }
+
+      // How a name shows on its box: a HUD part ("part:HPMeter_mc") by its clip's name alone ("HPMeter").
+      private static function shown(name:String) : String
+      {
+         if (name.indexOf("part:") == 0)
+         {
+            name = name.substr(5);
+            return name.lastIndexOf("_mc") == name.length - 3 ? name.substr(0, name.length - 3) : name;
+         }
+         return name;
       }
 
       // Entry `entry`'s box on this stage (at least SMALLEST on a side, so an empty widget can still be caught).

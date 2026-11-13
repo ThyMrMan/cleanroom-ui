@@ -15,14 +15,15 @@ package
    import flash.system.LoaderContext;
    import flash.utils.getTimer;
 
-   // Our HUD host. CleanroomUI.dll loads it into the HUD movie (hud.cpp) once a mod adds a widget through CRUI_Hud,
-   // under any HUDMenu.swf. Each frame it asks CleanroomUI.dll for the widget list when it changed (HudWidgets) and
+   // Our HUD host. CleanroomUI.dll loads it into the HUD movie (hud.cpp) each time the HUD loads, under any
+   // HUDMenu.swf. Each frame it asks CleanroomUI.dll for the widget list when it changed (HudWidgets) and
    // loads each widget's movie (into the HUD's own class domain, as HUDFramework loads its widgets) or makes a stats
    // line, under the HUD part the widget names; hands each widget the messages sent to it (HudMessages) through
    // processMessage(command, params), HUDFramework's widget method, held until the widget has loaded; and redraws
    // the stats lines (HudStats). Each widget is moved and scaled by the place the player gave it in the edit menu,
-   // and where its mod puts it is reported for that menu (HudReport). With a DEF_HUD.xml layout (HudPartLayout) it
-   // also lays out the game's own HUD parts (PartLayout), again every few frames. It takes no input.
+   // and where its mod puts it is reported for that menu (HudReport). The game's own HUD parts are laid out from
+   // DEF_HUD.xml (HudPartLayout) and placed and reported the same way (PartLayout), again every few frames and as a
+   // place changes. It takes no input.
    // See docs/swf_framework.md#hud
    public class CRUI_Hud extends MovieClip
    {
@@ -69,8 +70,8 @@ package
          addEventListener(Event.ENTER_FRAME, onFrame);
       }
 
-      // Each frame: the widget list when it changed, the messages sent since, and the stats lines; the HUD parts'
-      // layout on the first frame and every few after.
+      // Each frame: the widget list when it changed (a place changing changes it), the messages sent since, and the
+      // stats lines; the HUD parts on the first frame, as the list changes and every few frames after.
       private function onFrame(e:Event) : void
       {
          var dll:Object = bridge.natives(DLL);
@@ -81,13 +82,12 @@ package
          if (parts == null)
          {
             parts = new PartLayout(dll.HudPartLayout != null ? dll.HudPartLayout() : null, log);
-            parts.apply(hud);
-         }
-         else if (frames % REPLACE_FRAMES == 0)
-         {
-            parts.apply(hud);
          }
          var list:Object = dll.HudWidgets(version);
+         if (list != null || frames % REPLACE_FRAMES == 0)
+         {
+            parts.place(hud, dll, stage);
+         }
          if (list != null)
          {
             sync(dll, list);

@@ -4,11 +4,11 @@
 // processMessage(command, params)) or our built-in stats line (labeled actor values with dim, warning and flashing
 // steps). CRUI_Hud (Papyrus) picks the host and tells us (CRUI_HudNative): HUDFramework when it is installed, which
 // then loads the widget movies, and our stats widget (Interface/CRUI_HudStats.swf) for the stats lines; else ours.
-// Once a widget of ours is added, and again each time the HUD movie loads, this file loads our host movie
-// (Interface/CRUI_Hud.swf) into whatever HUD movie is installed; with a DEF_HUD.xml layout it loads it too, to lay
-// out the game's own HUD parts (parts.cpp). Each frame the host and the stats widget ask for the
-// widget list (HudWidgets, only when it changed), the host for the messages sent since (HudMessages), and both for
-// each stats line's values (HudStats). With no widget of ours and no layout, our host is not loaded. Widgets, stats and messages
+// Each time the HUD movie loads, this file loads our host movie (Interface/CRUI_Hud.swf) into whatever HUD movie is
+// installed, with or without widgets of ours: it also lays out and places the game's own HUD parts (parts.cpp,
+// layout.cpp), and the edit menu needs them measured before it opens, since the HUD may not run under it. Each
+// frame the host and the stats widget ask for the widget list (HudWidgets, only when it changed), the host for the
+// messages sent since (HudMessages), and both for each stats line's values (HudStats). Widgets, stats and messages
 // are forgotten as a save loads or a new game starts; each mod adds its own on every load.
 #include "condition.h"
 
@@ -71,12 +71,6 @@ std::vector<std::string> Strings(VMArray<BSFixedString> &array) {
     return out;
 }
 
-// Whether a widget is ours to host (none of HUDFramework's).
-bool Ours() {
-    std::lock_guard<std::mutex> hold(g_lock);
-    return std::any_of(g_widgets.begin(), g_widgets.end(), [](const Widget &w) { return w.host.empty(); });
-}
-
 // The widget named `name`, or null (held under g_lock).
 const Widget *Find(const std::string &name) {
     auto at = std::find_if(g_widgets.begin(), g_widgets.end(), [&](const Widget &w) { return w.name == name; });
@@ -96,12 +90,10 @@ void HudChanged() {
 
 namespace {
 
-// Load our host into the HUD movie, once per HUD movie and only once a widget of ours has been added or there is a
-// layout for the HUD's parts.
+// Load our host into the HUD movie, once per HUD movie.
 class HookTask : public ITaskDelegate {
 public:
     void Run() override {
-        if (!Ours() && !HasPartLayout()) return;
         BSFixedString name(MENU);
         IMenu *menu = *g_ui ? (*g_ui)->GetMenu(name) : nullptr;
         GFxValue root, flag(true);

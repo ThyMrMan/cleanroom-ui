@@ -105,11 +105,6 @@ public:
 
 }  // namespace
 
-bool HasPartLayout() {
-    std::ifstream in(FILE_PATH, std::ios::binary);
-    return bool(in);
-}
-
 void RegisterHudParts(GFxMovieRoot *movie, GFxValue *plugin) {
     RegisterFunction<PartLayoutNative>(plugin, movie, "HudPartLayout");
 }

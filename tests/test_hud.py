@@ -20,15 +20,16 @@ def _source(path):
     return path.read_text(encoding='utf-8')
 
 
-def test_the_dll_loads_the_host_the_build_installs_only_for_a_widget_of_ours():
-    """hud.cpp loads HOST (the movie the build installs under Interface) into the HUD's root, and its hook gives up
-    while no widget of ours (none HUDFramework hosts) has been added and there is no HUD layout, so a game with no
-    mod using our host loads nothing; the host skips HUDFramework's widgets too."""
+def test_the_dll_loads_the_host_the_build_installs_into_every_hud():
+    """hud.cpp loads HOST (the movie the build installs under Interface) into the HUD's root once per HUD movie, with
+    or without widgets of ours (it also places the game's own parts, which the edit menu needs measured before it
+    opens); the host skips HUDFramework's widgets."""
     source = _source(HUD_CPP)
     assert 'Interface/' + re.search(r'HOST = "([^"]+)"', source).group(1) == MENU.movie
     hook = source[source.index('class HookTask'):source.index('void Hook()')]
-    assert hook.index('if (!Ours() && !HasPartLayout()) return;') < hook.index('LoadChild(movie, root, HOST)')
-    assert 'return w.host.empty();' in source and 'hud.cpp' in _source(REPO / 'dll' / 'build.bat')
+    assert hook.index('if (root.HasMember(HOOKED)) return;') < hook.index('LoadChild(movie, root, HOST)')
+    assert 'Ours()' not in hook and 'HasPartLayout' not in source
+    assert 'hud.cpp' in _source(REPO / 'dll' / 'build.bat')
     assert 'if (entry.host != "")' in _source(MENU.sources / f'{MENU.document}.as')
 
 
@@ -104,12 +105,15 @@ def test_the_edit_menu_and_host_use_every_layout_native():
     name; the build compiles layout.cpp and HudWidgets hands each widget its place."""
     layout = _source(REPO / 'dll' / 'framework' / 'layout.cpp')
     natives = re.findall(r'RegisterFunction<\w+>\(plugin, movie, "(\w+)"\);', layout)
-    assert sorted(natives) == ['HudEditDone', 'HudLayout', 'HudMove', 'HudReport', 'HudReset', 'HudScale']
+    assert sorted(natives) == ['HudEditDone', 'HudLayout', 'HudMove', 'HudPlaceOf', 'HudReport', 'HudReset',
+                               'HudScale']
     host = _source(MENU.sources / f'{MENU.document}.as')
+    parts = _source(MENU.sources / 'PartLayout.as')
     edit_menu = menus.BY_NAME['hud_edit']
     edit = _source(edit_menu.sources / f'{edit_menu.document}.as')
     assert 'dll.HudReport(' in host and 'view.scaleX = view.scaleY = Number(at.scale);' in host
-    assert all(f'dll.{name}(' in edit for name in natives if name != 'HudReport')
+    assert 'dll.HudReport(name,' in parts and 'dll.HudPlaceOf(name)' in parts
+    assert all(f'dll.{name}(' in edit for name in natives if name not in ('HudReport', 'HudPlaceOf'))
     menu = edit_menu.movie.removeprefix('Interface/').removesuffix('.swf')
     assert f'String menu = "{menu}"' in _source(REPO / 'papyrus' / 'CRUI_Hud.psc')
     assert f'EDIT_MENU = "{menu}"' in layout and 'layout.cpp' in _source(REPO / 'dll' / 'build.bat')
@@ -118,10 +122,14 @@ def test_the_edit_menu_and_host_use_every_layout_native():
 
 def test_places_are_kept_for_every_save_and_only_for_our_host():
     """Places live in a file under Documents (read once as the game loads, written when the edit menu is done), not
-    in a save; HudLayout lists only widgets on our host."""
+    in a save; HudLayout lists only widgets on our host and the HUD's own parts, whose places the host keeps under
+    the same prefix the DLL lists."""
     layout = _source(REPO / 'dll' / 'framework' / 'layout.cpp')
     assert 'CleanroomUI_Hud.txt' in layout and 'CSIDL_MYDOCUMENTS' in layout
-    assert 'if (!OurWidget(name)) continue;' in layout
+    assert 'if (!OurWidget(name) && name.rfind(PART, 0) != 0) continue;' in layout
+    prefix = re.search(r'PART = "([^"]+)"', layout).group(1)
+    assert f'PREFIX:String = "{prefix}"' in _source(MENU.sources / 'PartLayout.as')
+    assert f'name.indexOf("{prefix}") == 0' in _source(menus.BY_NAME['hud_edit'].sources / 'CRUI_HudEdit.as')
     assert 'LoadLayout();' in _source(HUD_CPP)
     done = layout[layout.index('class DoneNative'):layout.index('}  // namespace')]
     assert done.index('Save();') < done.index('kMessage_Close')
@@ -129,27 +137,30 @@ def test_places_are_kept_for_every_save_and_only_for_our_host():
 
 def test_the_host_lays_out_the_hud_parts_from_def_hud_xml():
     """parts.cpp reads DEF_HUD.xml from where DEF_HUD's editor saves it and hands it to the host (HudPartLayout),
-    which loads for a layout even with no widget of ours and lays out the parts through PartLayout, again every few
-    frames; a part is looked for only in the seven groups the game pins to the safe area."""
+    which lays out and places the parts through PartLayout on its first frame, as a place changes and every few
+    frames; the parts are the vanilla HUD's, in the seven groups the game pins to the safe area."""
     parts = _source(REPO / 'dll' / 'framework' / 'parts.cpp')
     assert r'".\\Data\\Interface\\DEF_CONF\\DEF_HUD.xml"' in parts
     assert re.findall(r'RegisterFunction<\w+>\(plugin, movie, "(\w+)"\);', parts) == ['HudPartLayout']
-    assert 'if (!Ours() && !HasPartLayout()) return;' in _source(HUD_CPP)
     assert 'RegisterHudParts(movie, plugin);' in _source(HUD_CPP)
     assert 'parts.cpp' in _source(REPO / 'dll' / 'build.bat')
     host = _source(MENU.sources / f'{MENU.document}.as')
     assert 'new PartLayout(dll.HudPartLayout != null ? dll.HudPartLayout() : null, log);' in host
-    assert host.count('parts.apply(hud);') == 2
+    assert 'if (list != null || frames % REPLACE_FRAMES == 0)' in host and 'parts.place(hud, dll, stage);' in host
     layout = _source(MENU.sources / 'PartLayout.as')
-    groups = set(re.findall(r'(\w+_mc): true', layout))
+    table = layout[layout.index('GROUPS:Object = {'):layout.index('};', layout.index('GROUPS:Object = {'))]
+    groups = set(re.findall(r'(\w+_mc): \[', table))
+    assert len(re.findall(r'"\w+_mc"', table)) == 27
     assert groups == {'HUDNotificationsGroup_mc', 'TopCenterGroup_mc', 'TopRightGroup_mc', 'CenterGroup_mc',
                       'LeftMeters_mc', 'BottomCenterGroup_mc', 'RightMeters_mc'}
 
 
 def test_only_what_the_layout_changes_is_set():
     """A position is set only when it differs from the game's (defx, defy), a scale other than 1, a color other than
-    white; a value already right is left alone, so DEF_HUD's own movie and ours agree."""
+    white; a value already right is left alone, so DEF_HUD's own movie and ours agree; a part the game moved since
+    takes that as its new base."""
     layout = _source(MENU.sources / 'PartLayout.as')
     assert 'Number(entry.x) != Number(entry.defx)' in layout and 'Number(entry.y) != Number(entry.defy)' in layout
     assert 'Number(entry.scaleX) != 1' in layout and 'uint(entry.color) != 0xFFFFFF' in layout
-    assert 'Math.abs(Number(part[property]) - value) > 0.001' in layout
+    assert 'if (!near(Number(view[property]), Number(at[property])))' in layout
+    assert 'part.base = {x: view.x, y: view.y, scaleX: view.scaleX, scaleY: view.scaleY};' in layout

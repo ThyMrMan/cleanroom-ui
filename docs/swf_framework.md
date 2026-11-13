@@ -44,7 +44,7 @@ licensed way to build menus without starting from decompiled Bethesda files.
 | **Own menu** | Casino (Papyrus `UI.RegisterCustomMenu`), HUD color by the menu itself (spike 2b, played) | Registering from the DLL: not needed for color; only if a later menu needs it |
 | **Replace a vanilla movie** | Dialogue menu on our own movie (spike 3, played); its `mxmlc` build. Level-up: our own registered menu opened in place of `LevelUpMenu` from Papyrus, no vanilla file shipped ([open](fo4_level_up_plan.md#open), built) | Both played; if the moment of `LevelUpMenu` first shows, F3NV.dll swapping its constructor |
 | **Inject into a vanilla menu** | Pip-Boy (spike 4, played under vanilla); CND, lists and item-card API built | Any of it played; FallUI played; container and barter (still C++) |
-| **HUD widget** | `CRUI_Hud`: HUDFramework hosts the widgets when installed, else our host movie loaded into any HUD by `CleanroomUI.dll`; widget movies with HUDFramework's `processMessage`; the built-in stats line ([host](#hud-built)); our host's saved places and edit menu ([edit](#hud-edit)); DEF_HUD.xml layouts of the game's parts ([layouts](#hud-layout)); built, not played | Played; editing the parts in game, `flags`; the converter's Hardcore needs on it (still C++) |
+| **HUD widget** | `CRUI_Hud`: HUDFramework hosts the widgets when installed, else our host movie loaded into any HUD by `CleanroomUI.dll`; widget movies with HUDFramework's `processMessage`; the built-in stats line ([host](#hud-built)); our host's saved places and edit menu ([edit](#hud-edit)); DEF_HUD.xml layouts of the game's parts ([layouts](#hud-layout)), moved and scaled in the edit menu too; built, not played | Played; hiding and recoloring parts in game, `flags`; the converter's Hardcore needs on it (still C++) |
 | **DLL side** | GFx helpers (`gfx.cpp`), Pip-Boy injection (`LoadOverlay`), natives the movies call (`HudColor`, `Log`, `PipboyCardLines`, `PipboyList`, `TextureExists`) | Injection by menu URL for other menus, settings INI to the movie, GFx log routing |
 | **Translations** ([translations](#translations)) | Files named after `FalloutHelpers.esl`, every language with English fallback, our fixed words as `$F3NV_` keys, the key check in preflight (spike 5, played) | The keys played; Papyrus key check; slot and per-language counts; a test language |
 | **Controller** ([controller](#controller)) | The casino and dialogue menu on `Input` and `HintBar` (built, not played) | Playing them with a pad; the Pip-Boy "more" button; roulette's board on a pad |
@@ -615,13 +615,13 @@ stats widget `CRUI_HudStats.swf`.
 - Every stats line is drawn by our one stats widget, registered with it,
   one line under another: the player moves all of them together.
 - `RemoveWidget` unloads and unregisters a widget there too.
-- Our host movie is loaded only while some widget is ours, so with every
-  widget on HUDFramework nothing of ours joins the HUD but the stats widget.
+- Our host movie still loads, with no widget of its own: it places the
+  game's own HUD parts ([edit](#hud-edit), [layouts](#hud-layout)).
 
 Without it, our host: `CleanroomUI.dll` loads `CRUI_Hud.swf` into whatever
 `HUDMenu.swf` is installed (vanilla, DEF_HUD's) with a `Loader`, as the
-Pip-Boy overlay does, once a widget of ours is added and again whenever the
-HUD movie loads. A widget there joins its HUD part (`anchor`: clip names
+Pip-Boy overlay does, each time the HUD movie loads (until 2026-11-13 only
+once a widget of ours was added; the HUD's own parts need it now). A widget there joins its HUD part (`anchor`: clip names
 from the HUD's root, dotted, e.g. `LeftMeters_mc`), so it moves, hides and
 fades with it, at `x`, `y` from that part's top-left as measured before the
 widget joined; `""` puts it on the HUD itself. Messages reach it on the
@@ -642,8 +642,9 @@ it in menus and power armor.
 
 ### <a id="hud-edit"></a>Saved places and the edit menu (built 2026-11-12, not played)
 
-For players without HUDFramework, our host keeps a place per widget
-(`dll/framework/layout.cpp`, framework version 5):
+Our host keeps a place per widget of ours (players without HUDFramework)
+and, since 2026-11-13, per part of the game's own HUD
+(`dll/framework/layout.cpp`, framework version 5; the parts 8):
 - **A place** is an offset from where the widget's mod puts it, in
   fractions of the screen, and a scale (a quarter to four times). Places are
   kept by widget name in `Documents\My Games\Fallout4\F4SE\CleanroomUI_Hud.txt`
@@ -665,14 +666,27 @@ For players without HUDFramework, our host keeps a place per widget
   it back (`HudReset`); Esc or Tab saves and closes (`HudEditDone`, which
   closes the menu through the game's UI messages). Its words are
   `$CRUI_HUD_EDIT_HINT` and `$CRUI_HUD_EDIT_NONE`.
+- **The game's own HUD parts** are in it too (the 27 DEF_HUD lays out, named
+  by their clips, saved as `part:HPMeter_mc` and so on). The host's
+  `PartLayout` takes a part's base from where the game put it, with
+  DEF_HUD.xml's changes over it ([layouts](#hud-layout)); it reports that
+  base (`HudReport`) and moves and scales the part by its place
+  (`HudPlaceOf`), again every 15 frames and as a place changes. A part the
+  game moved itself since takes that as its new base, so the player's
+  offset follows it. R puts a part back to the game's (or DEF's) place.
+  For this the host now loads into every HUD, with or without widgets: the
+  edit menu needs the parts measured before it opens.
 - Widgets HUDFramework hosts are not in it: its own editor places them.
 
-Not built yet: opacity, a gamepad in the edit menu, a key to open it
+Not built yet: hiding a part or its pieces, rotating and recoloring in the
+menu (DEF_HUD.xml's still apply), opacity, a gamepad in the edit menu, a key to open it
 without an MCM. **Play check:** whether the HUD's widgets show behind the
 menu (the boxes don't depend on it); whether the HUD's and the menu's
 stages line up, since the boxes map the host's fractions of its stage onto
 the menu's; a moved and scaled widget stays put after a save loads and a
-restart.
+restart; a moved HUD part follows the game when it moves the part (power
+armor, the enemy health meter, the crosshair in third person), and a part
+that is hidden (no enemy, no explosives) still gets a box to place it.
 
 ### <a id="hud-layout"></a>HUD layouts (what DEF_HUD did; reading built 2026-11-13, not played)
 
@@ -685,7 +699,7 @@ with no replaced movie (`dll/framework/parts.cpp`,
 - **Reads `Data\Interface\DEF_CONF\DEF_HUD.xml`**, where DEF_HUD's editor
   saves it, so players' layouts carry over. The DLL parses it
   (`HudPartLayout`: the settings, and per part its fields under DEF's
-  names); our host loads for a layout even with no widget of ours.
+  names); our host loads with every HUD.
 - **The format** (read from DEF_UI 1.6.0's default files, 27 parts): per
   part, named by its clip, `x`, `y`, `scaleX`, `scaleY`, `rotation`,
   `color`, `color2`, `flags`, `parname` and `defx`, `defy` (where the game
@@ -709,9 +723,11 @@ with no replaced movie (`dll/framework/parts.cpp`,
   DEF's movies, so it is to be worked out from the game's parts in play),
   `color2`, `SafeX`/`SafeY` (the game's own safe area is kept),
   `globalscaleX`/`globalscaleY`.
-- **Not built yet:** editing the parts in game (the [edit menu](#hud-edit)
-  for widgets, extended to the HUD's parts), saving a layout of our own,
-  and the FNV preset.
+- **Edited in game** in the [edit menu](#hud-edit): moves and scales a
+  part from where the game and the file put it, saved in our own layout
+  file; DEF_HUD.xml itself is never written.
+- **Not built yet:** hiding parts and recoloring in game, and the FNV
+  preset.
 
 **Play check:** with DEF's default file, nothing moves; a moved, scaled
 and rotated part (one per group) sits where DEF's own movie puts it, at

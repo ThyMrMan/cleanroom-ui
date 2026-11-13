@@ -1,7 +1,8 @@
 // Our HUD host's saved layout and its edit menu (docs/swf_framework.md#hud-edit).
 //
-// Each widget on our host (not HUDFramework's) may have a place the player gave it: an offset from where its mod put
-// it, in fractions of the screen, and a scale. Places are kept by widget name in
+// Each widget on our host (not HUDFramework's), and each of the game's own HUD parts (named "part:" and its clip,
+// placed by the host's PartLayout from where the game and DEF_HUD.xml put it), may have a place the player gave it:
+// an offset from where it would be, in fractions of the screen, and a scale. Places are kept by widget name in
 // Documents\My Games\Fallout4\F4SE\CleanroomUI_Hud.txt, for every save, read once as the game loads. The host
 // (CRUI_Hud.swf) reports each widget's unmoved origin and bounds (HudReport) and applies its place (HudWidgets'
 // entries carry it). The edit menu (CRUI_HudEdit.swf, opened by CRUI_Hud.EditLayout) draws a box per widget where its
@@ -27,6 +28,7 @@ namespace crui {
 namespace {
 
 const char *EDIT_MENU = "CRUI_HudEdit", *FILE_NAME = "\\My Games\\Fallout4\\F4SE\\CleanroomUI_Hud.txt";
+const char *PART = "part:";
 const float MIN_SCALE = 0.25f, MAX_SCALE = 4.0f;
 
 // Where the host found a widget before moving it, in fractions of the HUD's stage: its origin and its bounds.
@@ -68,8 +70,8 @@ public:
     }
 };
 
-// HudLayout(): our widgets the host has reported, where their places put them, [{name, left, top, width, height}]
-// in fractions of the screen.
+// HudLayout(): our widgets and the HUD's parts the host has reported, where their places put them,
+// [{name, left, top, width, height}] in fractions of the screen.
 class LayoutNative : public GFxFunctionHandler {
 public:
     void Invoke(Args *args) override {
@@ -77,7 +79,7 @@ public:
         std::lock_guard<std::mutex> hold(g_lock);
         movie->CreateArray(args->result);
         for (const auto &[name, rect] : g_rects) {
-            if (!OurWidget(name)) continue;
+            if (!OurWidget(name) && name.rfind(PART, 0) != 0) continue;
             HudPlace place = PlaceOf(name);
             GFxValue entry, text, left(rect.ox + place.dx + (rect.left - rect.ox) * place.scale),
                 top(rect.oy + place.dy + (rect.top - rect.oy) * place.scale), width(rect.width * place.scale),
@@ -91,6 +93,24 @@ public:
             entry.SetMember("height", &height);
             args->result->PushBack(&entry);
         }
+    }
+};
+
+// HudPlaceOf(name): the place the player gave `name`, {dx, dy, scale}, or null for none.
+class PlaceOfNative : public GFxFunctionHandler {
+public:
+    void Invoke(Args *args) override {
+        std::lock_guard<std::mutex> hold(g_lock);
+        auto it = g_places.find(Arg(args, 0));
+        if (it == g_places.end()) {
+            args->result->SetNull();
+            return;
+        }
+        GFxValue dx(double(it->second.dx)), dy(double(it->second.dy)), scale(double(it->second.scale));
+        args->movie->movieRoot->CreateObject(args->result);
+        args->result->SetMember("dx", &dx);
+        args->result->SetMember("dy", &dy);
+        args->result->SetMember("scale", &scale);
     }
 };
 
@@ -166,6 +186,7 @@ void LoadLayout() {
 
 void RegisterHudLayout(GFxMovieRoot *movie, GFxValue *plugin) {
     RegisterFunction<ReportNative>(plugin, movie, "HudReport");
+    RegisterFunction<PlaceOfNative>(plugin, movie, "HudPlaceOf");
     RegisterFunction<LayoutNative>(plugin, movie, "HudLayout");
     RegisterFunction<MoveNative>(plugin, movie, "HudMove");
     RegisterFunction<ScaleNative>(plugin, movie, "HudScale");
