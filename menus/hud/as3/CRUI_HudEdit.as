@@ -249,7 +249,9 @@ package
       {
          var entry:Object = entryOf(name);
          editing = name;
-         rules.edit(name, entry != null ? String(entry.showOwn) : "", entry != null ? String(entry.show) : "");
+         var dll:Object = bridge.natives(DLL);
+         rules.edit(name, entry != null ? String(entry.showOwn) : "", entry != null ? String(entry.show) : "",
+                    dll != null && dll.HudConditions != null ? dll.HudConditions() as Array : null);
          modal.x = (stage.stageWidth - (RuleList.WIDE + 2 * RuleList.PAD)) / 2;
          modal.y = (stage.stageHeight - rules.panelHeight) / 2;
          modal.open(rules, RuleList.WIDE + 2 * RuleList.PAD, rules.panelHeight);

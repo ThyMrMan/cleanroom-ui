@@ -101,8 +101,8 @@ weight, weapons' spawn condition, no combat sprint).
    [conditions](docs/swf_framework.md#hud-conditions) (in combat, with a
    weapon out, in V.A.T.S., on a key, as a value changes or runs low, as
    the location moves, aiming, sneaking; `[Hud] sShow=Immersive`) (built,
-   not played), each part's rule set in the edit menu. Next: conditions
-   other mods set.
+   not played), each part's rule set in the edit menu, and other mods'
+   conditions and rules (`CRUI_Hud.SetCondition`, `SetShowRule`).
 5. **An example menu** for authors, and the API in this README.
 6. **CI** that fetches the Flex SDK and builds the movies; release assets.
 7. **The converter uses this repo** as a pinned submodule in `external/`.

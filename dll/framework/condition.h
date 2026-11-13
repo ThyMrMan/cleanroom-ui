@@ -22,7 +22,7 @@ namespace crui {
 
 // The framework's version (CRUI_Framework.GetVersion, the F4SE version query, F4SEPlugin_Version): raised whenever a
 // native, event or rule changes, so a mod can ask for the one it was built against.
-constexpr UInt32 VERSION = 15;
+constexpr UInt32 VERSION = 16;
 
 // The forms that wear (CRUI_Condition.Track): the Pip-Boy shows their condition.
 extern std::mutex g_lock;
@@ -274,11 +274,18 @@ void MakePlace(GFxMovieRoot *movie, const std::string &name, const HudPlace &pla
 // Read [Hud] sShow (the preset) and fShowLinger again from the INI files.
 void ReadShowSettings();
 
-// The conditions widget `name` shows under, comma separated ("" always): the player's, else the preset's.
+// The conditions widget `name` shows under, comma separated ("" always): the player's, else its mod's, else the
+// preset's.
 std::string ShowRule(const std::string &name, const HudPlace &place);
 
-// Give `plugin` the host's HudState and HudValues.
+// Give `plugin` the host's HudState and HudValues, and the edit menu's HudConditions.
 void RegisterHudShow(GFxMovieRoot *movie, GFxValue *plugin);
+
+// Forget every mod's conditions and default rules (a save loads or a new game starts).
+void ForgetShow();
+
+// Register CRUI_HudNative's SetCondition, SetConditionGlobal, RemoveCondition and SetShowRule.
+void RegisterShow(VirtualMachine *vm);
 
 // Widget `name`'s place (the default for none). Held under g_lock.
 HudPlace PlaceOf(const std::string &name);

@@ -54,6 +54,26 @@ Function Send(String asName, String asCommand, String[] asParams) Global
   hud.CallFunction("SendMessageString", args)
 EndFunction
 
+Function SetCondition(String asName, Bool abOn, String asLabel = "") Global
+{A condition of your own for the HUD's show rules (docs/swf_framework.md#hud-conditions): a box whose rule names asName (letters, digits, _ and . only; not one of ours, such as combat) shows while it holds. asLabel is how the edit menu's list shows it (a $KEY is translated; "" keeps the last one given, else asName). Forgotten as a save loads: set yours on every game load. A rule naming a condition nobody set counts it as holding, so a box never hides for good when your mod is gone.}
+  CRUI_HudNative.SetCondition(asName, abOn, asLabel)
+EndFunction
+
+Function SetConditionGlobal(String asName, GlobalVariable akValue, String asLabel = "") Global
+{Condition asName holds while akValue is not 0, read each frame with no Papyrus call: for a state your mod keeps in a global anyway. asLabel as SetCondition.}
+  CRUI_HudNative.SetConditionGlobal(asName, akValue, asLabel)
+EndFunction
+
+Function RemoveCondition(String asName) Global
+{Take condition asName off.}
+  CRUI_HudNative.RemoveCondition(asName)
+EndFunction
+
+Function SetShowRule(String asName, String asRule) Global
+{When box asName shows, unless the player set its rule in the edit menu: asRule is its conditions, comma separated (e.g. "combat,mymod.alarm,peek"; "always" for always; low:0.3 for a threshold), over the preset's ([Hud] sShow). asName is your widget's name, or "part:" and one of the HUD's parts (e.g. "part:CompassWidget_mc"). "" takes yours off. Forgotten as a save loads: set it on every game load.}
+  CRUI_HudNative.SetShowRule(asName, asRule)
+EndFunction
+
 Function EditLayout() Global
 {Open the edit menu for the widgets on our host and the game's own HUD parts: drag a box to move its widget or part, turn the mouse wheel over it to scale it, R (a setting in CleanroomUI.ini) puts it back where its mod or the game puts it, Esc or Tab saves and closes. The places are kept for every save, in Documents\My Games\Fallout4\F4SE\CleanroomUI_Hud.txt. Widgets HUDFramework hosts are placed in its own editor. For an MCM button, or the console: cgf "CRUI_Hud.EditLayout".}
   String menu = "CRUI_HudEdit"

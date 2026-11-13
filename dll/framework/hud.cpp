@@ -328,6 +328,7 @@ void ForgetHud() {
     g_stats.clear();
     g_messages.clear();
     g_version++;
+    ForgetShow();
 }
 
 void RegisterHudMenu(GFxMovieRoot *movie, GFxValue *plugin) {
@@ -353,6 +354,7 @@ void RegisterHud(VirtualMachine *vm) {
                                                                                      RemoveWidget, vm));
     vm->RegisterFunction(new NativeFunction3<StaticFunctionTag, void, BSFixedString, BSFixedString,
                                              VMArray<BSFixedString>>("Send", SCRIPT, Send, vm));
+    RegisterShow(vm);
 }
 
 }  // namespace crui

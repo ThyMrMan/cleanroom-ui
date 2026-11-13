@@ -54,10 +54,13 @@ def test_the_native_script_declares_every_native_hud_cpp_registers():
     """CRUI_HudNative.psc declares each Papyrus native hud.cpp registers on its script, and no other."""
     source = _source(HUD_CPP)
     script_name = re.search(r'SCRIPT = "(\w+)"', source).group(1)
-    registered = set(re.findall(r'>\("(\w+)", SCRIPT,', source.replace('\n', ' ').replace('  ', '')))
+    show = _source(REPO / 'dll' / 'framework' / 'show.cpp')
+    assert re.search(r'SCRIPT = "(\w+)"', show).group(1) == script_name and 'RegisterShow(vm);' in source
+    registered = set(re.findall(r'>\(\s*"(\w+)", SCRIPT,', (source + show).replace('\n', ' ').replace('  ', '')))
     script = _source(REPO / 'papyrus' / f'{script_name}.psc')
     declared = set(re.findall(r'^\w*\s?Function (\w+)\(.*\) Global Native$', script, re.M))
-    assert registered == declared == {'AddWidget', 'AddStats', 'RemoveWidget', 'Send', 'HostOf', 'MovieOf'}
+    assert registered == declared == {'AddWidget', 'AddStats', 'RemoveWidget', 'Send', 'HostOf', 'MovieOf',
+                                      'SetCondition', 'SetConditionGlobal', 'RemoveCondition', 'SetShowRule'}
 
 
 def test_hudframework_hosts_when_installed_and_keeps_the_players_place():
@@ -241,7 +244,8 @@ def test_parts_and_widgets_show_on_conditions():
     linger. A box shows while one of its conditions holds and for the linger after; with no rule, or a condition the
     DLL doesn't know, it shows. The settings are read as each HUD loads."""
     show = _source(REPO / 'dll' / 'framework' / 'show.cpp')
-    assert re.findall(r'RegisterFunction<\w+>\(plugin, movie, "(\w+)"\);', show) == ['HudState', 'HudValues']
+    assert re.findall(r'RegisterFunction<\w+>\(plugin, movie, "(\w+)"\);', show) == ['HudState', 'HudValues',
+                                                                                    'HudConditions']
     assert all(f'SetMember("{name}"' in show for name in ('combat', 'drawn', 'vats', 'peek', 'linger'))
     assert 'IsInCombat()' in show and 'actorState.IsWeaponDrawn()' in show and '"VATSMenu"' in show
     assert 'GetAsyncKeyState(key)' in show and 'GameInFront()' in show
@@ -321,3 +325,25 @@ def test_the_edit_menu_sets_when_each_box_shows():
     assert '{"sHudShow", "V", "", \'V\'}' in _source(REPO / 'dll' / 'framework' / 'keys.cpp')
     hint = re.search(r'^\$CRUI_HUD_EDIT_HINT\t(.*)$', _source(REPO / 'translations' / 'CleanroomUI' / 'en.txt'), re.M)
     assert '{3}' in hint.group(1)
+
+
+def test_other_mods_set_their_own_conditions_and_rules():
+    """Step 5: a mod sets a condition (on, or while a global is not 0) under its own name, which HudState gives the host
+    beside ours and the edit menu lists under its label; a name of ours is refused. A mod's rule for a box goes
+    between the player's and the preset's. Both are forgotten as a save loads."""
+    show = _source(REPO / 'dll' / 'framework' / 'show.cpp')
+    state = show[show.index('class StateNative'):]
+    assert 'for (const auto &[name, condition] : g_conditions)' in state
+    assert 'condition.global->value != 0.0f' in state
+    start = show.index('BUILT_IN[] = {')
+    built_in = set(re.findall(r'"(\w+)"', show[start:show.index('};', start)]))
+    rules = _source(menus.BY_NAME['hud_edit'].sources / 'RuleList.as')
+    listed = set(re.findall(r'"(\w+)"', re.search(r'CONDITIONS:Array = \[([^\]]+)\]', rules).group(1)))
+    assert listed <= built_in and {'always', 'linger'} <= built_in
+    rule = show[show.index('std::string ShowRule('):]
+    assert rule.index('place.show') < rule.index('g_defaults.find(name)') < rule.index('g_preset')
+    hud = _source(HUD_CPP)
+    forget = hud[hud.index('void ForgetHud()'):hud.index('void RegisterHudMenu(')]
+    assert 'ForgetShow();' in forget
+    edit = _source(menus.BY_NAME['hud_edit'].sources / 'CRUI_HudEdit.as')
+    assert 'dll.HudConditions()' in edit and 'labels[condition]' in rules

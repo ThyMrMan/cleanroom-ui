@@ -8,7 +8,7 @@ package
    // switches it in the box's own rule, starting from the rule in force (the preset's, when the box had none of its
    // own); switching the last one off leaves it always shown. A threshold already on low (low:0.3) stays while low
    // stays on. Each pick goes to `onChange(box, rule)` at once (CleanroomUI.dll's HudSetShow: "" the preset's,
-   // "always" none).
+   // "always" none). Other mods' conditions (HudConditions: CRUI_Hud.SetCondition) follow ours, under their labels.
    // See docs/swf_framework.md#hud-conditions
    public class RuleList extends Sprite
    {
@@ -26,6 +26,8 @@ package
       // The list's width and rows, and the space round it in its panel.
       public static const WIDE:Number = 520;
       public static const PAD:Number = 12;
+      // Rows shown at most (the rest scroll).
+      private static const ROWS:int = 14;
       public var list:ScrollList = new ScrollList();
       // function(box:String, rule:String):void, a rule picked; function():void, Done picked.
       public var onChange:Function;
@@ -34,11 +36,14 @@ package
       // The box's own rule ("" none: the preset's; "always"), and the rule in force (the edit menu's layout).
       private var own:String = "";
       private var inForce:String = "";
+      // The conditions listed now: ours, then the mods' (by name); the mods' labels.
+      private var names:Array = CONDITIONS.concat();
+      private var labels:Object = {};
 
       public function RuleList()
       {
          super();
-         list.rows = FIRST + CONDITIONS.length + 1;
+         list.rows = ROWS;
          list.listWidth = WIDE;
          list.line = 30;
          list.x = PAD;
@@ -47,10 +52,18 @@ package
          addChild(list);
       }
 
-      // Edit box `name`'s rule: its own `own` and the one in force `inForce`.
-      public function edit(name:String, own:String, inForce:String) : void
+      // Edit box `name`'s rule: its own `own` and the one in force `inForce`; `mods` the mods' conditions
+      // ([{name, label}], HudConditions; null for none).
+      public function edit(name:String, own:String, inForce:String, mods:Array = null) : void
       {
          box = name;
+         names = CONDITIONS.concat();
+         labels = {};
+         for each (var mod:Object in mods || [])
+         {
+            names.push(String(mod.name));
+            labels[String(mod.name)] = String(mod.label);
+         }
          this.own = own != null ? own : "";
          this.inForce = inForce != null ? inForce : "";
          list.show(items(), 0);
@@ -78,9 +91,9 @@ package
          var out:Array = [{text: "$CRUI_SHOW_PRESET", value: own == "" ? ON : ""},
                           {text: "$CRUI_SHOW_ALWAYS", value: own == "always" ? ON : ""}];
          var now:Array = conditions();
-         for each (var condition:String in CONDITIONS)
+         for each (var condition:String in names)
          {
-            out.push({text: WORDS[condition], value: has(now, condition) ? ON : ""});
+            out.push({text: WORDS[condition] || labels[condition], value: has(now, condition) ? ON : ""});
          }
          out.push({text: "$CRUI_SHOW_DONE", value: ""});
          return out;
@@ -107,7 +120,7 @@ package
 
       private function pick(index:int) : void
       {
-         if (index == FIRST + CONDITIONS.length)
+         if (index == FIRST + names.length)
          {
             if (onDone != null)
             {
@@ -121,7 +134,7 @@ package
          }
          else
          {
-            var condition:String = CONDITIONS[index - FIRST];
+            var condition:String = names[index - FIRST];
             var kept:Array = [];
             var had:Boolean = false;
             for each (var token:String in conditions())

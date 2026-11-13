@@ -44,7 +44,7 @@ licensed way to build menus without starting from decompiled Bethesda files.
 | **Own menu** | Casino (Papyrus `UI.RegisterCustomMenu`), HUD color by the menu itself (spike 2b, played) | Registering from the DLL: not needed for color; only if a later menu needs it |
 | **Replace a vanilla movie** | Dialogue menu on our own movie (spike 3, played); its `mxmlc` build. Level-up: our own registered menu opened in place of `LevelUpMenu` from Papyrus, no vanilla file shipped ([open](fo4_level_up_plan.md#open), built) | Both played; if the moment of `LevelUpMenu` first shows, F3NV.dll swapping its constructor |
 | **Inject into a vanilla menu** | Pip-Boy (spike 4, played under vanilla); CND, lists and item-card API built | Any of it played; FallUI played; container and barter (still C++) |
-| **HUD widget** | `CRUI_Hud`: HUDFramework hosts the widgets when installed, else our host movie loaded into any HUD by `CleanroomUI.dll`; widget movies with HUDFramework's `processMessage`; the built-in stats line ([host](#hud-built)); our host's saved places and edit menu ([edit](#hud-edit)); DEF_HUD.xml layouts of the game's parts ([layouts](#hud-layout)), moved and scaled in the edit menu too; the [FNV preset](#fnv-preset) with its [CND bar](#fnv-widgets); [hiding and recoloring](#hud-look) in the edit menu; parts shown on [conditions](#hud-conditions) (steps 1 to 3: combat, weapon drawn, V.A.T.S., a show key, a value changing or low, the location moving, aiming, sneaking; the Immersive preset; each box's rule set in the edit menu); built, not played | Played; the conditions' step 5, `flags`; the converter's Hardcore needs on it (still C++) |
+| **HUD widget** | `CRUI_Hud`: HUDFramework hosts the widgets when installed, else our host movie loaded into any HUD by `CleanroomUI.dll`; widget movies with HUDFramework's `processMessage`; the built-in stats line ([host](#hud-built)); our host's saved places and edit menu ([edit](#hud-edit)); DEF_HUD.xml layouts of the game's parts ([layouts](#hud-layout)), moved and scaled in the edit menu too; the [FNV preset](#fnv-preset) with its [CND bar](#fnv-widgets); [hiding and recoloring](#hud-look) in the edit menu; parts shown on [conditions](#hud-conditions) (steps 1 to 3: combat, weapon drawn, V.A.T.S., a show key, a value changing or low, the location moving, aiming, sneaking; the Immersive preset; each box's rule set in the edit menu; other mods' conditions and rules); built, not played | Played; fades if play asks, `flags`; the converter's Hardcore needs on it (still C++) |
 | **DLL side** | GFx helpers (`gfx.cpp`), Pip-Boy injection (`LoadOverlay`), natives the movies call (`HudColor`, `Log`, `PipboyCardLines`, `PipboyList`, `TextureExists`) | Injection by menu URL for other menus, settings INI to the movie, GFx log routing |
 | **Translations** ([translations](#translations)) | Files named after `FalloutHelpers.esl`, every language with English fallback, our fixed words as `$F3NV_` keys, the key check in preflight (spike 5, played) | The keys played; Papyrus key check; slot and per-language counts; a test language |
 | **Controller** ([controller](#controller)) | The casino and dialogue menu on `Input` and `HintBar` (built, not played) | Playing them with a pad; the Pip-Boy "more" button; roulette's board on a pad |
@@ -855,7 +855,7 @@ or over the whole movie (ours then multiplies with it: green times amber
 is darker); a colored part keeps its color as the HUD color changes in
 the settings.
 
-### <a id="hud-conditions"></a>Parts shown on conditions (plan 2026-11-13; steps 1 to 4 built, not played)
+### <a id="hud-conditions"></a>Parts shown on conditions (plan 2026-11-13; built, not played)
 
 The most used HUD option after moving parts is hiding them while they
 aren't needed: health and ammo out of fights, the compass until a key is
@@ -878,7 +878,7 @@ frame into one native (`HudState()`: a set of names that hold now):
 | `changed` | The part's own value changed (HP, AP, rads, ammo, condition) | Built: the actor values (`HudValues`) for the meters, else the part's text |
 | `low` | The part's value is under a threshold (HP under 50%, the magazine under a quarter) | Built: the same values, `low:F` for a threshold |
 | `moved` | The location or an objective changed (for the compass) | Built: the location name's and the quest updates' text |
-| a mod's own | Any condition a mod sets | `CRUI_Hud.SetCondition(name, on)` from Papyrus, or a global as `AddStats`' `shown` is |
+| a mod's own | Any condition a mod sets | Built: `CRUI_Hud.SetCondition(name, on)` from Papyrus, or `SetConditionGlobal` with a global |
 
 **Showing and hiding** are the mask from the look (instant, never fights
 the engine). A fade would go on the alpha the engine also sets, so it
@@ -1019,6 +1019,38 @@ the list's keys and clicks don't move or close anything else; Esc closes
 the list first, then the menu; a rule set there survives a restart; the
 preset's choice follows `sShow` after a change in MCM.
 
+**Step 5, built 2026-11-13, not played** (`show.cpp`, `CRUI_Hud.psc`,
+framework version 16). Other mods' conditions and rules, from Papyrus:
+```papyrus
+CRUI_Hud.SetCondition("mymod.alarm", True, "$MYMOD_ALARM")   ; holds, or not
+CRUI_Hud.SetConditionGlobal("mymod.alarm", MyAlarmGlobal)    ; holds while the global is not 0
+CRUI_Hud.RemoveCondition("mymod.alarm")
+CRUI_Hud.SetShowRule("MyWidget", "combat,mymod.alarm,peek")  ; a box's rule from its mod
+CRUI_Hud.SetShowRule("part:CompassWidget_mc", "mymod.alarm,peek")
+```
+- **A condition** has a name of letters, digits, `_` and `.` (a rule
+  splits on `,` and `:`); one of ours (`combat`, ...) is refused with a
+  warning. `HudState` gives it to the host beside ours, so a rule names it
+  as any other. A global is read each frame by the DLL, with no Papyrus
+  call, for a state a mod keeps in a global anyway.
+- **The edit menu's list** shows the mods' conditions after ours
+  (`HudConditions`), under their labels (a `$KEY` is translated).
+- **A mod's rule** for a box (its own widget, or one of the HUD's parts)
+  goes between the player's and the preset's: the player's in the edit
+  menu still wins. The list's first row now reads *As its mod or the
+  preset sets*.
+- **Forgotten as a save loads**, as widgets are: each mod sets its own on
+  every game load. A rule naming a condition nobody set counts it as
+  holding, so a box never stays hidden when its mod is gone.
+- **Fades**: not built. The plan keeps them until play shows the instant
+  switch looks wrong.
+
+**Play check (step 5):** a test script's condition shows and hides a
+part; a global flipped in the console (`set MyAlarmGlobal to 1`) does
+the same; the condition is listed in the edit menu; a mod's rule shows
+in the box's brackets and the player's choice wins over it; both are
+gone after loading a save made without the mod.
+
 **Order of work**, each its own play test:
 1. **Built.** The DLL's state (`combat`, `drawn`, `vats`) and the peek key
    (read with `GetAsyncKeyState`, held then the linger), the rule column
@@ -1027,7 +1059,8 @@ preset's choice follows `sShow` after a change in MCM.
    for the compass.
 3. **Built.** `aiming` and `sneaking`.
 4. **Built.** The rule list in the edit menu.
-5. `CRUI_Hud.SetCondition` for other mods; fades if play asks for them.
+5. **Built.** `CRUI_Hud.SetCondition` and `SetShowRule` for other mods;
+   fades only if play asks for them.
 
 **Open questions:** whether a part the engine hides on its own (the enemy
 health meter, the sneak meter) needs any rule at all, or is left out of

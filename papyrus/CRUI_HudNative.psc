@@ -18,3 +18,15 @@ String Function HostOf(String asName) Global Native
 
 String Function MovieOf(String asName) Global Native
 {Widget asName's movie; "" for a stats line or no such widget.}
+
+Function SetCondition(String asName, Bool abOn, String asLabel) Global Native
+{Condition asName for the HUD's show rules holds (abOn) or not; see CRUI_Hud.SetCondition.}
+
+Function SetConditionGlobal(String asName, GlobalVariable akValue, String asLabel) Global Native
+{Condition asName holds while akValue is not 0; see CRUI_Hud.SetConditionGlobal.}
+
+Function RemoveCondition(String asName) Global Native
+{Take condition asName off.}
+
+Function SetShowRule(String asName, String asRule) Global Native
+{Box asName's rule from its mod; see CRUI_Hud.SetShowRule.}
