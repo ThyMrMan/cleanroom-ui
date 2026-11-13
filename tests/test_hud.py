@@ -347,3 +347,25 @@ def test_other_mods_set_their_own_conditions_and_rules():
     assert 'ForgetShow();' in forget
     edit = _source(menus.BY_NAME['hud_edit'].sources / 'CRUI_HudEdit.as')
     assert 'dll.HudConditions()' in edit and 'labels[condition]' in rules
+
+
+def test_the_edit_menu_works_with_a_gamepad():
+    """With a pad one box is picked: LB/RB pick, the held D-pad moves it, LT/RT scale, X hides, Y colors, A opens its
+    rule list, View resets, B saves and closes. The pad's buttons are mapped only while a pad is in use, since FO4
+    sends some keyboard keys (R, C, Q, V, T) as the same controls; the D-pad goes to the list while it is open."""
+    edit_menu = menus.BY_NAME['hud_edit']
+    edit = _source(edit_menu.sources / f'{edit_menu.document}.as')
+    pad = dict(re.findall(r'input\.mapControl\("(\w+)", ([\w.]+), true\);', edit))
+    assert pad == {'LShoulder': 'Input.PREV', 'RShoulder': 'Input.NEXT', 'LTrigger': 'SMALLER', 'RTrigger': 'BIGGER',
+                   'XButton': 'Input.X', 'YButton': 'Input.Y', 'Select': 'RESET'}
+    assert 'public function ProcessUserEvent(control:String, down:Boolean) : Boolean' in edit
+    assert 'public function SetPlatform(platform:uint, ps3Switch:Boolean) : void' in edit
+    process = edit[edit.index('public function ProcessUserEvent('):edit.index('public function SetPlatform(')]
+    assert 'input.gamepad && !modal.isOpen && DIRECTIONS[control] != null' in process
+    on_action = edit[edit.index('private function onAction('):edit.index('private function recolor(')]
+    assert on_action.index('if (modal.isOpen)') < on_action.index('if (!input.gamepad')
+    for call in ('dll.HudHide(picked)', 'recolor(dll, picked)', 'dll.HudReset(picked)', 'openRules(picked)',
+                 'dll.HudEditDone()', 'dll.HudScale(picked,'):
+        assert call in on_action
+    words = _source(REPO / 'translations' / 'CleanroomUI' / 'en.txt')
+    assert re.search(r'^\$CRUI_HUD_EDIT_PAD_HINT\t', words, re.M)

@@ -15,6 +15,7 @@ package
    import flash.text.TextField;
    import flash.text.TextFieldAutoSize;
    import flash.ui.Keyboard;
+   import flash.utils.getTimer;
 
    // The edit menu for our HUD host's widgets (Interface/CRUI_HudEdit.swf, opened by CRUI_Hud.EditLayout). Each frame
    // it draws, over the game dimmed, a box with its name where each widget's place puts it (CleanroomUI.dll's
@@ -24,8 +25,13 @@ package
    // color (HudReset); the hide key (H) hides or shows it (HudHide), the color key (C) steps it through a few colors
    // (HudTint); hidden ones keep a dim box, so they can be shown again; the show key (V) opens a list of when it
    // shows (RuleList: the preset's rule, always, or the conditions picked; HudSetShow); Esc or Tab
-   // saves the layout and closes (HudEditDone). Mouse and keyboard only. The game's own HUD parts are here too, named
-   // by their clips. Widgets HUDFramework hosts are not here: its own editor places them.
+   // saves the layout and closes (HudEditDone). With a gamepad (the game's word, SetPlatform, or Input's guess), one
+   // box is picked instead of the one under the cursor: LB and RB pick the previous and next (top to bottom, then left
+   // to right), the D-pad held moves it (faster the longer it is held), LT and RT scale it, X hides or shows it, Y gives
+   // it the next color, A opens its rule list, View (Select) resets it, B saves and closes. The pad's buttons only
+   // count while a pad is in use: FO4 sends some keyboard keys as the same controls (R is X, C is LB, V is View).
+   // The game's own HUD parts are here too, named by their clips. Widgets HUDFramework hosts are not here: its own
+   // editor places them.
    // See docs/swf_framework.md#hud-edit
    public class CRUI_HudEdit extends MovieClip
    {
@@ -65,6 +71,20 @@ package
       // A hidden widget's box (alpha), and the word on its name.
       private static const HIDDEN_ALPHA:Number = 0.3;
       private var hiddenWord:String;
+      // The pad's own actions (Input's for the rest), the D-pad's directions, how fast a held D-pad moves a box (px a
+      // frame, from slow to fast over RAMP_MS), and the picked box's outline.
+      private static const RESET:String = "reset";
+      private static const SMALLER:String = "smaller";
+      private static const BIGGER:String = "bigger";
+      private static const DIRECTIONS:Object = {Up: [0, -1], Down: [0, 1], Left: [-1, 0], Right: [1, 0]};
+      private static const MOVE_SLOW:Number = 1;
+      private static const MOVE_FAST:Number = 12;
+      private static const RAMP_MS:int = 1500;
+      private static const PICKED_LINE:Number = 4;
+      // The box the pad works on, the D-pad directions held, and since when.
+      private var picked:String = null;
+      private var held:Object = {};
+      private var heldSince:int = 0;
 
       public function CRUI_HudEdit()
       {
@@ -116,7 +136,20 @@ package
          modal.handler = function(action:String, digit:int) : Boolean { return rules.list.action(action, digit); };
          modal.onClose = function() : void { editing = null; };
          addChild(modal);
-         input = new Input(stage, function(action:String, digit:int) : Boolean { return modal.action(action, digit); });
+         input = new Input(stage, onAction);
+         // The pad's buttons, only while a pad is in use (FO4 sends R, C, Q, V and T as these controls too).
+         input.mapControl("LShoulder", Input.PREV, true);
+         input.mapControl("RShoulder", Input.NEXT, true);
+         input.mapControl("LTrigger", SMALLER, true);
+         input.mapControl("RTrigger", BIGGER, true);
+         input.mapControl("XButton", Input.X, true);
+         input.mapControl("YButton", Input.Y, true);
+         input.mapControl("Select", RESET, true);
+         input.watch(function() : void
+         {
+            hinted = null;
+            held = {};
+         });
          stage.addEventListener(MouseEvent.MOUSE_DOWN, onDown);
          stage.addEventListener(MouseEvent.MOUSE_MOVE, onMove);
          stage.addEventListener(MouseEvent.MOUSE_UP, onUp);
@@ -136,7 +169,14 @@ package
          {
             rules.refresh(String(entryOf(editing).show));
          }
-         var says:String = layout.length > 0 ? "$CRUI_HUD_EDIT_HINT" : "$CRUI_HUD_EDIT_NONE";
+         var pad:Boolean = input != null && input.gamepad;
+         if (pad && layout.length > 0 && entryOf(picked) == null)
+         {
+            picked = String(inOrder()[0].name);
+         }
+         moveHeld(dll);
+         var says:String = layout.length == 0 ? "$CRUI_HUD_EDIT_NONE"
+                           : pad ? "$CRUI_HUD_EDIT_PAD_HINT" : "$CRUI_HUD_EDIT_HINT";
          if (says != hinted)
          {
             hinted = says;
@@ -152,8 +192,9 @@ package
             var box:Rectangle = rectOf(layout[i]);
             var hidden:Boolean = layout[i].hidden == true;
             var color:Number = Number(layout[i].color);
-            Draw.outline(boxes.graphics, box.x, box.y, box.width, box.height, 2,
-                         hidden ? HIDDEN_ALPHA : layout[i].name == dragging ? 1 : 0.7, color >= 0 ? uint(color) : -1);
+            var chosen:Boolean = layout[i].name == dragging || (pad && layout[i].name == picked);
+            Draw.outline(boxes.graphics, box.x, box.y, box.width, box.height, pad && chosen ? PICKED_LINE : 2,
+                         chosen ? 1 : hidden ? HIDDEN_ALPHA : 0.7, color >= 0 ? uint(color) : -1);
             if (i == names.length)
             {
                var made:TextField = Text.field(16, null, Text.BOLD);
@@ -271,6 +312,130 @@ package
          return null;
       }
 
+      // The layout's entries top to bottom, then left to right, for the pad's LB and RB.
+      private function inOrder() : Array
+      {
+         var out:Array = layout.concat();
+         out.sortOn(["top", "left"], Array.NUMERIC);
+         return out;
+      }
+
+      // Pick the box `by` places after the picked one in inOrder(), round the ends.
+      private function pickBy(by:int) : void
+      {
+         var order:Array = inOrder();
+         var at:int = 0;
+         for (var i:int = 0; i < order.length; i++)
+         {
+            if (order[i].name == picked)
+            {
+               at = i;
+            }
+         }
+         picked = String(order[(at + by + order.length) % order.length].name);
+      }
+
+      // Each frame: the picked box moved by the D-pad directions held, faster the longer they are.
+      private function moveHeld(dll:Object) : void
+      {
+         var dx:Number = 0, dy:Number = 0;
+         for (var control:String in held)
+         {
+            dx += DIRECTIONS[control][0];
+            dy += DIRECTIONS[control][1];
+         }
+         if ((dx == 0 && dy == 0) || picked == null || dll == null || modal.isOpen)
+         {
+            return;
+         }
+         var speed:Number = MOVE_SLOW + (MOVE_FAST - MOVE_SLOW) * Math.min(1, (getTimer() - heldSince) / RAMP_MS);
+         dll.HudMove(picked, dx * speed / stage.stageWidth, dy * speed / stage.stageHeight);
+      }
+
+      // FO4's menu input. With a pad and no list open, the D-pad's presses and releases are kept to move the picked
+      // box each frame; the rest goes to Input (its actions to onAction).
+      public function ProcessUserEvent(control:String, down:Boolean) : Boolean
+      {
+         if (input != null && input.gamepad && !modal.isOpen && DIRECTIONS[control] != null)
+         {
+            if (down)
+            {
+               var none:Boolean = true;
+               for (var any:String in held)
+               {
+                  none = false;
+               }
+               heldSince = none ? getTimer() : heldSince;
+               held[control] = true;
+            }
+            else
+            {
+               delete held[control];
+            }
+            return true;
+         }
+         return input != null && input.control(control, down);
+      }
+
+      public function SetPlatform(platform:uint, ps3Switch:Boolean) : void
+      {
+         if (input != null)
+         {
+            input.setPlatform(platform);
+         }
+      }
+
+      // Input's actions: the rule list's while it is open; else, with a pad, the pad's on the picked box (the
+      // keyboard and mouse have their own: onKey and the mouse handlers).
+      private function onAction(action:String, digit:int) : Boolean
+      {
+         if (modal.isOpen)
+         {
+            return modal.action(action, digit);
+         }
+         var dll:Object = bridge.natives(DLL);
+         if (!input.gamepad || dll == null || picked == null)
+         {
+            return false;
+         }
+         switch (action)
+         {
+            case Input.PREV:
+            case Input.NEXT:
+               pickBy(action == Input.NEXT ? 1 : -1);
+               break;
+            case SMALLER:
+            case BIGGER:
+               dll.HudScale(picked, action == BIGGER ? STEP : 1 / STEP);
+               break;
+            case Input.X:
+               dll.HudHide(picked);
+               break;
+            case Input.Y:
+               recolor(dll, picked);
+               break;
+            case RESET:
+               dll.HudReset(picked);
+               break;
+            case Input.ACCEPT:
+               openRules(picked);
+               break;
+            case Input.BACK:
+               dll.HudEditDone();
+               break;
+            default:
+               return false;
+         }
+         return true;
+      }
+
+      // Give box `name` the next of COLORS.
+      private function recolor(dll:Object, name:String) : void
+      {
+         var at:int = COLORS.indexOf(int(entryOf(name).color));
+         dll.HudTint(name, COLORS[(at + 1) % COLORS.length]);
+      }
+
       // Over a widget: the reset key resets it, the hide key hides or shows it, the color key gives it the next
       // color. Esc or Tab saves and closes.
       private function onKey(e:KeyboardEvent) : void
@@ -300,8 +465,7 @@ package
          }
          else if (name != null && e.keyCode == colorKey)
          {
-            var at:int = COLORS.indexOf(int(entryOf(name).color));
-            dll.HudTint(name, COLORS[(at + 1) % COLORS.length]);
+            recolor(dll, name);
          }
          else if (e.keyCode == Keyboard.ESCAPE || e.keyCode == Keyboard.TAB)
          {

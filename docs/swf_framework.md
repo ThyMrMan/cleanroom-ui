@@ -44,7 +44,7 @@ licensed way to build menus without starting from decompiled Bethesda files.
 | **Own menu** | Casino (Papyrus `UI.RegisterCustomMenu`), HUD color by the menu itself (spike 2b, played) | Registering from the DLL: not needed for color; only if a later menu needs it |
 | **Replace a vanilla movie** | Dialogue menu on our own movie (spike 3, played); its `mxmlc` build. Level-up: our own registered menu opened in place of `LevelUpMenu` from Papyrus, no vanilla file shipped ([open](fo4_level_up_plan.md#open), built) | Both played; if the moment of `LevelUpMenu` first shows, F3NV.dll swapping its constructor |
 | **Inject into a vanilla menu** | Pip-Boy (spike 4, played under vanilla); CND, lists and item-card API built | Any of it played; FallUI played; container and barter (still C++) |
-| **HUD widget** | `CRUI_Hud`: HUDFramework hosts the widgets when installed, else our host movie loaded into any HUD by `CleanroomUI.dll`; widget movies with HUDFramework's `processMessage`; the built-in stats line ([host](#hud-built)); our host's saved places and edit menu ([edit](#hud-edit)); DEF_HUD.xml layouts of the game's parts ([layouts](#hud-layout)), moved and scaled in the edit menu too; the [FNV preset](#fnv-preset) with its [CND bar](#fnv-widgets); [hiding and recoloring](#hud-look) in the edit menu; parts shown on [conditions](#hud-conditions) (steps 1 to 3: combat, weapon drawn, V.A.T.S., a show key, a value changing or low, the location moving, aiming, sneaking; the Immersive preset; each box's rule set in the edit menu; other mods' conditions and rules); built, not played | Played; fades if play asks, `flags`; the converter's Hardcore needs on it (still C++) |
+| **HUD widget** | `CRUI_Hud`: HUDFramework hosts the widgets when installed, else our host movie loaded into any HUD by `CleanroomUI.dll`; widget movies with HUDFramework's `processMessage`; the built-in stats line ([host](#hud-built)); our host's saved places and edit menu ([edit](#hud-edit)); DEF_HUD.xml layouts of the game's parts ([layouts](#hud-layout)), moved and scaled in the edit menu too; the [FNV preset](#fnv-preset) with its [CND bar](#fnv-widgets); [hiding and recoloring](#hud-look) in the edit menu, with a [gamepad](#hud-edit) too; parts shown on [conditions](#hud-conditions) (steps 1 to 3: combat, weapon drawn, V.A.T.S., a show key, a value changing or low, the location moving, aiming, sneaking; the Immersive preset; each box's rule set in the edit menu; other mods' conditions and rules); built, not played | Played; fades if play asks, `flags`; the converter's Hardcore needs on it (still C++) |
 | **DLL side** | GFx helpers (`gfx.cpp`), Pip-Boy injection (`LoadOverlay`), natives the movies call (`HudColor`, `Log`, `PipboyCardLines`, `PipboyList`, `TextureExists`) | Injection by menu URL for other menus, settings INI to the movie, GFx log routing |
 | **Translations** ([translations](#translations)) | Files named after `FalloutHelpers.esl`, every language with English fallback, our fixed words as `$F3NV_` keys, the key check in preflight (spike 5, played) | The keys played; Papyrus key check; slot and per-language counts; a test language |
 | **Controller** ([controller](#controller)) | The casino and dialogue menu on `Input` and `HintBar` (built, not played) | Playing them with a pad; the Pip-Boy "more" button; roulette's board on a pad |
@@ -678,14 +678,41 @@ and, since 2026-11-13, per part of the game's own HUD
   edit menu needs the parts measured before it opens.
 - Widgets HUDFramework hosts are not in it: its own editor places them.
 
-Hiding and recoloring are built ([look](#hud-look)). Not built yet:
-hiding a part's pieces, rotating in the menu (DEF_HUD.xml's still
-applies), opacity, parts shown on [conditions](#hud-conditions), a
-gamepad in the edit menu, a key to open it without an MCM. **Play check:** whether the HUD's widgets show behind the
+Hiding and recoloring are built ([look](#hud-look)), and parts shown on
+[conditions](#hud-conditions).
+
+**With a gamepad** (built 2026-11-13, not played): one box is picked
+instead of the one under the cursor, drawn with a thicker outline.
+
+| Pad | Does |
+|---|---|
+| LB, RB | Pick the previous, next box (top to bottom, then left to right) |
+| D-pad, held | Move it, from 1 to 12 px a frame over 1.5 s |
+| LT, RT | Scale it down, up (as a wheel notch) |
+| X | Hide or show it |
+| Y | Its next color |
+| A | Its rule list ([when shown](#hud-conditions)), which the D-pad, A and B then work |
+| View (Select) | Reset it |
+| B | Save and close |
+
+The menu takes FO4's controls (`ProcessUserEvent`, `SetPlatform`, as the
+level-up menu does) through `Input`. FO4's menu-mode control map sends
+some keyboard keys as the same controls (R is X, T is Y, C is LB, Q is
+RB, V is View), so the pad's buttons count only while a pad is in use
+(the game's word through `SetPlatform`, else `Input`'s guess); the
+keyboard keeps its own keys, over the box under the cursor. The hint
+shows the pad's (`$CRUI_HUD_EDIT_PAD_HINT`) while a pad is in use.
+
+Not built yet: hiding a part's pieces, rotating in the menu (DEF_HUD.xml's
+still applies), opacity, a key to open it without an MCM. **Play check:** whether the HUD's widgets show behind the
 menu (the boxes don't depend on it); whether the HUD's and the menu's
 stages line up, since the boxes map the host's fractions of its stage onto
 the menu's; a moved and scaled widget stays put after a save loads and a
-restart; a moved HUD part follows the game when it moves the part (power
+restart; with a pad, every row of the table above, whether the menu gets
+the D-pad's releases (else a box keeps moving: then a fixed step per
+press is next) and the triggers as controls, whether the left stick sends
+the D-pad's controls too, and that the keyboard's R, C and V don't also
+act as the pad's buttons; a moved HUD part follows the game when it moves the part (power
 armor, the enemy health meter, the crosshair in third person), and a part
 that is hidden (no enemy, no explosives) still gets a box to place it.
 
