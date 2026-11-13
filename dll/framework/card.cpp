@@ -1,6 +1,6 @@
 // Other mods' lines on the Pip-Boy's inventory item card (docs/fork/swf_framework.md#card-lines): set from Papyrus
-// (F3NV_ItemCard.SetLine) for one item, or for every item carrying a keyword, and drawn by our Pip-Boy movie after
-// F3NV's own lines (pipboy.cpp PipboyCardLines). They are kept until a save loads or a new game starts, so a mod
+// (CRUI_ItemCard.SetLine) for one item, or for every item carrying a keyword, and drawn by our Pip-Boy movie after
+// Our own lines (pipboy.cpp PipboyCardLines). They are kept until a save loads or a new game starts, so a mod
 // sets them again on each game load.
 #include "condition.h"
 
@@ -12,11 +12,11 @@
 #include <string>
 #include <vector>
 
-namespace condition {
+namespace crui {
 
 namespace {
 
-const char *SCRIPT = "F3NV_ItemCard";
+const char *SCRIPT = "CRUI_ItemCard";
 
 // A mod's line: the item's form ID (or a keyword's, for every item carrying it) and the line.
 struct CardLine {
@@ -65,4 +65,4 @@ void RegisterItemCard(VirtualMachine *vm) {
         "SetLine", SCRIPT, SetLine, vm));
 }
 
-}  // namespace condition
+}  // namespace crui

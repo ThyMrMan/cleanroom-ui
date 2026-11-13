@@ -1,9 +1,9 @@
-// F3NV's ammo list in the Pip-Boy (docs/fork/fo4_condition.md#ammo-list): FNV's choice of ammo for the
+// Our ammo list in the Pip-Boy (docs/fork/fo4_condition.md#ammo-list): FNV's choice of ammo for the
 // highlighted gun, drawn by our Pip-Boy movie from AmmoView the way the repair list is (pipboy.cpp). B or the AMMO
 // hint opens it on a gun of an FNV ammo list: each round of the list the player carries, and the loaded one, with
 // the count carried, the loaded one marked. Not V: V is the game's own Pip-Boy zoom, which a list closed by any
-// other key left on (played 2026-11-12). Confirming sends the F4SE external event FNVAmmoSwitch; F3NV_AmmoSwitch
-// takes the choice (F3NV_PipboyAmmo.ChosenGun, TakeChoice) and attaches that round's ammo mod
+// other key left on (played 2026-11-12). Confirming sends the F4SE external event CRUI_AmmoSwitch; F3NV_AmmoSwitch
+// takes the choice (CRUI_PipboyAmmo.ChosenGun, TakeChoice) and attaches that round's ammo mod
 // (fo4_import/spike/ammo_switch.py). Keys (Flash key codes): Up or W, Down or S move; Enter or E loads; Esc, Tab or
 // B cancels.
 #include "condition.h"
@@ -17,11 +17,11 @@
 #include <string>
 #include <vector>
 
-namespace condition {
+namespace crui {
 
 namespace {
 
-const char *SCRIPT = "F3NV_PipboyAmmo", *EVENT = "FNVAmmoSwitch", *HINT = "$F3NV_AMMO", *HINT_KEY = "B";
+const char *SCRIPT = "CRUI_PipboyAmmo", *EVENT = "CRUI_AmmoSwitch", *HINT = "$CRUI_AMMO", *HINT_KEY = "B";
 enum : int { KEY_TAB = 9, KEY_ENTER = 13, KEY_ESC = 27, KEY_UP = 38, KEY_DOWN = 40, KEY_B = 66, KEY_E = 69,
              KEY_S = 83, KEY_W = 87 };
 
@@ -109,11 +109,11 @@ void Open(GFxMovieRoot *movie) {
         if (g >= 0) g_ammo.group = g_groups[g];
     }
     if (g < 0 || !player) {
-        if (gun && gun->formType == kFormType_WEAP) SayOnCard("$F3NV_ONE_TYPE", HINT);
+        if (gun && gun->formType == kFormType_WEAP) SayOnCard("$CRUI_ONE_TYPE", HINT);
         return;
     }
     if (Carried(player, gun) > 1) {
-        SayOnCard("$F3NV_DROP_A_COPY", HINT);
+        SayOnCard("$CRUI_DROP_A_COPY", HINT);
         return;
     }
     Get(entry, "nodeID", &node);
@@ -161,7 +161,7 @@ public:
     }
 };
 
-// ---- Papyrus (F3NV_PipboyAmmo) ----
+// ---- Papyrus (CRUI_PipboyAmmo) ----
 
 // Papyrus: F3NV_AmmoSwitch's lists (its Lists, Starts, Rounds and Mods arrays); the plugin forgets them each game
 // start. Lists of one round are left out.
@@ -231,16 +231,16 @@ bool AmmoKey(GFxMovieRoot *movie, int key) {
 
 bool AmmoView(ListView *view) {
     if (!g_ammo.open) return false;
-    view->heading = {"$F3NV_AMMO_TYPE", "$F3NV_CARRIED"};
+    view->heading = {"$CRUI_AMMO_TYPE", "$CRUI_CARRIED"};
     for (size_t i = 0; i < g_ammo.shown.size(); i++) {
         TESForm *round = g_ammo.group.rounds[g_ammo.shown[i]];
         const char *name = round ? round->GetFullName() : nullptr;
         std::string text = name && *name ? name : "?";
-        if (SInt32(i) == g_ammo.loaded) text = Fill("$F3NV_LOADED", text);
+        if (SInt32(i) == g_ammo.loaded) text = Fill("$CRUI_LOADED", text);
         view->rows.push_back({text, std::to_string(g_ammo.counts[i])});
     }
     view->chosen = g_ammo.chosen;
-    view->keys = {CanLoad() ? "$F3NV_KEY_LOAD" : "", "$F3NV_KEY_CANCEL"};
+    view->keys = {CanLoad() ? "$CRUI_KEY_LOAD" : "", "$CRUI_KEY_CANCEL"};
     return true;
 }
 
@@ -256,4 +256,4 @@ void RegisterAmmo(VirtualMachine *vm) {
     vm->RegisterFunction(new NativeFunction0<StaticFunctionTag, SInt32>("TakeChoice", SCRIPT, TakeChoice, vm));
 }
 
-}  // namespace condition
+}  // namespace crui

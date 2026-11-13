@@ -1,5 +1,5 @@
-// F3NV's Pip-Boy: a CND line on the inventory item card for items that wear, a REPAIR (G) button
-// hint, the AMMO (V) hint and its keys (ammo.cpp), and the highlighted item for F3NV_Condition.PipboySelection
+// Our Pip-Boy: a CND line on the inventory item card for items that wear, a REPAIR (G) button
+// hint, the AMMO (V) hint and its keys (ammo.cpp), and the highlighted item for CRUI_Condition.PipboySelection
 // (docs/fork/fo4_condition.md#pipboy).
 //
 // When the Pip-Boy menu opens (a menu open event, then a UI task), its movie gets a native enterFrame listener.
@@ -10,7 +10,7 @@
 // LineStack) and its health. Once per menu it loads our own movie into the menu instance (LoadOverlay), which
 // asks PipboyCardLines for the card's lines each frame and keeps them in InfoObj, and draws the open repair or
 // ammo list from PipboyList. This file keeps the lists' state and keys: G or the REPAIR hint opens the repair
-// list (below); confirming it sends the F4SE external event FNVConditionRepair to Papyrus.
+// list (below); confirming it sends the F4SE external event CRUI_ConditionRepair to Papyrus.
 #include "condition.h"
 
 #include "f4se/GameEvents.h"
@@ -27,13 +27,13 @@
 #include <cstring>
 #include <string>
 
-namespace condition {
+namespace crui {
 
 namespace {
 
 // The Pip-Boy's own keys there: Enter, X, R, Q, C, Tab, Z, and T (Grid View); G is free. No gamepad button is.
-const char *MENU = "PipboyMenu", *LINE = "$F3NV_CND", *HINT = "$F3NV_REPAIR", *HINT_KEY = "G", *HOOKED = "fnvConditionHooked";
-const char *HINT_CLASS = "Shared.AS3.BSButtonHintData", *REPAIR_EVENT = "FNVConditionRepair";
+const char *MENU = "PipboyMenu", *LINE = "$CRUI_CND", *HINT = "$CRUI_REPAIR", *HINT_KEY = "G", *HOOKED = "cruiHooked";
+const char *HINT_CLASS = "Shared.AS3.BSButtonHintData", *REPAIR_EVENT = "CRUI_ConditionRepair";
 const UInt32 KEYBOARD_MOUSE = 0;  // PlatformChangeEvent.PLATFORM_PC_KB_MOUSE
 F4SETaskInterface *g_tasks = nullptr;
 std::atomic<bool> g_refresh{false};
@@ -159,12 +159,12 @@ namespace {
 
 // The vendor's offer: its skill, the condition before and after, the price, the caps held.
 void OfferView(ListView *view) {
-    view->heading = {"$F3NV_REPAIR_SERVICES", g_list.vendor};
-    view->notes = {{"$F3NV_VENDOR_REPAIR", std::to_string(int(g_list.skill))},
+    view->heading = {"$CRUI_REPAIR_SERVICES", g_list.vendor};
+    view->notes = {{"$CRUI_VENDOR_REPAIR", std::to_string(int(g_list.skill))},
                    {LINE, Percent(g_list.health) + " > " + Percent(g_list.offer.health)},
-                   {"$F3NV_COST", Fill("$F3NV_CAPS", std::to_string(g_list.offer.cost))},
-                   {"$F3NV_YOUR_CAPS", std::to_string(g_list.caps)}};
-    view->keys = {g_list.caps >= g_list.offer.cost ? "$F3NV_KEY_REPAIR" : "$F3NV_NOT_ENOUGH_CAPS", "$F3NV_KEY_CANCEL"};
+                   {"$CRUI_COST", Fill("$CRUI_CAPS", std::to_string(g_list.offer.cost))},
+                   {"$CRUI_YOUR_CAPS", std::to_string(g_list.caps)}};
+    view->keys = {g_list.caps >= g_list.offer.cost ? "$CRUI_KEY_REPAIR" : "$CRUI_NOT_ENOUGH_CAPS", "$CRUI_KEY_CANCEL"};
 }
 
 // The open repair list, or the vendor's offer, as a view for our movie.
@@ -173,7 +173,7 @@ void RepairView(ListView *view) {
         OfferView(view);
         return;
     }
-    view->heading = {"$F3NV_REPAIR_SKILL", std::to_string(int(g_list.skill))};
+    view->heading = {"$CRUI_REPAIR_SKILL", std::to_string(int(g_list.skill))};
     for (const Spare &spare : g_list.spares) {
         const char *name = spare.form->GetFullName();
         std::string text = name ? name : "?";
@@ -183,7 +183,7 @@ void RepairView(ListView *view) {
     view->chosen = g_list.chosen;
     float result = RepairResult(g_list.health, g_list.spares[g_list.chosen].health, g_list.skill);
     view->notes = {{LINE, Percent(g_list.health) + " > " + Percent(result)}};
-    view->keys = {"$F3NV_KEY_REPAIR", "$F3NV_KEY_CANCEL"};
+    view->keys = {"$CRUI_KEY_REPAIR", "$CRUI_KEY_CANCEL"};
 }
 
 }  // namespace
@@ -202,7 +202,7 @@ void SayOnCard(const char *why, const char *label) {
 
 bool PipboyMovieThere() {
     static bool logged = false;
-    if (!g_movieThere && !logged) _MESSAGE("Pip-Boy: no list without our movie (%s)", "F3NV_Pipboy.swf");
+    if (!g_movieThere && !logged) _MESSAGE("Pip-Boy: no list without our movie (%s)", "CRUI_Pipboy.swf");
     logged = logged || !g_movieThere;
     return g_movieThere;
 }
@@ -235,7 +235,7 @@ void OpenOffer(GFxMovieRoot *movie, GFxValue &page) {
     _MESSAGE("vendor repair offer for %08X stack %d: %.3f for %u caps (held %u)", g_list.item, g_list.stack,
              g_list.offer.health, g_list.offer.cost, g_list.caps);
     if (!g_list.offer.cost) {
-        SayOnCard(g_list.health >= 0.995f ? "$F3NV_NOT_NEEDED" : "$F3NV_BEYOND_VENDOR");
+        SayOnCard(g_list.health >= 0.995f ? "$CRUI_NOT_NEEDED" : "$CRUI_BEYOND_VENDOR");
         return;
     }
     g_list.open = true;
@@ -267,7 +267,7 @@ void OpenList(GFxMovieRoot *movie) {
              UInt32(g_list.spares.size()));
     bool whole = g_list.health >= 0.995f;
     if (whole || g_list.spares.empty()) {
-        SayOnCard(whole ? "$F3NV_NOT_NEEDED" : "$F3NV_NO_SPARE");
+        SayOnCard(whole ? "$CRUI_NOT_NEEDED" : "$CRUI_NO_SPARE");
         return;
     }
     g_list.chosen = DefaultSpare(g_list.spares, g_list.health, g_list.skill);
@@ -499,9 +499,9 @@ public:
     }
 };
 
-// Our own movie (Interface/F3NV_Pipboy.swf, fo4_import/pipboy_overlay) loaded into the menu instance `menu` with a
+// Our own movie (Interface/CRUI_Pipboy.swf, fo4_import/pipboy_overlay) loaded into the menu instance `menu` with a
 // Loader, as F4SE's UI.Load does; it draws PipboyCardLines on the item card (docs/fork/swf_framework.md#pipboy).
-const char *OVERLAY = "F3NV_Pipboy.swf";
+const char *OVERLAY = "CRUI_Pipboy.swf";
 
 void LoadOverlay(GFxMovieRoot *movie, GFxValue &menu) {
     GFxValue loader, path, args[2];
@@ -575,12 +575,6 @@ private:
 
 const char *TRANSFER_MENUS[] = {"ContainerMenu", "BarterMenu"};
 
-// A menu opened: give the HUD Hardcore's needs on the UI thread, if it has none yet (hardcore.cpp).
-class HudHookTask : public ITaskDelegate {
-public:
-    void Run() override { HookHud(); }
-};
-
 class OpenSink : public BSTEventSink<MenuOpenCloseEvent> {
 public:
     EventResult ReceiveEvent(MenuOpenCloseEvent *evn, void *) override {
@@ -588,7 +582,6 @@ public:
         const char *name = evn && evn->isOpen ? evn->menuName.c_str() : nullptr;
         if (!name || !g_tasks) return kEvent_Continue;
         if (!strcmp(name, MENU)) g_tasks->AddUITask(new HookTask);
-        g_tasks->AddUITask(new HudHookTask);
         for (const char *transfer : TRANSFER_MENUS)
             if (!strcmp(name, transfer)) g_tasks->AddUITask(new TransferHookTask(transfer));
         return kEvent_Continue;
@@ -659,4 +652,4 @@ void ShowLine(GFxMovieRoot *movie, GFxValue &card, float health, bool force) {
     card.Invoke("onDataChange", nullptr, nullptr, 0);
 }
 
-}  // namespace condition
+}  // namespace crui

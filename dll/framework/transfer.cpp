@@ -1,4 +1,4 @@
-// F3NV's transfer and barter menus: a CND line on the item card for items that wear, each line at
+// Our transfer and barter menus: a CND line on the item card for items that wear, each line at
 // its own stack's condition (docs/fork/fo4_condition.md#transfer-menu).
 //
 // Each menu builds its Flash lines with a virtual function, slot 28 of ContainerMenu's and BarterMenu's vtables
@@ -6,8 +6,8 @@
 // the owner's reference handle, the game's line record (an InventoryInterface handle, then the line's stack
 // indices: count at +8, inline at +0x10 when the count is negative, else a pointer there) and the Flash line.
 // Both slots are replaced: the original builds the line, then the line's item (InventoryInterface lookup,
-// 0x347C10) and first stack give it fnvCND, its condition. While a menu is open, a native enterFrame listener
-// keeps a CND line at the highlighted line's fnvCND on the item card (whose InfoObj is that line's
+// 0x347C10) and first stack give it cruiCND, its condition. While a menu is open, a native enterFrame listener
+// keeps a CND line at the highlighted line's cruiCND on the item card (whose InfoObj is that line's
 // ItemCardInfoList).
 #include "condition.h"
 
@@ -17,7 +17,7 @@
 
 #include <string>
 
-namespace condition {
+namespace crui {
 
 namespace {
 
@@ -27,7 +27,7 @@ RelocPtr<void *> g_inventoryInterface(0x30EC470);
 RelocAddr<ItemOfFn> ItemOf(0x347C10);
 RelocAddr<uintptr_t> CONTAINER_LINE_SLOT(0x25AC7A8), BARTER_LINE_SLOT(0x2534710);
 LineFn g_containerLine = nullptr, g_barterLine = nullptr;
-const char *STAMP = "fnvCND", *HOOKED = "fnvConditionHooked";
+const char *STAMP = "cruiCND", *HOOKED = "cruiHooked";
 const char *LISTS[] = {"ContainerList_mc", "PlayerInventory_mc.PlayerList_mc"};
 
 // The health (0 to 1) of game line record `entry`'s first stack, when its item wears; -1 otherwise.
@@ -118,4 +118,4 @@ void HookTransferMenu(const char *name) {
     _MESSAGE("hooked %s at %s", name, g_base.c_str());
 }
 
-}  // namespace condition
+}  // namespace crui

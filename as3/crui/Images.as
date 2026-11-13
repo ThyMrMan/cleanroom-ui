@@ -7,7 +7,7 @@ package crui
    import flash.net.URLRequest;
 
    // Textures shown in a menu through f4se.MountImage. Any form of a texture's path is put the way MountImage takes
-   // it (under Textures, without that folder: played 2026-11-08); a missing file is caught first by F3NV.dll's
+   // it (under Textures, without that folder: played 2026-11-08); a missing file is caught first by our DLL's
    // TextureExists, since MountImage reports true for one; and an image shows in a Loader, scaled to a square.
    // See docs/fork/swf_framework.md#images
    public class Images
@@ -40,10 +40,10 @@ package crui
          return out;
       }
 
-      // Whether the game has the texture at `path`: F3NV.dll's answer, or true without it (none, or an older one).
+      // Whether the game has the texture at `path`: our DLL's answer, or true without it (none, or an older one).
       public function exists(path:String) : Boolean
       {
-         var dll:Object = bridge.natives("F3NV");
+         var dll:Object = bridge.shared();
          return dll == null || dll.TextureExists == null || dll.TextureExists(texturePath(path)) == true;
       }
 

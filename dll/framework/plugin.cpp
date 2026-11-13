@@ -1,8 +1,9 @@
-// F3NV: FO3/FNV item condition on Fallout 4 (docs/fork/fo4_condition.md).
+// CleanroomUI.dll: Cleanroom UI's framework for Fallout 4 (docs/spin_offs.md#split): item condition, the
+// Pip-Boy's item-card lines, lists and STAT tabs, and ChangeSex, each doing nothing until a mod asks for it.
 //
 // Condition is the engine's own item health (ExtraHealth, 0 to 1) on an inventory stack, which the save keeps.
 // Fallout 4 gives Papyrus no way to read or write it on an inventory item, so this plugin adds natives to the
-// script F3NV_Condition; the rules (wear, effects, repair) live in Papyrus and records. pipboy.cpp shows the
+// script CRUI_Condition; the rules (wear, effects, repair) live in Papyrus and records. pipboy.cpp shows the
 // condition on the Pip-Boy's item card and reports the highlighted item.
 // Built against F4SE 0.7.9 for Fallout4.exe 1.11.240.
 #include "condition.h"
@@ -13,12 +14,11 @@
 #include "f4se/PapyrusArgs.h"
 #include "f4se/PapyrusNativeFunctions.h"
 #include "f4se/PapyrusVM.h"
-#include "f4se_common/BranchTrampoline.h"
 #include "f4se_common/f4se_version.h"
 
 #include <shlobj.h>
 
-namespace condition {
+namespace crui {
 
 std::mutex g_lock;
 std::unordered_set<UInt32> g_tracked;
@@ -92,65 +92,32 @@ bool WriteHealth(TESObjectREFR *holder, TESForm *item, SInt32 index, float value
     return true;
 }
 
-}  // namespace condition
+}  // namespace crui
 
 namespace {
 
-using namespace condition;
+using namespace crui;
 
-const char *SCRIPT = "F3NV_Condition";
+const char *SCRIPT = "CRUI_Condition";
 PluginHandle g_handle = kPluginHandle_Invalid;
 void *g_tasks = nullptr;
 
-// ---- Starting condition (docs/fork/fo4_condition.md#entry-condition) ----
-// The game gives an item spawned from an inventory entry the entry's COED condition (0x271570) only when the
-// item has a maximum health (0x316940: armor's own field, ammo's charge, else a health component). Weapons have
-// none, so their COED was dropped. The one call there (0x271611) is redirected: a weapon answers 1, so its
-// condition applies. Vanilla puts COED only on power armor entries, so only FNV's data is affected.
-using MaxHealthFn = UInt32 (*)(TESForm *, TESObjectREFR *);
-RelocAddr<MaxHealthFn> MaxHealth(0x316940);
-RelocAddr<uintptr_t> SPAWN_HEALTH_CALL(0x271611);
-// The spawn-health call, damage.cpp's four calls and two stubs, hardcore.cpp's call, dialogue.cpp's three calls.
-const size_t TRAMPOLINE_SIZE = 256;
-bool g_trampoline = false;
-
-UInt32 SpawnMaxHealth(TESForm *form, TESObjectREFR *ref) {
-    UInt32 health = MaxHealth(form, ref);
-    return health || !form || form->formType != kFormType_WEAP ? health : 1;
-}
-
-// Redirect the spawn routine's max-health call to SpawnMaxHealth, with F4SE's branch pool; false when it cannot.
-bool HookSpawnHealth(const F4SEInterface *f4se) {
-    auto *trampolines = static_cast<F4SETrampolineInterface *>(f4se->QueryInterface(kInterface_Trampoline));
-    void *pool = trampolines ? trampolines->AllocateFromBranchPool(g_handle, TRAMPOLINE_SIZE) : nullptr;
-    if (!pool) return false;
-    g_branchTrampoline.SetBase(TRAMPOLINE_SIZE, pool);
-    return g_branchTrampoline.Write5Call(SPAWN_HEALTH_CALL.GetUIntPtr(), uintptr_t(SpawnMaxHealth));
-}
-
-// ---- No combat sprint (docs/fork/fo4_pipeline.md#combat-sprint) ----
-// FO3/FNV actors never sprint; FO4's approach controller (0x1008c20) sprints at a far target while the INI setting
-// bCombatPathSprinting:Combat (its Setting at 0x2F38A98, read at 0x1008f12) is on. Turned off for every actor, as
-// FNV plays; set at load and again once the game has loaded, after the INI files are read.
-RelocAddr<Setting *> COMBAT_PATH_SPRINTING(0x2F38A98);
-const char *SPRINT_SETTING = "bCombatPathSprinting:Combat";
-
-void NoCombatSprint() {
-    auto *setting = reinterpret_cast<Setting *>(COMBAT_PATH_SPRINTING.GetUIntPtr());
-    bool found = setting->name && !strcmp(setting->name, SPRINT_SETTING);
-    if (found) setting->data.u8 = 0;
-    _MESSAGE("combat approach sprint %s", found ? "off" : "left on (setting not found)");
-}
-
-// F4SE messages: hook dialogue once every plugin has loaded (so XDI.dll shows), the Pip-Boy once the game has loaded
-// (the UI exists then); forget mods' item-card lines as a save loads or a new game starts.
+// F4SE messages: hook the Pip-Boy once the game has loaded (the UI exists then); forget mods' item-card lines as a
+// save loads or a new game starts.
 void OnMessage(F4SEMessagingInterface::Message *msg) {
-    if (msg->type == F4SEMessagingInterface::kMessage_PostLoad && g_trampoline) HookDialogue(g_tasks);
     if (msg->type == F4SEMessagingInterface::kMessage_PreLoadGame || msg->type == F4SEMessagingInterface::kMessage_NewGame)
         ForgetCardLines();
     if (msg->type != F4SEMessagingInterface::kMessage_GameLoaded) return;
-    NoCombatSprint();
     InstallPipboy(g_tasks);
+}
+
+// F4SE's Scaleform callback: give a movie's f4se.plugins.CleanroomUI the Pip-Boy movie's natives and the shared ones.
+bool RegisterMovie(GFxMovieView *view, GFxValue *plugin) {
+    GFxMovieRoot *movie = view ? view->movieRoot : nullptr;
+    if (!movie || !plugin) return false;
+    RegisterPipboyMenu(movie, plugin);
+    RegisterSharedNatives(movie, plugin);
+    return true;
 }
 
 
@@ -284,8 +251,6 @@ bool Register(VirtualMachine *vm) {
     RegisterAmmo(vm);
     RegisterItemCard(vm);
     RegisterSex(vm, g_tasks);
-    RegisterDamage(vm);
-    RegisterHardcore(vm);
     vm->RegisterFunction(new NativeFunction2<StaticFunctionTag, float, TESObjectREFR *, TESForm *>(
         "GetHealth", SCRIPT, GetHealth, vm));
     vm->RegisterFunction(new NativeFunction3<StaticFunctionTag, bool, TESObjectREFR *, TESForm *, float>(
@@ -329,9 +294,9 @@ extern "C" {
 
 __declspec(dllexport) F4SEPluginVersionData F4SEPlugin_Version = {
     F4SEPluginVersionData::kVersion,
-    2,
-    "F3NV",
-    "fo3fnv-in-fo4",
+    1,
+    "CleanroomUI",
+    "cleanroom-ui",
     0,
     0,
     {RUNTIME_VERSION_1_11_240, 0},
@@ -339,23 +304,19 @@ __declspec(dllexport) F4SEPluginVersionData F4SEPlugin_Version = {
 };
 
 __declspec(dllexport) bool F4SEPlugin_Load(const F4SEInterface *f4se) {
-    gLog.OpenRelative(CSIDL_MYDOCUMENTS, "\\My Games\\Fallout4\\F4SE\\F3NV.log");
+    gLog.OpenRelative(CSIDL_MYDOCUMENTS, "\\My Games\\Fallout4\\F4SE\\CleanroomUI.log");
     g_handle = f4se->GetPluginHandle();
     auto *papyrus = static_cast<F4SEPapyrusInterface *>(f4se->QueryInterface(kInterface_Papyrus));
     if (!papyrus) {
         _MESSAGE("no Papyrus interface");
         return false;
     }
-    _MESSAGE("F3NV loaded, runtime %08X", f4se->runtimeVersion);
+    _MESSAGE("CleanroomUI loaded, runtime %08X", f4se->runtimeVersion);
     g_tasks = f4se->QueryInterface(kInterface_Task);
     auto *messaging = static_cast<F4SEMessagingInterface *>(f4se->QueryInterface(kInterface_Messaging));
-    g_trampoline = HookSpawnHealth(f4se);
-    _MESSAGE("weapon starting condition %s", g_trampoline ? "hooked" : "not hooked");
-    if (g_trampoline) HookDamage(), HookAmmoWeight();
     auto *scaleform = static_cast<F4SEScaleformInterface *>(f4se->QueryInterface(kInterface_Scaleform));
-    if (!scaleform || !scaleform->Register("F3NV", RegisterDialogueMenu)) _MESSAGE("no dialogue menu natives");
+    if (!scaleform || !scaleform->Register("CleanroomUI", RegisterMovie)) _MESSAGE("no movie natives");
     InstallTransfer();
-    NoCombatSprint();
     if (!messaging || !g_tasks || !messaging->RegisterListener(g_handle, "F4SE", OnMessage))
         _MESSAGE("no Pip-Boy display (messaging %p, task %p)", messaging, g_tasks);
     return papyrus->Register(Register);

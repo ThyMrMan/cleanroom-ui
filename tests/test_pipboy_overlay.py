@@ -1,4 +1,4 @@
-"""Our movie inside the Pip-Boy: built by mxmlc, loaded by F3NV.dll under the name the build installs.
+"""Our movie inside the Pip-Boy: built by mxmlc, loaded by CleanroomUI.dll under the name the build installs.
 
 See: docs/swf_framework.md#pipboy
 """
@@ -11,7 +11,7 @@ from crui import REPO, menus, mxmlc
 from crui.swf import Swf
 
 MENU = menus.BY_NAME['pipboy']
-RUNTIME = REPO / 'dll' / 'f3nv'
+RUNTIME = REPO / 'dll' / 'framework'
 PIPBOY_CPP = RUNTIME / 'pipboy.cpp'
 
 
@@ -33,13 +33,13 @@ def test_the_movie_calls_every_native_the_dll_registers_for_it():
 
 
 def test_the_item_card_api_script_declares_the_native_card_cpp_registers():
-    """F3NV_ItemCard.psc declares SetLine as card.cpp registers it, and the DLL build compiles card.cpp."""
+    """CRUI_ItemCard.psc declares SetLine as card.cpp registers it, and the DLL build compiles card.cpp."""
     card = (RUNTIME / 'card.cpp').read_text(encoding='utf-8')
     name = re.search(r'SCRIPT = "(\w+)"', card).group(1)
     script = (REPO / 'papyrus' / f'{name}.psc').read_text(encoding='utf-8')
     assert '"SetLine", SCRIPT, SetLine' in card
     assert 'Function SetLine(Form akItem, String asLabel, String asValue) Global Native' in script
-    assert 'card.cpp' in (RUNTIME / 'build.bat').read_text(encoding='utf-8')
+    assert 'card.cpp' in (REPO / 'dll' / 'build.bat').read_text(encoding='utf-8')
 
 
 @pytest.mark.skipif(not mxmlc.available(), reason='the Flex SDK is not installed')
@@ -48,12 +48,12 @@ def test_the_movie_builds_the_same_twice_and_fills_the_item_card(tmp_path):
     raw = menus.compile_movie(MENU, tmp_path / 'a.swf').read_bytes()
     assert raw == menus.compile_movie(MENU, tmp_path / 'b.swf').read_bytes() and raw[:3] == b'FWS'
     assert not {t.code for t in Swf.parse(raw).tags} & set(mxmlc.DATED)
-    for name in (b'F3NV_Pipboy', b'CurrentPage', b'ItemCard_mc', b'InfoObj', b'onDataChange', b'PipboyCardLines',
+    for name in (b'CRUI_Pipboy', b'CurrentPage', b'ItemCard_mc', b'InfoObj', b'onDataChange', b'PipboyCardLines',
                  b'PipboyList', b'ListPanel', b'crui'):
         assert name in raw
 
 
 @pytest.mark.skipif(not mxmlc.available(), reason='the Flex SDK is not installed')
 def test_install_writes_the_movie_under_interface(tmp_path):
-    """install() copies the built movie to <data>/Interface/F3NV_Pipboy.swf."""
+    """install() copies the built movie to <data>/Interface/CRUI_Pipboy.swf."""
     assert menus.install(MENU, tmp_path).read_bytes()[:3] == b'FWS' and (tmp_path / MENU.movie).is_file()

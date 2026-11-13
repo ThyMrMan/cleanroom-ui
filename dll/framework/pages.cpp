@@ -1,7 +1,7 @@
-// F3NV's Pip-Boy tabs (docs/fork/fo4_pipboy_tabs.md): FNV's Skills, Reputation and Karma, as tabs
+// Our Pip-Boy tabs (docs/fork/fo4_pipboy_tabs.md): FNV's Skills, Reputation and Karma, as tabs
 // of the Pip-Boy's STAT page after its own (STATUS, SPECIAL, PERKS).
 //
-// F3NV_Pipboy.SetTab gives a tab: its rows (a FormList of actor values on the player, or globals), the strings
+// CRUI_Pipboy.SetTab gives a tab: its rows (a FormList of actor values on the player, or globals), the strings
 // a row's value picks (none: the number shows) and the globals that show each row. The STAT page's tab names are
 // the array its public TabNames getter returns, so a name pushed there is a tab the header shows and the menu
 // switches to (the engine keeps the current tab number). Each tab is a copy of the page's own SPECIAL tab
@@ -23,7 +23,7 @@
 #include <string>
 #include <vector>
 
-namespace condition {
+namespace crui {
 
 namespace {
 
@@ -41,7 +41,7 @@ const void *g_page = nullptr;
 UInt32 g_first = 0;
 SInt32 g_showing = -1;
 std::string g_description;
-const char *CLIP = "fnvTab", *SCRIPT = "F3NV_Pipboy";
+const char *CLIP = "cruiTab", *SCRIPT = "CRUI_Pipboy";
 
 std::string ClipName(size_t i) {
     return std::string(CLIP) + std::to_string(i);
@@ -248,4 +248,4 @@ void RegisterPages(VirtualMachine *vm) {
                                              VMArray<BSFixedString>, BGSListForm *>("SetTab", SCRIPT, SetTab, vm));
 }
 
-}  // namespace condition
+}  // namespace crui

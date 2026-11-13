@@ -6,22 +6,24 @@ package
    import flash.display.MovieClip;
    import flash.events.Event;
 
-   // Our movie inside the Pip-Boy. F3NV.dll loads it into the Pip-Boy menu (root.Menu_mc) with a Loader when the
-   // menu opens (pipboy.cpp LoadOverlay). Each frame it keeps the lines F3NV.dll gives (PipboyCardLines: the CND
+   // Our movie inside the Pip-Boy. CleanroomUI.dll loads it into the Pip-Boy menu (root.Menu_mc) with a Loader when the
+   // menu opens (pipboy.cpp LoadOverlay). Each frame it keeps the lines CleanroomUI.dll gives (PipboyCardLines: the CND
    // line of an item that wears, why a list did not open, other mods' lines) on the inventory item card
    // (CurrentPage.ItemCard_mc.InfoObj), which the game refills on every selection, under any Pip-Boy movie that
-   // keeps the vanilla item card. While F3NV's repair or ammo list is open (PipboyList) it draws that list over
+   // keeps the vanilla item card. While our repair or ammo list is open (PipboyList) it draws that list over
    // the card instead (ListPanel), in white for the game's own screen tint, or in FallUI's Pip-Boy color when
-   // FallUI draws the Pip-Boy (it turns the tint off). It takes no input: F3NV.dll keeps the keys.
+   // FallUI draws the Pip-Boy (it turns the tint off). It takes no input: CleanroomUI.dll keeps the keys.
    // See docs/fork/swf_framework.md#pipboy
-   public class F3NV_Pipboy extends MovieClip
+   public class CRUI_Pipboy extends MovieClip
    {
+      // The DLL whose natives draw our lines and lists (f4se.plugins.<DLL>).
+      private static const DLL:String = "CleanroomUI";
       private var bridge:Bridge = new Bridge();
       private var menu:Object;
       private var seen:Object = {};
       private var panel:ListPanel = new ListPanel();
 
-      public function F3NV_Pipboy()
+      public function CRUI_Pipboy()
       {
          super();
          mouseEnabled = false;
@@ -43,15 +45,15 @@ package
          {
             bridge.f4se = null;
          }
-         log("loaded into " + (menu != null ? String(menu) : "nothing") + " (F3NV.dll "
-             + (bridge.natives("F3NV") != null ? "found" : "not found") + ")");
+         log("loaded into " + (menu != null ? String(menu) : "nothing") + " (CleanroomUI.dll "
+             + (bridge.natives(DLL) != null ? "found" : "not found") + ")");
          addEventListener(Event.ENTER_FRAME, onFrame);
       }
 
-      // Each frame: draw F3NV.dll's open list, or else keep its lines on the item card.
+      // Each frame: draw CleanroomUI.dll's open list, or else keep its lines on the item card.
       private function onFrame(e:Event) : void
       {
-         var dll:Object = bridge.natives("F3NV");
+         var dll:Object = bridge.natives(DLL);
          var list:Object = dll != null && dll.PipboyList != null ? dll.PipboyList() : null;
          var card:Object = itemCard();
          if (list != null && card != null)
@@ -59,15 +61,15 @@ package
             raise();
             Theme.color = pipboyColor();
             panel.draw(list, DisplayObject(card).getBounds(this));
-            once("drew a list of F3NV's");
+            once("drew a list of our");
             return;
          }
          panel.hide();
          keepLines(dll, card);
       }
 
-      // Put F3NV.dll's lines on item card `card`, adding the ones the game's refill dropped and updating changed
-      // values, and redraw the card when anything changed. Nothing while a list of F3NV's has the card.
+      // Put CleanroomUI.dll's lines on item card `card`, adding the ones the game's refill dropped and updating changed
+      // values, and redraw the card when anything changed. Nothing while a list of our has the card.
       private function keepLines(dll:Object, card:Object) : void
       {
          var wanted:Array = dll != null && dll.PipboyCardLines != null ? dll.PipboyCardLines() as Array : null;
@@ -84,7 +86,7 @@ package
          if (changed)
          {
             card.onDataChange();
-            once("drew F3NV's lines on an item card (" + lines.length + " lines)");
+            once("drew our lines on an item card (" + lines.length + " lines)");
          }
       }
 
@@ -169,7 +171,7 @@ package
 
       private function log(text:String) : void
       {
-         var dll:Object = bridge.natives("F3NV");
+         var dll:Object = bridge.natives(DLL);
          if (dll != null && dll.Log != null)
          {
             dll.Log("Pip-Boy movie: " + text);

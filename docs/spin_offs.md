@@ -38,8 +38,8 @@ raw F4SE 0.7.9 with no Address Library.
 
 | Release | Contains | For |
 |---|---|---|
-| **Framework DLL** (name to pick) | Item condition API, Pip-Boy and menu CND lines, Pip-Boy tabs API, `ChangeSex`, the Papyrus array library (`F3NV_Array.psc`) | Mod authors. Does nothing on its own |
-| **Dialogue menu** | `dialogue.cpp` and its menu file, separate DLL | Players replacing XDI. No framework needed. See [its plan](dialogue_menu_mod.md) |
+| **Framework DLL** (`CleanroomUI.dll`) | Item condition API, Pip-Boy and menu CND lines, Pip-Boy tabs API, `ChangeSex`, the Papyrus array library (`CRUI_Array.psc`) | Mod authors. Does nothing on its own |
+| **Dialogue menu** (`CleanroomDialogue.dll`) | `dialogue.cpp` and its menu file, separate DLL | Players replacing XDI. No framework needed. See [its plan](dialogue_menu_mod.md) |
 | **NV Weapon Condition & Repair** (content mod) | ESP + scripts that track weapons and armor, repair lists, vendors | Players. Requires the framework |
 | **NV Ammo Switching** (content mod, optional) | ESP + scripts for the ammo list | Players. Requires the framework. Many alternatives exist; low priority |
 | **Dynamic collision** | New DLL ([plan](dynamic_collision_mod.md)), from [the research](research/fo4_dynamic_collision.md) | Players and mod authors. No FO4 equivalent exists. No code yet |
@@ -48,6 +48,42 @@ raw F4SE 0.7.9 with no Address Library.
 Not released on their own:
 - **Damage Threshold.** Zoltanite's mod (Nexus 109168) already does this, and ours follows its approach. Keep the credit in the code.
 - **Ammo weight and combat sprint.** These are FNV rules, not general features.
+
+### <a id="split-status"></a>Where the split stands (built 2026-11-12, not played)
+
+In Cleanroom UI (`dll/`, `python -m crui dll`), from F3NV.dll's sources:
+- **`CleanroomUI.dll`** (`dll/framework/`): condition API, Pip-Boy overlay,
+  item-card lines, STAT tabs, repair and vendor repair lists, ammo list,
+  transfer and barter CND lines, `ChangeSex`. Natives on `CRUI_Condition`,
+  `CRUI_ItemCard`, `CRUI_Pipboy`, `CRUI_PipboyAmmo`, `CRUI_Sex`; movies
+  reach it as `f4se.plugins.CleanroomUI`; external events
+  `CRUI_ConditionRepair`, `CRUI_AmmoSwitch`; log `CleanroomUI.log`. It takes
+  no trampoline and no longer sets the spawn condition or combat sprint.
+- **`CleanroomDialogue.dll`** (`dll/dialogue/`): the dialogue menu alone,
+  with its own branch pool; `f4se.plugins.CleanroomDialogue`; log
+  `CleanroomDialogue.log`.
+- **`dll/shared/`**, compiled into both: the Flash helpers and the natives
+  every movie may call (`TextureExists`, `HudColor`). crui's `Bridge.shared()`
+  asks `CleanroomUI`, then `CleanroomDialogue`, so the level-up menu and
+  `Images` work with either installed.
+- **Not here:** Damage Threshold, Hardcore (HUD needs, ammo weight), weapons'
+  spawn condition and combat sprint: the converter's F3NV.dll keeps them
+  (its `tes_runtime/fo4_condition`).
+
+Not done yet:
+- **The converter** still builds its whole F3NV.dll and names
+  `F3NV_Condition` and the rest; installed beside `CleanroomUI.dll`, both
+  would hook the Pip-Boy. Its move: converted scripts call the `CRUI_`
+  natives (native scripts hold no saved state), its F3NV.dll keeps only
+  FNV's rules (with its own menu-open listener for the Hardcore HUD), and it
+  ships the two DLLs.
+- **The framework rules below:** the REPAIR and AMMO hints still appear on
+  every inventory page; `TrackRepair` and `SetTab` still replace rather than
+  add; no `GetVersion` or INI log level yet.
+- **The dialogue release:** its hint words are `$CRUI_` keys in
+  `CleanroomUI_<language>.txt`, which F4SE loads only with `CleanroomUI.esl`
+  active, and it still reads its links from `F4SE\Plugins\F3NV_Menus\`
+  (the converter writes them there).
 
 ### <a id="framework-rules"></a>Rules for the framework
 

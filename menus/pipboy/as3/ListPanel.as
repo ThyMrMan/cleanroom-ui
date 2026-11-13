@@ -8,7 +8,7 @@ package
    import flash.geom.Rectangle;
    import flash.text.TextField;
 
-   // A repair or ammo list of F3NV.dll's (its PipboyList native: {heading, rows, chosen, notes, keys}) drawn as a
+   // A repair or ammo list of our DLL's (its PipboyList native: {heading, rows, chosen, notes, keys}) drawn as a
    // pop-up over the item card (crui's Modal): the heading, a window of rows round the highlighted one (a
    // ScrollList), the notes and the keys, each a label on the left and its value on the right. White, as the
    // Pip-Boy's own art is; the game tints the screen. The DLL keeps the list's state and keys; this only draws it.

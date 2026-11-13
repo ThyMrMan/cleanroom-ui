@@ -13,8 +13,9 @@ menu, the image staging) is in
 
 **Names:** written for the FO3/FNV converter, so this plan's history says `f3ui`, `F3NV_LevelUp*`, `F3NV_Array`
 and `$F3NV_LU_*`. In Cleanroom UI those are `crui`, `CRUI_LevelUp*`, `CRUI_Array` and `$CRUI_*`
-(renamed 2026-11-12); the DLL's names (`F3NV.dll`, its native scripts, the `F3NV` Scaleform object,
-`F3NV_Pipboy`) wait for the [DLL split](spin_offs.md#split). Our translation files are
+(renamed 2026-11-12); the DLL is now `CleanroomUI.dll` (natives on `CRUI_Condition` and the rest,
+`f4se.plugins.CleanroomUI`, `CRUI_Pipboy.swf`) and `CleanroomDialogue.dll`
+([split](spin_offs.md#split-status)). Our translation files are
 `CleanroomUI_<language>.txt`, from `translations/<language>.txt` (`crui/translations.py`).
 
 **Scope:** FNV's and FO3's level-up (skill points, perks, traits, tags) in a
@@ -287,8 +288,17 @@ Now:
   no menu is open, without the 0.5 s settle a message box needs
   (`WaitOutOfMenus(False)`), and `Send` hands the prepared data over.
 
-**Play check:** the Papyrus log's `gathered in` line per open, and the
-time from the level-up button to a filled menu.
+Played again 2026-11-12, in Doc Mitchell's tag and trait menus: the
+gather took 0.85 s and 0.78 s after the quest stage, but the menu filled
+3.4 s and 0.6 s after that, each at the moment the next dialogue line was
+asked. Dialogue doesn't hold menu mode, so the wait is somewhere between
+`Open`, the engine opening the menu, and `Send`. Each open now logs its
+steps against the game's real-time clock: `open asked at`, `menu open
+<n>s after Open, sent in <n>s`, and the movie's own lines with the time
+since `Open`.
+
+**Play check:** those lines per open show which step holds the menu, and
+the time from the button (or the stage) to a filled menu.
 
 ## <a id="tags"></a>Tag skills and traits (built 2026-11-12, not played)
 

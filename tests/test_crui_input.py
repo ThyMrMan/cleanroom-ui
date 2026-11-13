@@ -11,7 +11,7 @@ from crui.menus import BY_NAME
 LIBRARY = REPO / 'as3' / 'crui'
 #: The menus that take keys and controls (the Pip-Boy overlay rides the Pip-Boy's own input).
 MENUS = (BY_NAME['level_up'].sources / 'CRUI_LevelUp.as', BY_NAME['dialogue'].sources / 'DialogueMenu.as')
-RUNTIME = REPO / 'dll' / 'f3nv'
+RUNTIME = REPO / 'dll'
 #: FO4's menu-mode controls (the control map in Fallout4.exe) and the action each should be.
 MENU_CONTROLS = {'Accept': 'ACCEPT', 'Cancel': 'BACK', 'Up': 'UP', 'Down': 'DOWN', 'Left': 'LEFT', 'Right': 'RIGHT',
                  'LShoulder': 'PREV', 'RShoulder': 'NEXT', 'LTrigger': 'PREV', 'RTrigger': 'NEXT', 'XButton': 'X',
@@ -53,16 +53,18 @@ def test_no_movie_calls_flash_11s_remove_children():
 
 
 def test_images_asks_the_dll_for_a_texture_by_the_name_it_registers():
-    """F3NV.dll registers TextureExists on every movie of ours; Images calls it with the path MountImage takes, and
-    treats a DLL without it as found.
+    """Each DLL of ours registers TextureExists on every movie; Images asks whichever is there (Bridge.shared) with
+    the path MountImage takes, and treats a DLL without it as found.
 
     See: docs/swf_framework.md#images
     """
-    gfx = (RUNTIME / 'gfx.cpp').read_text(encoding='utf-8')
+    gfx = (RUNTIME / 'shared' / 'gfx.cpp').read_text(encoding='utf-8')
     assert 'RegisterFunction<TextureExistsNative>(plugin, movie, "TextureExists")' in gfx
     assert 'std::string("Textures\\\\")' in gfx and 'BSResourceNiBinaryStream stream(path.c_str());' in gfx
-    assert 'RegisterImageNatives(movie, plugin);' in (RUNTIME / 'dialogue.cpp').read_text(encoding='utf-8')
+    for source in (RUNTIME / 'framework' / 'plugin.cpp', RUNTIME / 'dialogue' / 'dialogue.cpp'):
+        assert 'RegisterSharedNatives(movie, plugin);' in source.read_text(encoding='utf-8'), source
     images = (LIBRARY / 'Images.as').read_text(encoding='utf-8')
+    assert 'bridge.shared()' in images
     assert 'dll.TextureExists == null || dll.TextureExists(texturePath(path)) == true' in images
 
 

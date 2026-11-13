@@ -1,6 +1,6 @@
 package crui
 {
-   // The color everything we draw takes: the player's HUD color, read from F3NV.dll's HudColor native on each open
+   // The color everything we draw takes: the player's HUD color, read from our DLL's HudColor native on each open
    // (white without the DLL). The menu colors itself; no engine tint.
    // See docs/fork/swf_framework.md#spikes (2b)
    public class Theme

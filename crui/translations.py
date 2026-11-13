@@ -21,8 +21,8 @@ PLUGIN = 'CleanroomUI'
 LINE_LIMIT = 511
 #: Fallout 4's sLanguage values (its own Interface/translate_<language>.txt files).
 LANGUAGES = ('cn', 'de', 'en', 'es', 'esmx', 'fr', 'it', 'ja', 'pl', 'ptbr', 'ru')
-#: The AS3 that shows our keys: the library and every menu.
-CODE = ((REPO / 'as3', '**/*.as'), (REPO / 'menus', '**/*.as'))
+#: The code that shows our keys: the AS3 library, every menu and our DLLs.
+CODE = ((REPO / 'as3', '**/*.as'), (REPO / 'menus', '**/*.as'), (REPO / 'dll', '**/*.cpp'))
 #: A `"$CRUI_KEY"` string literal, or a template's `"$CRUI_KEY\t`.
 KEY_LITERAL = re.compile(r'"(\$CRUI_[A-Z0-9_]+)(?=["\\])')
 

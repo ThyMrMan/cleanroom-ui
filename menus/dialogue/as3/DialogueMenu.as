@@ -18,7 +18,7 @@ package
    // F3NV's dialogue menu, in a movie made only of our code (fo4_import/dialogue_menu/movie.py); the root
    // (DialogueMenuRoot) holds it at root.Menu_mc, where the game looks. The game drives it as its own menu
    // (SetButtonText, ShowButtonHelp, BGSCodeObj) and tints the five holders it registers with the HUD color. One
-   // scrolling list: F3NV.dll's options for its menus (any number), else the game's four.
+   // scrolling list: CleanroomDialogue.dll's options for its menus (any number), else the game's four.
    // See docs/fork/fo4_dialogue_menu_plan.md#own-movie
    public class DialogueMenu extends MovieClip
    {
@@ -26,7 +26,9 @@ package
 
       public var BGSCodeObj:Object;
 
-      // f4se.plugins.F3NV: GetDialogueOptions, SelectDialogueOption, Log, LeaveDialogue, ShadeList, TintFailed.
+      // f4se.plugins.<DLL>: GetDialogueOptions, SelectDialogueOption, Log, LeaveDialogue, ShadeList, TintFailed, and
+      // the shared TextureExists and HudColor.
+      private static const DLL:String = "CleanroomDialogue";
       private var dll:Object = null;
 
       // Keys and the game's controls as actions (made once the movie is on the stage), and the hints under the list.
@@ -42,7 +44,7 @@ package
       // The game's text per button (0 Positive, 1 Negative, 2 Neutral, 3 Question).
       private var gameTexts:Array = ["", "", "", ""];
 
-      // The list: {text, said, dim, failed, ours, index}; index is F3NV.dll's option or the game's button, dim the
+      // The list: {text, said, dim, failed, ours, index}; index is CleanroomDialogue.dll's option or the game's button, dim the
       // same as said (ScrollList draws a dim row fainter).
       private var entries:Array = [];
 
@@ -51,7 +53,7 @@ package
 
       private var scroll:ScrollList;
 
-      // The rows whose skill check fails, laid over the list inside the Negative holder, which F3NV.dll tints with
+      // The rows whose skill check fails, laid over the list inside the Negative holder, which CleanroomDialogue.dll tints with
       // the game's own speech-challenge color (TintFailed) instead of the HUD color.
       private var failedRows:Sprite;
 
@@ -66,7 +68,7 @@ package
       // The box's fixed width and its bottom's height above the screen's safe bottom (it stays under the speaker's
       // face); the padding, the scroll marks' column inside the box's left edge, a row's text width (a longer prompt
       // wraps), the gap between rows and the outline's thickness. The box has no fill of its own: the game's shaded
-      // background (F3NV.dll ShadeList) is its backdrop, since a fill in a HUD-colored holder draws opaque.
+      // background (CleanroomDialogue.dll ShadeList) is its backdrop, since a fill in a HUD-colored holder draws opaque.
       private static const BOX_WIDTH:Number = 640;
 
       private static const BOTTOM:Number = 36;
@@ -84,7 +86,7 @@ package
       // The game's shaded background is on behind the holder.
       private var shaded:Boolean = false;
 
-      // Frames to look again for F3NV.dll's options when a menu first shows none (its scene may not be set yet).
+      // Frames to look again for CleanroomDialogue.dll's options when a menu first shows none (its scene may not be set yet).
       private static const RETRIES:int = 30;
 
       private var retries:int = 0;
@@ -147,14 +149,14 @@ package
          this.BGSCodeObj.registerObjects(h.Positive, h.Negative, h.Neutral, h.Question, h.SpeechChallengeAnim_mc);
       }
 
-      // F4SE's object, once the movie has loaded (F4SE calls root's direct children too): F3NV.dll's natives.
+      // F4SE's object, once the movie has loaded (F4SE calls root's direct children too): CleanroomDialogue.dll's natives.
       public function onF4SEObjCreated(f4se:Object) : void
       {
          var bridge:Bridge = new Bridge();
          bridge.f4se = f4se;
-         if(this.dll == null && bridge.natives("F3NV") != null)
+         if(this.dll == null && bridge.natives(DLL) != null)
          {
-            this.dll = bridge.natives("F3NV");
+            this.dll = bridge.natives(DLL);
             this.log("menu ready");
          }
       }
@@ -303,7 +305,7 @@ package
          return entry.failed == true ? this.failedRows : null;
       }
 
-      // The list's entries again: F3NV.dll's options when it has any, else the game's buttons with text and our
+      // The list's entries again: CleanroomDialogue.dll's options when it has any, else the game's buttons with text and our
       // [Leave], so a menu without options of ours never leaves the talk stuck.
       private function refresh() : void
       {
@@ -350,7 +352,7 @@ package
          }
       }
 
-      // Each frame for RETRIES frames after a menu showed none of ours: ask F3NV.dll again, and show its options
+      // Each frame for RETRIES frames after a menu showed none of ours: ask CleanroomDialogue.dll again, and show its options
       // once it has some, before the game's own buttons are left in place.
       private function lookAgain(e:Event) : void
       {
@@ -410,7 +412,7 @@ package
          }
       }
 
-      // The game's shaded background behind the list's holder, on or off (F3NV.dll; once per change).
+      // The game's shaded background behind the list's holder, on or off (CleanroomDialogue.dll; once per change).
       private function shade(on:Boolean) : void
       {
          if(on != this.shaded && this.dll != null)
@@ -422,7 +424,7 @@ package
       }
 
       // The failed rows' layer laid exactly over the list (same place and scale, from the list's corners), shown
-      // with it, and their holder tinted after the game's own re-tint of it in SetButtonText (F3NV.dll TintFailed).
+      // with it, and their holder tinted after the game's own re-tint of it in SetButtonText (CleanroomDialogue.dll TintFailed).
       private function overlay(any:Boolean) : void
       {
          var holder:DisplayObject = this.failedRows.parent;
@@ -440,7 +442,7 @@ package
          }
       }
 
-      // Pick list entry `at`: F3NV.dll's option, or the game's button.
+      // Pick list entry `at`: CleanroomDialogue.dll's option, or the game's button.
       private function pick(at:int) : void
       {
          if(!this.listShown || this.picking || at < 0 || at >= this.entries.length)
@@ -478,7 +480,7 @@ package
          this.shade(false);
       }
 
-      // End the talk through F3NV.dll (`why` names the key or entry, for the log); without it, the game's own way.
+      // End the talk through CleanroomDialogue.dll (`why` names the key or entry, for the log); without it, the game's own way.
       private function leave(why:String) : void
       {
          if(this.dll == null)

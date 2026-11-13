@@ -1,5 +1,7 @@
-// F3NV: the item health shared by the Papyrus natives (plugin.cpp) and the Pip-Boy (pipboy.cpp).
+// CleanroomUI.dll: the item health shared by the Papyrus natives (plugin.cpp) and the Pip-Boy (pipboy.cpp).
 #pragma once
+
+#include "gfx.h"
 
 #include "f4se/GameExtraData.h"
 #include "f4se/GameFormComponents.h"
@@ -16,9 +18,9 @@
 #include <unordered_set>
 #include <vector>
 
-namespace condition {
+namespace crui {
 
-// The forms that wear (F3NV_Condition.Track): the Pip-Boy shows their condition.
+// The forms that wear (CRUI_Condition.Track): the Pip-Boy shows their condition.
 extern std::mutex g_lock;
 extern std::unordered_set<UInt32> g_tracked;
 
@@ -48,10 +50,10 @@ struct Spare {
     UInt32 count;
 };
 
-// `item`'s FNV repair list and Jury Rigging group, and the Repair skill's actor value (F3NV_Condition.TrackRepair).
+// `item`'s FNV repair list and Jury Rigging group, and the Repair skill's actor value (CRUI_Condition.TrackRepair).
 void TrackRepair(TESForm *item, BGSListForm *list, SInt32 group, ActorValueInfo *skill);
 
-// Whether the player has Jury Rigging (F3NV_Condition.SetJuryRigging).
+// Whether the player has Jury Rigging (CRUI_Condition.SetJuryRigging).
 void SetJuryRigging(bool has);
 
 // The holder's Repair skill.
@@ -93,7 +95,7 @@ struct Offer {
     UInt32 cost;
 };
 
-// FNV's vendor repair rules (F3NV_Condition.SetServiceRules): fRepairSkillBase and fRepairSkillMax, the cap in
+// FNV's vendor repair rules (CRUI_Condition.SetServiceRules): fRepairSkillBase and fRepairSkillMax, the cap in
 // tenths at Repair 0 and 100, and fItemRepairCostMult.
 void SetServiceRules(float skillBase, float skillMax, float costMult);
 
@@ -118,30 +120,7 @@ float BuyRepair(Actor *holder, TESForm *item, SInt32 stack, UInt32 cost, float h
 // The repair chosen in the Pip-Boy, cleared as it is taken; false with none.
 bool TakePipboyRepair(Repair *out);
 
-// ---- Flash helpers (gfx.cpp) ----
-
-// A Flash value as a number (int, uint, number or bool; else 0).
-double Num(const GFxValue &v);
-
-// Member `name` of Flash object `obj` into `out`; false when `obj` is not an object or lacks it.
-bool Get(GFxValue &obj, const char *name, GFxValue *out);
-
-// Log Flash object `obj`'s members by name and GFx type to F3NV.log (a menu not laid out as expected).
-void LogMembers(GFxValue &obj);
-
-// The first of `bases` (paths in `movie`) with a BGSCodeObj, and with member `needs` unless null: its path into
-// `base`, it into `root` and its BGSCodeObj into `code`; false (base cleared) when none has them.
-bool FindMenu(GFxMovieRoot *movie, std::initializer_list<const char *> bases, const char *needs, std::string *base,
-              GFxValue *root, GFxValue *code);
-
-// Listen for `event` on Flash object `target` with a native `Handler`; false when it could not be added.
-template <class Handler>
-bool Listen(GFxMovieRoot *movie, GFxValue &target, const char *event) {
-    GFxValue args[2];
-    movie->CreateString(&args[0], event);
-    CreateFunction<Handler>(&args[1], movie);
-    return target.Invoke("addEventListener", nullptr, args, 2);
-}
+// ---- Flash menus ----
 
 // Keep a CND line at `health` in item card `card`'s InfoObj, redrawing the card when it is added or changes.
 void ShowLine(GFxMovieRoot *movie, GFxValue &card, float health, bool force);
@@ -185,9 +164,9 @@ inline std::string Fill(const char *key, const std::string &slot) {
 }
 
 // Show `label`: `why` (why nothing opened; translation keys) on the item card until the selection changes.
-void SayOnCard(const char *why, const char *label = "$F3NV_REPAIR");
+void SayOnCard(const char *why, const char *label = "$CRUI_REPAIR");
 
-// Whether our Pip-Boy movie has called F3NV since this Pip-Boy menu opened (it draws the lists); logs once when not.
+// Whether our Pip-Boy movie has called us since this Pip-Boy menu opened (it draws the lists); logs once when not.
 bool PipboyMovieThere();
 
 // The open ammo list as a view for the movie; false when it is closed.
@@ -201,7 +180,7 @@ void CardLinesOf(UInt32 formID, std::vector<Row> *out);
 // Forget every mod's lines (a save is loading or a new game starts).
 void ForgetCardLines();
 
-// Register F3NV_ItemCard's native SetLine.
+// Register CRUI_ItemCard's native SetLine.
 void RegisterItemCard(VirtualMachine *vm);
 
 // Send F4SE external event `event` to Papyrus from the Pip-Boy's movie; false when it could not be sent.
@@ -219,11 +198,8 @@ SInt32 PipboyLineStack(UInt32 formID, UInt32 nodeID);
 // Whether the repair list is open.
 bool RepairListOpen();
 
-// Give `plugin` (a movie's f4se.plugins.F3NV) the Pip-Boy movie's natives PipboyCardLines and PipboyList.
+// Give `plugin` (a movie's f4se.plugins.CleanroomUI) the Pip-Boy movie's natives PipboyCardLines and PipboyList.
 void RegisterPipboyMenu(GFxMovieRoot *movie, GFxValue *plugin);
-
-// Add the natives crui's Images calls (TextureExists) to `plugin` (f4se.plugins.F3NV) in `movie` (gfx.cpp).
-void RegisterImageNatives(GFxMovieRoot *movie, GFxValue *plugin);
 
 // ---- The ammo list (ammo.cpp; docs/fork/fo4_condition.md#ammo-list) ----
 
@@ -239,7 +215,7 @@ bool AmmoKey(GFxMovieRoot *movie, int key);
 // The AMMO hint into `hint`; false when it cannot be made.
 bool MakeAmmoHint(GFxMovieRoot *movie, GFxValue *hint);
 
-// Register F3NV_PipboyAmmo's natives.
+// Register CRUI_PipboyAmmo's natives.
 void RegisterAmmo(VirtualMachine *vm);
 
 // ---- Pip-Boy tabs (pages.cpp; docs/fork/fo4_pipboy_tabs.md) ----
@@ -251,49 +227,12 @@ void UpdatePages(GFxMovieRoot *movie, const std::string &base);
 // Forget the STAT page given the tabs (the Pip-Boy opened again).
 void ResetPages();
 
-// Register F3NV_Pipboy's native SetTab.
+// Register CRUI_Pipboy's native SetTab.
 void RegisterPages(VirtualMachine *vm);
 
 // ---- Sex change (sex.cpp; docs/fork/fo4_pipeline.md#sex-change) ----
 
-// Register F3NV_Sex's native ChangeSex, run through F4SE's task interface `tasks`.
+// Register CRUI_Sex's native ChangeSex, run through F4SE's task interface `tasks`.
 void RegisterSex(VirtualMachine *vm, void *tasks);
 
-// ---- Damage Threshold (damage.cpp; docs/fork/fo4_pipeline.md#damage-threshold) ----
-
-// Point FO4's two resistance-curve calls at FNV's DT and DR, and count a projectile hit's pellets, through
-// g_branchTrampoline (set up); false when not all of them.
-bool HookDamage();
-
-// Register F3NV_Damage's native SetRules.
-void RegisterDamage(VirtualMachine *vm);
-
-// Whether the call instruction at `site` still calls `target`.
-bool CallsTarget(uintptr_t site, uintptr_t target);
-
-// ---- Our dialogue menu (dialogue.cpp; docs/fork/fo4_dialogue_menu_plan.md#test-build) ----
-
-// Point the dialogue option calls and the Player Dialogue run at our menu's options, through g_branchTrampoline (set
-// up); false when XDI.dll is loaded or a call site no longer calls the vanilla function. Run once plugins have loaded.
-// `tasks` (F4SE's task interface) runs the menu's leave on the game's thread.
-bool HookDialogue(void *tasks);
-
-// F4SE's Scaleform callback: give a movie's f4se.plugins.F3NV the menu natives.
-bool RegisterDialogueMenu(GFxMovieView *view, GFxValue *plugin);
-
-// ---- FNV Hardcore (hardcore.cpp; docs/fork/fo4_hardcore.md#dll) ----
-
-// INI color `prefix`R/G/B:Interface (the player's HUD colors, e.g. iHUDColor) as 0xRRGGBB; white when not found.
-UInt32 HudColor(const char *prefix);
-
-// Weigh ammo while Hardcore is on: FO4's ammo weight test, through g_branchTrampoline (set up); false when not.
-bool HookAmmoWeight();
-
-// Give the open HUD its needs fields and their frame listener, once per HUD movie; on the UI thread. Run on every
-// menu opening, so a HUD opened before the listener still gets them.
-void HookHud();
-
-// Register F3NV_Hardcore's native Track.
-void RegisterHardcore(VirtualMachine *vm);
-
-}  // namespace condition
+}  // namespace crui

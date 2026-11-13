@@ -1,4 +1,4 @@
-// F3NV: our dialogue menu in place of XDI (docs/fork/fo4_dialogue_menu_plan.md#test-build).
+// CleanroomDialogue.dll: our dialogue menu in place of XDI (docs/fork/fo4_dialogue_menu_plan.md#test-build).
 //
 // An option is a player INFO that names an answer topic (the links in Data\F4SE\Plugins\F3NV_Menus\*.txt); its
 // answer is that topic's first passing INFO, chosen by the engine's own picker, so nothing pairs options and answers
@@ -7,7 +7,7 @@
 // INFOs of the picked option; index 5 and up are ours, below 5 go to the engine's functions as before.
 //
 // Fallout4.exe 1.11.240, read in Fallout4.exe.unpacked.exe; the plan's engine table lists each address.
-#include "condition.h"
+#include "dialogue.h"
 
 #include "f4se/GameData.h"
 #include "f4se/GameMenus.h"
@@ -25,9 +25,13 @@
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
+#include <mutex>
+#include <string>
 #include <unordered_map>
+#include <unordered_set>
+#include <vector>
 
-namespace condition {
+namespace crui {
 
 namespace {
 
@@ -557,7 +561,7 @@ Fn Target(uintptr_t site, uintptr_t vanilla) {
     return CallsTarget(site, vanilla) ? reinterpret_cast<Fn>(vanilla) : nullptr;
 }
 
-// ---- The menu's natives (f4se.plugins.F3NV in the menu's movie) ----
+// ---- The menu's natives (f4se.plugins.CleanroomDialogue in the menu's movie) ----
 
 // GetDialogueOptions(): [{text, said, failed}] of the running action's options; [] when it has none of ours.
 class GetOptionsNative : public GFxFunctionHandler {
@@ -655,22 +659,13 @@ public:
     }
 };
 
-// Log(text): a line from the menu in F3NV.log.
+// Log(text): a line from the menu in CleanroomDialogue.log.
 class LogNative : public GFxFunctionHandler {
 public:
     void Invoke(Args *args) override {
         if (args->numArgs < 1 || !args->args[0].IsString()) return;
         if (g_pickedAt) _MESSAGE("dialogue menu: +%llu ms: %s", GetTickCount64() - g_pickedAt, args->args[0].GetString());
         else _MESSAGE("dialogue menu: %s", args->args[0].GetString());
-    }
-};
-
-// HudColor(): the player's HUD color (iHUDColor) as 0xRRGGBB, read on every call, for menus of our own that draw
-// their text and lines in it (the casino menu: docs/fork/fo4_casino_plan.md#hud-color).
-class HudColorNative : public GFxFunctionHandler {
-public:
-    void Invoke(Args *args) override {
-        args->result->SetUInt(HudColor("iHUDColor"));
     }
 };
 
@@ -682,12 +677,10 @@ bool RegisterDialogueMenu(GFxMovieView *view, GFxValue *plugin) {
     RegisterFunction<GetOptionsNative>(plugin, movie, "GetDialogueOptions");
     RegisterFunction<SelectNative>(plugin, movie, "SelectDialogueOption");
     RegisterFunction<LogNative>(plugin, movie, "Log");
-    RegisterFunction<HudColorNative>(plugin, movie, "HudColor");
     RegisterFunction<LeaveNative>(plugin, movie, "LeaveDialogue");
     RegisterFunction<ShadeNative>(plugin, movie, "ShadeList");
     RegisterFunction<TintFailedNative>(plugin, movie, "TintFailed");
-    RegisterPipboyMenu(movie, plugin);
-    RegisterImageNatives(movie, plugin);
+    RegisterSharedNatives(movie, plugin);
     return true;
 }
 
@@ -721,4 +714,4 @@ bool HookDialogue(void *tasks) {
     return g_hooked;
 }
 
-}  // namespace condition
+}  // namespace crui

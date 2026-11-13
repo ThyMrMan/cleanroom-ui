@@ -23,6 +23,14 @@ package crui
          return f4se != null && f4se.plugins != null ? f4se.plugins[plugin] : null;
       }
 
+      // The natives every DLL of ours gives each movie (TextureExists, HudColor): CleanroomUI.dll's, else
+      // CleanroomDialogue.dll's; null with neither.
+      public function shared() : Object
+      {
+         var dll:Object = natives("CleanroomUI");
+         return dll != null ? dll : natives("CleanroomDialogue");
+      }
+
       // Send an F4SE external event (Papyrus RegisterForExternalEvent); nothing before F4SE is there.
       public function send(event:String, ... args) : void
       {

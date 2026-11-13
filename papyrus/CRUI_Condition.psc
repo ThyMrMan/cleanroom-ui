@@ -1,5 +1,5 @@
-ScriptName F3NV_Condition Native Hidden
-{FO3/FNV item condition: the engine's own item health (0 to 1) on an inventory item, which the save keeps. The natives come from the F3NV F4SE plugin; the rules live in F3NV_ConditionPlayer.}
+ScriptName CRUI_Condition Native Hidden
+{FO3/FNV item condition: the engine's own item health (0 to 1) on an inventory item, which the save keeps. The natives come from CleanroomUI.dll; the rules live in F3NV_ConditionPlayer.}
 
 Float Function GetHealth(ObjectReference akHolder, Form akItem) Global Native
 {The health of akItem in akHolder (its equipped copy first); -1 when not held or none set yet.}

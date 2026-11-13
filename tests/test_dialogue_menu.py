@@ -1,4 +1,4 @@
-"""Our dialogue menu's movie and the F3NV.dll hooks it relies on.
+"""Our dialogue menu's movie and the CleanroomDialogue.dll hooks it relies on.
 
 See: docs/swf_framework.md#have
 """
@@ -12,7 +12,7 @@ from crui.swf import Swf
 
 MENU = menus.BY_NAME['dialogue']
 MENU_AS = MENU.sources / 'DialogueMenu.as'
-DIALOGUE_CPP = REPO / 'dll' / 'f3nv' / 'dialogue.cpp'
+DIALOGUE_CPP = REPO / 'dll' / 'dialogue' / 'dialogue.cpp'
 LIBRARY = REPO / 'as3' / 'crui'
 
 
@@ -77,7 +77,7 @@ def test_unused_rows_leave_the_holder_so_the_backdrop_fits():
 
 
 def test_wheel_scrolls_the_list_and_skips_the_camera():
-    """The movie moves on ZoomIn/ZoomOut (Input maps them to up and down); F3NV.dll refuses them at the first- and
+    """The movie moves on ZoomIn/ZoomOut (Input maps them to up and down); CleanroomDialogue.dll refuses them at the first- and
     third-person cameras' tests."""
     source = DIALOGUE_CPP.read_text(encoding='utf-8')
     assert 'ZoomIn: UP' in (LIBRARY / 'Input.as').read_text(encoding='utf-8')

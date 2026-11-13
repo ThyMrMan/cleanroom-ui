@@ -101,7 +101,7 @@ package
       // there are skill points, else on PERKS; the tag and trait menus have their one page.
       public function Open(... args) : void
       {
-         Theme.fromHud(bridge.natives("F3NV"));
+         Theme.fromHud(bridge.shared());
          who = new Character(args);
          showAll = who.showAll;
          log("open: mode " + who.mode + ", " + who.perks.length + " perks, " + who.skills.length + " skills, "
@@ -222,6 +222,8 @@ package
          graphics.endFill();
          if (panel)
          {
+            // Scaleform strokes a drawRect from where the pen was left (the fade's corner): move it first.
+            graphics.moveTo(0, 0);
             graphics.lineStyle(2, Theme.color);
             graphics.beginFill(0, 0.85);
             graphics.drawRect(0, 0, wide, high);

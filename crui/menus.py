@@ -27,7 +27,7 @@ class Menu:
 #: The level-up, tag and trait menu (CRUI_LevelUp.psc opens it); the Pip-Boy overlay (pipboy.cpp loads it); the
 #: dialogue menu (dialogue.cpp drives it).
 MENUS = (Menu('level_up', 'CRUI_LevelUp', 'Interface/CRUI_LevelUp.swf'),
-         Menu('pipboy', 'F3NV_Pipboy', 'Interface/F3NV_Pipboy.swf'),
+         Menu('pipboy', 'CRUI_Pipboy', 'Interface/CRUI_Pipboy.swf'),
          Menu('dialogue', 'DialogueMenuRoot', 'Interface/DialogueMenu.swf'))
 BY_NAME = {menu.name: menu for menu in MENUS}
 

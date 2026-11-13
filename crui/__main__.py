@@ -1,5 +1,5 @@
 """Build Cleanroom UI into a mod folder: CleanroomUI.esl, Interface/ (movies and Translations/), Scripts/
-(Papyrus), F4SE/Plugins/ (the DLL).
+(Papyrus), F4SE/Plugins/ (the DLLs).
 
     python -m crui all --out dist/CleanroomUI
     python -m crui scripts --imports <folder>    # extra Papyrus import folders, searched before the game's
@@ -14,7 +14,7 @@ from crui import POPEN_FLAGS, REPO, menus, mxmlc, papyrus, plugin, translations
 
 STEPS = ('plugin', 'translations', 'movies', 'scripts', 'dll')
 DEFAULT_OUT = REPO / 'dist' / 'CleanroomUI'
-DLL_BUILD = REPO / 'dll' / 'f3nv' / 'build.bat'
+DLL_BUILD = REPO / 'dll' / 'build.bat'
 
 
 def build_plugin(out: Path) -> bool:
@@ -52,7 +52,8 @@ def build_scripts(out: Path, imports: list) -> bool:
 
 
 def build_dll(out: Path) -> bool:
-    """F3NV.dll into <out>/F4SE/Plugins with dll/f3nv/build.bat; False when it fails or off Windows."""
+    """CleanroomUI.dll and CleanroomDialogue.dll into <out>/F4SE/Plugins with dll/build.bat; False when it fails or
+    off Windows."""
     if sys.platform != 'win32':
         print('[dll] needs Windows and Visual Studio')
         return False

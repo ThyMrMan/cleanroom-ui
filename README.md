@@ -7,10 +7,15 @@ item-card lines without shipping anyone else's movie.
 **Status: private, pre-release.** The code was split out of the FO3/FNV →
 Fallout 4 conversion (`ThyMrMan/fo3fnv-in-fo4`) with its history.
 
-Prefix for scripts, translation keys and files: **`CRUI_`**. The menu side
-uses it (`crui` AS3 package, `CRUI_LevelUp*`, `CRUI_Array`, `$CRUI_*`
-keys); the DLL's names (`F3NV.dll`, its native scripts, the `F3NV`
-Scaleform object, `F3NV_Pipboy`) keep the converter's until the DLL split.
+Prefix for scripts, translation keys and files: **`CRUI_`** (the `crui` AS3
+package, `CRUI_*` scripts and movies, `$CRUI_*` keys). The two DLLs are
+`CleanroomUI.dll` and `CleanroomDialogue.dll`, which movies reach as
+`f4se.plugins.CleanroomUI` and `f4se.plugins.CleanroomDialogue`.
+
+| Release | Holds | Needs |
+|---|---|---|
+| **Cleanroom UI** | `CleanroomUI.esl`, `CleanroomUI.dll` (item condition API, the Pip-Boy's item-card lines, repair and ammo lists and STAT tabs, transfer-menu CND lines, `ChangeSex`), the level-up menu, the Pip-Boy movie, the scripts | F4SE |
+| **Dialogue menu** | `CleanroomDialogue.dll` and `Interface/DialogueMenu.swf` | F4SE |
 
 ## Build
 
@@ -23,7 +28,7 @@ python -m pytest
 `movies`, `scripts`, `dll`), and writes a mod folder: `CleanroomUI.esl` (the
 shared forms), `Interface/Translations/CleanroomUI_<language>.txt` (our
 words, from `translations/`), `Interface/` (movies), `Scripts/` (Papyrus),
-`F4SE/Plugins/` (the DLL). Built
+`F4SE/Plugins/` (both DLLs). Built
 files never go in git.
 
 | Step | Needs | Found at |
@@ -36,7 +41,7 @@ files never go in git.
 The game's `Base.zip` is unpacked into `out/cache/` when the Creation Kit
 hasn't unpacked it yet.
 
-Every script, movie and the DLL builds here alone. The level-up host's
+Every script, movie and DLL builds here alone. The level-up host's
 partner, `CRUI_LevelUpHolder`, keeps the tagged skills, is where `Get()`
 finds the host, and decides what opening each menu does; a mod with rules of
 its own extends it ([holder](docs/level_up_plan.md#holder)). Every host
@@ -52,16 +57,18 @@ mods reach the running one with that plugin as their only master
 | `as3/crui/` | The AS3 library: `Host`, `Bridge`, `Theme`, `Draw`, `Text`, `ScrollList`, `Modal`, `Images`, `Input`, `HintBar` |
 | `translations/` | Our words, `$CRUI_KEY<tab>text` per line, one UTF-8 file per language (`en.txt` holds every key) |
 | `menus/level_up/` | The level-up, tag-skill and trait menu (`Interface/CRUI_LevelUp.swf`) |
-| `menus/pipboy/` | The Pip-Boy overlay F3NV.dll loads (`Interface/F3NV_Pipboy.swf`): item-card lines, the list panel |
+| `menus/pipboy/` | The Pip-Boy overlay CleanroomUI.dll loads (`Interface/CRUI_Pipboy.swf`): item-card lines, the list panel |
 | `menus/dialogue/` | The dialogue menu (`Interface/DialogueMenu.swf`) |
-| `papyrus/` | The level-up host, its holder and its per-plugin tables (`CRUI_LevelUp`, `CRUI_LevelUpHolder`, `CRUI_LevelUpTable`), `CRUI_Array`, and the scripts declaring the DLL's natives (`F3NV_Condition`, `F3NV_ItemCard`, `F3NV_Pipboy`, `F3NV_PipboyAmmo`, `F3NV_Sex`, `F3NV_Damage`, `F3NV_HardcoreNative`) |
-| `dll/f3nv/` | F3NV.dll as it is today: GFx helpers, Pip-Boy overlay, tabs, card lines, ammo list, condition API, dialogue menu, plus the FNV-only rules |
+| `papyrus/` | The level-up host, its holder and its per-plugin tables (`CRUI_LevelUp`, `CRUI_LevelUpHolder`, `CRUI_LevelUpTable`), `CRUI_Array`, and the scripts declaring CleanroomUI.dll's natives (`CRUI_Condition`, `CRUI_ItemCard`, `CRUI_Pipboy`, `CRUI_PipboyAmmo`, `CRUI_Sex`) |
+| `dll/` | `build.bat` (both DLLs); `framework/` (CleanroomUI.dll: condition API, Pip-Boy overlay, card lines, tabs, repair and ammo lists, transfer menus, `ChangeSex`); `dialogue/` (CleanroomDialogue.dll); `shared/` (Flash helpers and the natives every movie may call, compiled into both) |
 | `docs/` | The framework, level-up and spin-off plans, as written for the converter |
 | `tests/` | Contract tests between movies, scripts and the DLL, and the reproducible builds |
 
 Stayed in the converter: the FNV table and icon builders (they read FNV
 records), the level-up MCM page (it sets the converter's rule rates), the
-Pip-Boy tab quests, the dialogue links writer and test mod, and the casino.
+Pip-Boy tab quests, the dialogue links writer and test mod, the casino, and
+FNV's own rules in its F3NV.dll (Damage Threshold, Hardcore's HUD and ammo
+weight, weapons' spawn condition, no combat sprint).
 
 ## Next
 
@@ -74,12 +81,13 @@ Pip-Boy tab quests, the dialogue links writer and test mod, and the casino.
    older save's `F3NV_LevelUp` points, added perks and options into
    `CRUI_LevelUp` once. Its level-up movie still builds on its own `f3ui`
    copy until it takes this repo as a submodule.
-3. **Split the DLL** as [spin_offs.md](docs/spin_offs.md#split) lays out:
-   the framework (condition API, card lines, tabs, GFx helpers,
-   `ChangeSex`), the dialogue menu as its own DLL, and the FNV-only rules
-   (Damage Threshold, Hardcore, combat sprint, spawn condition) back to the
-   converter. Then the shared base: CommonLibF4 (Dear-Modding), Address
-   Library, xmake ([runtime](docs/spin_offs.md#runtime)).
+3. **The DLL split, the rest** ([split](docs/spin_offs.md#split-status)):
+   the framework rules (REPAIR and AMMO hints only once a mod gives lists,
+   several mods' repair lists and tabs at once, `GetVersion`, an INI log
+   level); the dialogue release's own words and links folder; the converter
+   on the two DLLs, its F3NV.dll cut to FNV's rules. Then the shared base:
+   CommonLibF4 (Dear-Modding), Address Library, xmake
+   ([runtime](docs/spin_offs.md#runtime)).
 4. **An example menu** for authors, and the API in this README.
 5. **CI** that fetches the Flex SDK and builds the movies; release assets.
 6. **The converter uses this repo** as a pinned submodule in `external/`.

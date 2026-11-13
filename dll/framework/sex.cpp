@@ -1,9 +1,9 @@
-// F3NV: FO3/FNV SexChange on Fallout 4 (docs/fork/fo4_pipeline.md#sex-change).
+// FO3/FNV SexChange on Fallout 4 (docs/fork/fo4_pipeline.md#sex-change).
 //
 // FO4 Papyrus has no sex setter. The game's own SexChange script command (Fallout4.exe 1.11.240: opcode 0x11E6,
 // handler 0x5C5B00) takes an optional sex and an optional integer; given no arguments it toggles the actor's sex
 // (the base's female flag, the head rebuilt, the 3D reset), which is what the console's `sexchange` does. The
-// native F3NV_Sex.ChangeSex queues that handler on the main thread with an argument count of 0; the caller
+// native CRUI_Sex.ChangeSex queues that handler on the main thread with an argument count of 0; the caller
 // (TES4Polyfill.SetSex) only calls it when the sex differs.
 #include "condition.h"
 
@@ -17,11 +17,11 @@
 
 #include <cstring>
 
-namespace condition {
+namespace crui {
 
 namespace {
 
-const char *SEX_SCRIPT = "F3NV_Sex";
+const char *SEX_SCRIPT = "CRUI_Sex";
 F4SETaskInterface *g_sexTasks = nullptr;
 
 // The game's SexChange script command; nullptr when the table has none.
@@ -69,4 +69,4 @@ void RegisterSex(VirtualMachine *vm, void *tasks) {
     vm->RegisterFunction(new NativeFunction1<StaticFunctionTag, void, Actor *>("ChangeSex", SEX_SCRIPT, ChangeSex, vm));
 }
 
-}  // namespace condition
+}  // namespace crui

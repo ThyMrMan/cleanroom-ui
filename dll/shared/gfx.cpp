@@ -1,8 +1,9 @@
-// Flash helpers shared by the menus F3NV hooks (pipboy.cpp, transfer.cpp, hardcore.cpp): reading values, finding a
-// menu's instance by its BGSCodeObj, and logging an object's members when a menu is not laid out as expected; and
-// the natives every movie of ours may call (f4se.plugins.F3NV: TextureExists, for crui's Images).
-#include "condition.h"
+// Helpers every DLL of ours compiles in (gfx.h): reading Flash values, finding a menu's instance by its BGSCodeObj,
+// logging an object's members when a menu is not laid out as expected, the natives every movie of ours may call
+// (TextureExists for crui's Images, HudColor for its Theme), and checking a call site before hooking it.
+#include "gfx.h"
 
+#include "f4se/GameSettings.h"
 #include "f4se/GameStreams.h"
 
 #include <windows.h>
@@ -15,7 +16,7 @@
 #include <string>
 #include <unordered_set>
 
-namespace condition {
+namespace crui {
 
 namespace {
 
@@ -89,10 +90,36 @@ public:
     }
 };
 
+// HudColor(): the player's HUD color (iHUDColor) as 0xRRGGBB, read on every call, for menus of ours that draw their
+// text and lines in it.
+class HudColorNative : public GFxFunctionHandler {
+public:
+    void Invoke(Args *args) override {
+        args->result->SetUInt(HudColor("iHUDColor"));
+    }
+};
+
 }  // namespace
 
-void RegisterImageNatives(GFxMovieRoot *movie, GFxValue *plugin) {
+void RegisterSharedNatives(GFxMovieRoot *movie, GFxValue *plugin) {
     RegisterFunction<TextureExistsNative>(plugin, movie, "TextureExists");
+    RegisterFunction<HudColorNative>(plugin, movie, "HudColor");
+}
+
+UInt32 HudColor(const char *prefix) {
+    UInt32 rgb = 0;
+    for (const char *channel : {"R", "G", "B"}) {
+        Setting *setting = GetINISetting((std::string(prefix) + channel + ":Interface").c_str());
+        rgb = (rgb << 8) | (setting ? (setting->data.u32 & 0xFF) : 0xFF);
+    }
+    return rgb;
+}
+
+bool CallsTarget(uintptr_t site, uintptr_t target) {
+    auto *call = reinterpret_cast<const UInt8 *>(site);
+    SInt32 rel;
+    std::memcpy(&rel, call + 1, sizeof(rel));
+    return call[0] == 0xE8 && site + 5 + rel == target;
 }
 
 double Num(const GFxValue &v) {
@@ -130,4 +157,4 @@ bool FindMenu(GFxMovieRoot *movie, std::initializer_list<const char *> bases, co
     return false;
 }
 
-}  // namespace condition
+}  // namespace crui
