@@ -35,7 +35,7 @@ licensed way to build menus without starting from decompiled Bethesda files.
 | Pip-Boy, container, barter, HUD (`tes_runtime/fo4_condition/`) | The Pip-Boy's CND line, repair and ammo lists, and other mods' item-card lines are drawn by our injected movie from the DLL's data ([framework](#pipboy)). The rest is drawn by the DLL into the open vanilla menus from C++: REPAIR and AMMO hints, STAT tabs, the container and barter CND line, HUD needs | CND, repair and tabs played from C++; the movie's versions built, not played. Ammo list and HUD needs built, not played |
 | Level-up (`fo4_import/level_up/`, `fo4_import/spike/level_up*.py`, `F3NV_LevelUp.psc`) | Our own menu on f3ui ([level-up](#level-up)), opened by the character rules in place of `LevelUpMenu`, with skill, perk and taken pages, and as the tag-skill and trait menus, every DLC's perks and traits included; PRKF.dll's points, tags, perk list and requirement rows rebuilt in Papyrus | Built 2026-11-12, none played |
 
-### <a id="where"></a>Where each piece stands (2026-11-12)
+### <a id="where"></a>Where each piece stands (2026-11-13)
 
 | Piece | Done | Not done |
 |---|---|---|
@@ -44,11 +44,11 @@ licensed way to build menus without starting from decompiled Bethesda files.
 | **Own menu** | Casino (Papyrus `UI.RegisterCustomMenu`), HUD color by the menu itself (spike 2b, played) | Registering from the DLL: not needed for color; only if a later menu needs it |
 | **Replace a vanilla movie** | Dialogue menu on our own movie (spike 3, played); its `mxmlc` build. Level-up: our own registered menu opened in place of `LevelUpMenu` from Papyrus, no vanilla file shipped ([open](fo4_level_up_plan.md#open), built) | Both played; if the moment of `LevelUpMenu` first shows, F3NV.dll swapping its constructor |
 | **Inject into a vanilla menu** | Pip-Boy (spike 4, played under vanilla); CND, lists and item-card API built | Any of it played; FallUI played; container and barter (still C++) |
-| **HUD widget** | `CRUI_Hud`: HUDFramework hosts the widgets when installed, else our host movie loaded into any HUD by `CleanroomUI.dll`; widget movies with HUDFramework's `processMessage`; the built-in stats line ([host](#hud-built)); our host's saved places and edit menu ([edit](#hud-edit)); DEF_HUD.xml layouts of the game's parts ([layouts](#hud-layout)), moved and scaled in the edit menu too; the [FNV preset](#fnv-preset) with its [CND bar](#fnv-widgets); [hiding and recoloring](#hud-look) in the edit menu, with a [gamepad](#hud-edit) too; parts shown on [conditions](#hud-conditions) (steps 1 to 3: combat, weapon drawn, V.A.T.S., a show key, a value changing or low, the location moving, aiming, sneaking; the Immersive preset; each box's rule set in the edit menu; other mods' conditions and rules); built, not played | Played; fades if play asks, `flags`; the converter's Hardcore needs on it (still C++) |
+| **HUD widget** | `CRUI_Hud`: HUDFramework hosts the widgets when installed, else our host movie loaded into any HUD by `CleanroomUI.dll`; widget movies with HUDFramework's `processMessage`; the built-in stats line ([host](#hud-built)); our host's saved places and edit menu, with a gamepad too ([edit](#hud-edit)); DEF_HUD.xml layouts of the game's parts ([layouts](#hud-layout)), moved and scaled in the edit menu too; the [FNV preset](#fnv-preset) with its [CND bar](#fnv-widgets); [hiding and recoloring](#hud-look) in the edit menu; parts shown on [conditions](#hud-conditions), all five steps (combat, weapon drawn, V.A.T.S., a show key, a value changing or low, the location moving, aiming, sneaking; the Immersive preset; each box's rule in the edit menu; other mods' conditions and rules); all built 2026-11-12 to 13, none played | Played; then, if play asks: fades, `flags`, rotating and opacity in the edit menu, a key to open it without an MCM, the power armor HUD, `color2`, `SafeX`/`SafeY`, `globalscale`, FNV's CND arrows and ammo type, aiming in third person, a pad button for the show key; the converter's Hardcore needs on it (still C++) |
 | **DLL side** | GFx helpers (`gfx.cpp`), Pip-Boy injection (`LoadOverlay`), natives the movies call (`HudColor`, `Log`, `PipboyCardLines`, `PipboyList`, `TextureExists`) | Injection by menu URL for other menus, settings INI to the movie, GFx log routing |
 | **Translations** ([translations](#translations)) | Files named after `FalloutHelpers.esl`, every language with English fallback, our fixed words as `$F3NV_` keys, the key check in preflight (spike 5, played) | The keys played; Papyrus key check; slot and per-language counts; a test language |
-| **Controller** ([controller](#controller)) | The casino and dialogue menu on `Input` and `HintBar` (built, not played) | Playing them with a pad; the Pip-Boy "more" button; roulette's board on a pad |
-| **Release** ([release](#release)) | Nothing | The library repo, the Pip-Boy framework on Nexus |
+| **Controller** ([controller](#controller)) | The casino and dialogue menu on `Input` and `HintBar`; the HUD edit menu's [gamepad](#hud-edit) (built, not played) | Playing them with a pad; the Pip-Boy "more" button; roulette's board on a pad |
+| **Release** ([release](#release)) | Its own repo, Cleanroom UI (GPL-3.0 with the modding exception, private), builds every movie, script, the plugin and both DLLs on its own (`python -m crui`) | An example menu, the API in the README, CI, release assets, the converter on it as a submodule, Nexus |
 
 Shared already:
 - `fo4_import/base/as3/f3ui/`: the AS3 library's first five classes,
@@ -1789,33 +1789,54 @@ Each spike is one change, played in game.
    screen shows DXT3, DXT5 and a name with a space beside the DXT1 card
    ([level-up](#level-up)).
 
-### <a id="next"></a>Next, in order
+### <a id="next"></a>Next, in order (2026-11-13)
 
-Played first, since everything below builds on them (the morning test of
-2026-11-13): the Pip-Boy CND line, lists and item-card API, under vanilla
-and FallUI; the translated keys; the dialogue menu's `mxmlc` build; the
-level-up image spike; the casino and dialogue menu on `Input` and
-`HintBar`, with a pad ([play check](#input)); the dialogue list and the
-Pip-Boy lists on `ScrollList` and `Modal` ([play check](#modal)); the
-casino's images through `Images`, with the new F3NV.dll
-([play check](#images)); the level-up menu ([play check](#level-up-play)).
+**Play first.** Everything since the 2026-11-12 play is built and not
+played, and the rest builds on it. In Cleanroom UI's own build
+(`CleanroomUI.esl`, both DLLs), in this order:
+1. **The Pip-Boy movie**: the CND line, lists and item-card lines, under
+   vanilla and FallUI (the C++ versions and the ammo list were played in
+   the converter).
+2. **The level-up menu** ([play check](#level-up-play)): opened and fixed
+   in the converter on 2026-11-12 (the open delay, tags and traits); the
+   whole check, and on the holder without the converter, is left.
+3. **The library**: `Input` and `HintBar` with a pad ([play
+   check](#input)), `ScrollList` and `Modal` ([play check](#modal)),
+   `Images` ([play check](#images)), the translated keys.
+4. **The dialogue menu**: its `mxmlc` build, its own words and links folder
+   ([dialogue release](spin_offs.md#split-status)).
+5. **The HUD**, each section's play check in turn: the [host](#hud-built)
+   (and under HUDFramework), the [edit menu](#hud-edit) with mouse, keys
+   and a pad, the [layouts](#hud-layout), the [FNV preset](#fnv-preset)
+   and [CND bar](#fnv-widgets), [hiding and recoloring](#hud-look), the
+   [conditions](#hud-conditions).
 
-Then:
-1. **`Input` and `HintBar`** in the library, with the casino and the
-   dialogue menu moved onto them, played once with a pad
-   ([input](#input)). **Built 2026-11-12; the pad play is left.**
-2. **`ScrollList` and `Modal`**, taking over the Pip-Boy's `ListPanel` and
-   the dialogue list. **Built 2026-11-12, not played.**
-3. **Replacing a vanilla menu by name** (the level-up menu in place of
-   `LevelUpMenu`), then the level-up menu itself
-   ([order](fo4_level_up_plan.md#order)). **Built 2026-11-12 (opening,
-   skills, perks, taken, tags, traits).**
-4. **The HUD widget**: Hardcore's needs as our movie, hosted by
-   HUDFramework or injected by the DLL ([HUD](#hud)).
-5. **The container and barter CND line** through an injected movie, as the
+**Then build:**
+1. **The converter on Cleanroom UI**: its scripts on the `CRUI_` natives
+   (built, not played), its F3NV.dll cut to FNV's rules, shipping our two
+   DLLs, its dialogue links in `CleanroomDialogue\`
+   ([split](spin_offs.md#split-status)); then this repo as its submodule.
+2. **The shared base**: CommonLibF4, Address Library, xmake
+   ([runtime](spin_offs.md#runtime)).
+3. **The container and barter CND line** through an injected movie, as the
    Pip-Boy's, retiring that C++.
-6. The [movie check](#testing) in preflight, then the
-   [release](#release) pieces.
+4. **The [movie check](#testing)** in preflight.
+5. **The HUD's rest**, as play asks: fades, `flags` (a part's pieces),
+   rotating and opacity in the edit menu, a key to open it without an MCM,
+   the power armor HUD, `color2`, `SafeX`/`SafeY`, `globalscale`, FNV's CND
+   arrows and ammo type label, aiming in third person, a pad button for the
+   show key; the converter's Hardcore needs as an `AddStats` widget.
+6. **The level-up rest**: other mods' skills, an MCM page for the host's
+   own options ([order](fo4_level_up_plan.md#order)).
+7. **The DLL side**: injection by menu URL for other menus, a settings INI
+   to the movies, GFx log routing.
+8. **Translations**: the Papyrus key check, slot and per-language counts, a
+   test language.
+9. **Controller**: the Pip-Boy "more" button, roulette's board on a pad
+   (the casino stays in the converter).
+10. **The [release](#release)**: an example menu, the API in the README,
+    CI that fetches the Flex SDK, release assets, Nexus; and the
+    [open decisions](#decisions).
 
 ## <a id="release"></a>Release
 

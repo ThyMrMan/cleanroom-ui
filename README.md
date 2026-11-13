@@ -73,40 +73,45 @@ weight, weapons' spawn condition, no combat sprint).
 
 ## Next
 
-1. **Level-up host, the rest.** Play `CleanroomUI.esl` in game; skills of
-   other mods; an MCM page for the host's own options (`SkillCap`,
-   `ShowAllPerks`).
-2. **The converter on the `CRUI_` scripts: play it.** Built 2026-11-12, not
-   played (`fo3fnv-in-fo4`, branch `claude/fo4-dialogue-own-movie`): it
-   ships copies of ours and a byte-identical `CleanroomUI.esl`, and moves an
-   older save's `F3NV_LevelUp` points, added perks and options into
-   `CRUI_LevelUp` once. Its level-up movie still builds on its own `f3ui`
-   copy until it takes this repo as a submodule.
-3. **The DLL split, the rest** ([split](docs/spin_offs.md#split-status)):
-   the converter on the two DLLs, its F3NV.dll cut to FNV's rules, its
-   dialogue links in `CleanroomDialogue\` (the
-   [framework rules](docs/spin_offs.md#framework-rules) and the dialogue
-   release's own words and links folder are built, not played). Then the shared base:
-   CommonLibF4 (Dear-Modding), Address Library, xmake
+Status as of 2026-11-13. The full list, in order:
+[next](docs/swf_framework.md#next).
+
+1. **Play everything built since 2026-11-12.** None of it has been played
+   in Cleanroom UI's own build: the Pip-Boy movie (CND line, lists,
+   item-card lines, under vanilla and FallUI), the level-up menu (opened in
+   the converter on 2026-11-12; the full check and the holder without the
+   converter are left), `Input`, `HintBar`, `ScrollList`, `Modal` and
+   `Images`, the dialogue menu's own build, words and links, and the whole
+   HUD: the host (also under HUDFramework), saved places and the edit menu
+   (mouse, keys, gamepad), DEF_HUD.xml layouts, the FNV preset and its
+   weapon condition bar, hiding and recoloring, and parts shown on
+   conditions (combat, weapon drawn, V.A.T.S., a key, a value changing or
+   low, the location moving, aiming, sneaking; `[Hud] sShow=Immersive`;
+   each part's rule in the edit menu; other mods' conditions and rules
+   through `CRUI_Hud.SetCondition` and `SetShowRule`).
+2. **The converter on Cleanroom UI** ([split](docs/spin_offs.md#split-status)):
+   its scripts on the `CRUI_` natives (built 2026-11-12, not played,
+   `fo3fnv-in-fo4` branch `claude/fo4-dialogue-own-movie`), its F3NV.dll cut
+   to FNV's rules, shipping our two DLLs, its dialogue links in
+   `CleanroomDialogue\`; then this repo as its pinned submodule in
+   `external/`.
+3. **The shared base**: CommonLibF4 (Dear-Modding), Address Library, xmake
    ([runtime](docs/spin_offs.md#runtime)).
-4. **The HUD, the rest** ([host](docs/swf_framework.md#hud-built), with
-   HUDFramework as host when installed, and our own
-   [saved places and edit menu](docs/swf_framework.md#hud-edit), and the
-   [layout module](docs/swf_framework.md#hud-layout) reading `DEF_HUD.xml`,
-   with the HUD's parts moved and scaled in the edit menu too, built, not
-   played), and the [FNV layout preset](docs/swf_framework.md#fnv-preset)
-   with its [weapon condition bar](docs/swf_framework.md#fnv-widgets)
-   (built, not played), and [hiding and recoloring](docs/swf_framework.md#hud-look)
-   any part in the edit menu, and parts shown on
-   [conditions](docs/swf_framework.md#hud-conditions) (in combat, with a
-   weapon out, in V.A.T.S., on a key, as a value changes or runs low, as
-   the location moves, aiming, sneaking; `[Hud] sShow=Immersive`) (built,
-   not played), each part's rule set in the edit menu, and other mods'
-   conditions and rules (`CRUI_Hud.SetCondition`, `SetShowRule`). The
-   edit menu works with a gamepad too (built, not played).
-5. **An example menu** for authors, and the API in this README.
-6. **CI** that fetches the Flex SDK and builds the movies; release assets.
-7. **The converter uses this repo** as a pinned submodule in `external/`.
+4. **The container and barter CND line** as a movie, retiring that C++, and
+   the movie check in preflight.
+5. **The HUD's rest, as play asks**: fades, hiding a part's pieces
+   (`flags`), rotating and opacity in the edit menu, a key to open it
+   without an MCM, the power armor HUD, `color2`, `SafeX`/`SafeY`,
+   `globalscale`, FNV's CND arrows and ammo type label, aiming in third
+   person, a pad button for the show key.
+6. **The level-up rest**: skills of other mods; an MCM page for the host's
+   own options (`SkillCap`, `ShowAllPerks`).
+7. **The DLL side, translations, controller**: injection by menu URL,
+   a settings INI to the movies, GFx log routing; the Papyrus key check
+   and a test language; the Pip-Boy "more" button on a pad.
+8. **Release**: an example menu for authors and the API in this README;
+   CI that fetches the Flex SDK and builds the movies; release assets;
+   Nexus.
 
 ## License
 
