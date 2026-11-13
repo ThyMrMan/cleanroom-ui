@@ -33,7 +33,8 @@ struct Setting {
     std::atomic<int> code;
 };
 Setting g_keys[] = {{"sRepair", "G", "WSE", 'G'}, {"sAmmo", "B", "WSE", 'B'}, {"sHudReset", "R", "", 'R'},
-                    {"sHudHide", "H", "", 'H'},  {"sHudColor", "C", "", 'C'}, {"sHudPeek", "Y", "", 'Y'}};
+                    {"sHudHide", "H", "", 'H'},  {"sHudColor", "C", "", 'C'}, {"sHudPeek", "Y", "", 'Y'},
+                    {"sHudShow", "V", "", 'V'}};
 
 // `text`'s key code: a letter or a digit, or F1 to F12; 0 for anything else.
 int Parse(std::string text) {
@@ -62,7 +63,8 @@ Setting &Of(OurKey key) {
     return g_keys[int(key)];
 }
 
-// HudKeys(): the edit menu's keys, {reset, resetName, hide, hideName, color, colorName} (each a code and its name),
+// HudKeys(): the edit menu's keys, {reset, resetName, hide, hideName, color, colorName, show, showName} (each a
+// code and its name),
 // read again as it opens.
 class KeysNative : public GFxFunctionHandler {
 public:
@@ -71,7 +73,8 @@ public:
         GFxMovieRoot *movie = args->movie->movieRoot;
         movie->CreateObject(args->result);
         const std::pair<const char *, OurKey> keys[] = {
-            {"reset", OurKey::HudReset}, {"hide", OurKey::HudHide}, {"color", OurKey::HudColor}};
+            {"reset", OurKey::HudReset}, {"hide", OurKey::HudHide}, {"color", OurKey::HudColor},
+            {"show", OurKey::HudShow}};
         for (const auto &[member, key] : keys) {
             std::string name = KeyName(key);
             GFxValue code(UInt32(KeyCode(key))), text;
@@ -103,13 +106,17 @@ void ReadKeys() {
         Of(OurKey::Repair).code = 'G';
         Of(OurKey::Ammo).code = 'B';
     }
-    // So must the edit menu's three: all go back to their defaults when two are the same.
-    int reset = Of(OurKey::HudReset).code, hide = Of(OurKey::HudHide).code, color = Of(OurKey::HudColor).code;
-    if (reset == hide || reset == color || hide == color) {
-        _WARNING("[%s] sHudReset, sHudHide and sHudColor share a key, keeping R, H and C", SECTION);
+    // So must the edit menu's four: all go back to their defaults when two are the same.
+    const OurKey edit[] = {OurKey::HudReset, OurKey::HudHide, OurKey::HudColor, OurKey::HudShow};
+    bool shared = false;
+    for (int i = 0; i < 4; i++)
+        for (int j = i + 1; j < 4; j++) shared = shared || Of(edit[i]).code == Of(edit[j]).code;
+    if (shared) {
+        _WARNING("[%s] sHudReset, sHudHide, sHudColor and sHudShow share a key, keeping R, H, C and V", SECTION);
         Of(OurKey::HudReset).code = 'R';
         Of(OurKey::HudHide).code = 'H';
         Of(OurKey::HudColor).code = 'C';
+        Of(OurKey::HudShow).code = 'V';
     }
     _VMESSAGE("keys: repair %s, ammo %s, HUD reset %s, hide %s, color %s, show %s", KeyName(OurKey::Repair).c_str(),
               KeyName(OurKey::Ammo).c_str(), KeyName(OurKey::HudReset).c_str(), KeyName(OurKey::HudHide).c_str(),

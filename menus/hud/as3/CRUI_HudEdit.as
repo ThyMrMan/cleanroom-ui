@@ -2,6 +2,8 @@ package
 {
    import crui.Bridge;
    import crui.Draw;
+   import crui.Input;
+   import crui.Modal;
    import crui.Text;
    import crui.Theme;
    import flash.display.MovieClip;
@@ -20,7 +22,8 @@ package
    // move its widget (HudMove), turn the wheel over it to scale it (HudScale), press the reset key (R, a setting read
    // through HudKeys) to put the one under the cursor back where its mod (or the game) puts it, shown, in its own
    // color (HudReset); the hide key (H) hides or shows it (HudHide), the color key (C) steps it through a few colors
-   // (HudTint); hidden ones keep a dim box, so they can be shown again; Esc or Tab
+   // (HudTint); hidden ones keep a dim box, so they can be shown again; the show key (V) opens a list of when it
+   // shows (RuleList: the preset's rule, always, or the conditions picked; HudSetShow); Esc or Tab
    // saves the layout and closes (HudEditDone). Mouse and keyboard only. The game's own HUD parts are here too, named
    // by their clips. Widgets HUDFramework hosts are not here: its own editor places them.
    // See docs/swf_framework.md#hud-edit
@@ -48,6 +51,14 @@ package
       private var hideName:String = "H";
       private var colorKey:uint = 67;
       private var colorName:String = "C";
+      private var showKey:uint = 86;
+      private var showName:String = "V";
+      // The rule list (the show key over a box) in its pop-up, the box it edits, and the keys it moves by (Input:
+      // arrows, Enter, Esc or Tab to close).
+      private var input:Input;
+      private var modal:Modal = new Modal();
+      private var rules:RuleList = new RuleList();
+      private var editing:String = null;
       // The colors the color key steps through, from a widget's own (-1): white, FNV's amber, FO3's and FO4's
       // green, blue and red.
       private static const COLORS:Array = [-1, 0xFFFFFF, 0xFFB642, 0x1AFF80, 0x2EB4FF, 0xFF4646];
@@ -80,6 +91,8 @@ package
             hideName = String(keys.hideName);
             colorKey = uint(keys.color);
             colorName = String(keys.colorName);
+            showKey = uint(keys.show);
+            showName = String(keys.showName);
          }
          hiddenWord = Text.translate("$CRUI_HUD_EDIT_HIDDEN");
          graphics.beginFill(0, DIM);
@@ -91,6 +104,19 @@ package
          hint.width = stage.stageWidth;
          hint.y = stage.stageHeight * 0.08;
          addChild(hint);
+         rules.onChange = function(box:String, rule:String) : void
+         {
+            var dll:Object = bridge.natives(DLL);
+            if (dll != null)
+            {
+               dll.HudSetShow(box, rule);
+            }
+         };
+         rules.onDone = function() : void { modal.close(); };
+         modal.handler = function(action:String, digit:int) : Boolean { return rules.list.action(action, digit); };
+         modal.onClose = function() : void { editing = null; };
+         addChild(modal);
+         input = new Input(stage, function(action:String, digit:int) : Boolean { return modal.action(action, digit); });
          stage.addEventListener(MouseEvent.MOUSE_DOWN, onDown);
          stage.addEventListener(MouseEvent.MOUSE_MOVE, onMove);
          stage.addEventListener(MouseEvent.MOUSE_UP, onUp);
@@ -100,16 +126,21 @@ package
          addEventListener(Event.ENTER_FRAME, onFrame);
       }
 
-      // Each frame: every widget's box where its place puts it, and the hint (or that there is nothing to place).
+      // Each frame: every widget's box where its place puts it, and the hint (or that there is nothing to place); the
+      // rule list's rule in force, which a pick changes (the preset's comes back from the DLL).
       private function onFrame(e:Event) : void
       {
          var dll:Object = bridge.natives(DLL);
          layout = dll != null && dll.HudLayout != null ? dll.HudLayout() as Array : [];
+         if (editing != null && entryOf(editing) != null)
+         {
+            rules.refresh(String(entryOf(editing).show));
+         }
          var says:String = layout.length > 0 ? "$CRUI_HUD_EDIT_HINT" : "$CRUI_HUD_EDIT_NONE";
          if (says != hinted)
          {
             hinted = says;
-            Text.show(hint, says + "\t" + resetName + "\t" + hideName + "\t" + colorName);
+            Text.show(hint, says + "\t" + resetName + "\t" + hideName + "\t" + colorName + "\t" + showName);
          }
          boxes.graphics.clear();
          while (names.length > layout.length)
@@ -180,7 +211,8 @@ package
 
       private function onDown(e:MouseEvent) : void
       {
-         dragging = under();
+         // While the rule list is open the mouse is its own (ScrollList).
+         dragging = modal.isOpen ? null : under();
          lastX = mouseX;
          lastY = mouseY;
       }
@@ -205,11 +237,23 @@ package
       private function onWheel(e:MouseEvent) : void
       {
          var dll:Object = bridge.natives(DLL);
-         var name:String = under();
+         var name:String = modal.isOpen ? null : under();
          if (name != null && dll != null && e.delta != 0)
          {
             dll.HudScale(name, e.delta > 0 ? STEP : 1 / STEP);
          }
+      }
+
+      // Open the rule list for box `name`, in the middle of the screen.
+      private function openRules(name:String) : void
+      {
+         var entry:Object = entryOf(name);
+         editing = name;
+         rules.edit(name, entry != null ? String(entry.showOwn) : "", entry != null ? String(entry.show) : "");
+         modal.x = (stage.stageWidth - (RuleList.WIDE + 2 * RuleList.PAD)) / 2;
+         modal.y = (stage.stageHeight - rules.panelHeight) / 2;
+         modal.open(rules, RuleList.WIDE + 2 * RuleList.PAD, rules.panelHeight);
+         input.open();
       }
 
       // The entry for widget `name` in the layout, or null.
@@ -234,8 +278,17 @@ package
          {
             return;
          }
+         if (modal.isOpen)
+         {
+            // The rule list's keys are Input's (Esc or Tab closes it, not the menu).
+            return;
+         }
          var name:String = under();
-         if (name != null && e.keyCode == resetKey)
+         if (name != null && e.keyCode == showKey)
+         {
+            openRules(name);
+         }
+         else if (name != null && e.keyCode == resetKey)
          {
             dll.HudReset(name);
          }

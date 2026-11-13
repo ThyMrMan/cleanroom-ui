@@ -19,6 +19,7 @@
 #include <shlobj.h>
 
 #include <algorithm>
+#include <cctype>
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
@@ -81,7 +82,8 @@ public:
 };
 
 // HudLayout(): our widgets and the HUD's parts the host has reported, where their places put them,
-// [{name, left, top, width, height, hidden, color, show}] (the box in fractions of the screen; show its rule).
+// [{name, left, top, width, height, hidden, color, show, showOwn}] (the box in fractions of the screen; show its
+// rule now, showOwn the player's: "" for the preset's, "always" for none).
 class LayoutNative : public GFxFunctionHandler {
 public:
     void Invoke(Args *args) override {
@@ -106,6 +108,9 @@ public:
             entry.SetMember("hidden", &hidden);
             entry.SetMember("color", &color);
             entry.SetMember("show", &show);
+            GFxValue own;
+            movie->CreateString(&own, place.show.c_str());
+            entry.SetMember("showOwn", &own);
             args->result->PushBack(&entry);
         }
     }
@@ -176,7 +181,21 @@ public:
     }
 };
 
-// HudReset(name): put widget `name` back where its mod puts it, shown, in its own color.
+// HudSetShow(name, rule): the conditions widget `name` shows under, comma separated ("" for the preset's rule,
+// "always" for none); spaces are dropped.
+class SetShowNative : public GFxFunctionHandler {
+public:
+    void Invoke(Args *args) override {
+        std::string rule;
+        for (char c : Arg(args, 1))
+            if (!std::isspace(static_cast<unsigned char>(c))) rule += c;
+        std::lock_guard<std::mutex> hold(g_lock);
+        g_places[Arg(args, 0)].show = rule;
+        HudChanged();
+    }
+};
+
+// HudReset(name): put widget `name` back where its mod puts it, shown, in its own color, under the preset's rule.
 class ResetNative : public GFxFunctionHandler {
 public:
     void Invoke(Args *args) override {
@@ -252,6 +271,7 @@ void RegisterHudLayout(GFxMovieRoot *movie, GFxValue *plugin) {
     RegisterFunction<ScaleNative>(plugin, movie, "HudScale");
     RegisterFunction<HideNative>(plugin, movie, "HudHide");
     RegisterFunction<TintNative>(plugin, movie, "HudTint");
+    RegisterFunction<SetShowNative>(plugin, movie, "HudSetShow");
     RegisterFunction<ResetNative>(plugin, movie, "HudReset");
     RegisterFunction<DoneNative>(plugin, movie, "HudEditDone");
 }

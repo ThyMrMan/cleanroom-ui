@@ -44,7 +44,7 @@ licensed way to build menus without starting from decompiled Bethesda files.
 | **Own menu** | Casino (Papyrus `UI.RegisterCustomMenu`), HUD color by the menu itself (spike 2b, played) | Registering from the DLL: not needed for color; only if a later menu needs it |
 | **Replace a vanilla movie** | Dialogue menu on our own movie (spike 3, played); its `mxmlc` build. Level-up: our own registered menu opened in place of `LevelUpMenu` from Papyrus, no vanilla file shipped ([open](fo4_level_up_plan.md#open), built) | Both played; if the moment of `LevelUpMenu` first shows, F3NV.dll swapping its constructor |
 | **Inject into a vanilla menu** | Pip-Boy (spike 4, played under vanilla); CND, lists and item-card API built | Any of it played; FallUI played; container and barter (still C++) |
-| **HUD widget** | `CRUI_Hud`: HUDFramework hosts the widgets when installed, else our host movie loaded into any HUD by `CleanroomUI.dll`; widget movies with HUDFramework's `processMessage`; the built-in stats line ([host](#hud-built)); our host's saved places and edit menu ([edit](#hud-edit)); DEF_HUD.xml layouts of the game's parts ([layouts](#hud-layout)), moved and scaled in the edit menu too; the [FNV preset](#fnv-preset) with its [CND bar](#fnv-widgets); [hiding and recoloring](#hud-look) in the edit menu; parts shown on [conditions](#hud-conditions) (steps 1 to 3: combat, weapon drawn, V.A.T.S., a show key, a value changing or low, the location moving, aiming, sneaking; the Immersive preset); built, not played | Played; the conditions' steps 4 and 5, `flags`; the converter's Hardcore needs on it (still C++) |
+| **HUD widget** | `CRUI_Hud`: HUDFramework hosts the widgets when installed, else our host movie loaded into any HUD by `CleanroomUI.dll`; widget movies with HUDFramework's `processMessage`; the built-in stats line ([host](#hud-built)); our host's saved places and edit menu ([edit](#hud-edit)); DEF_HUD.xml layouts of the game's parts ([layouts](#hud-layout)), moved and scaled in the edit menu too; the [FNV preset](#fnv-preset) with its [CND bar](#fnv-widgets); [hiding and recoloring](#hud-look) in the edit menu; parts shown on [conditions](#hud-conditions) (steps 1 to 3: combat, weapon drawn, V.A.T.S., a show key, a value changing or low, the location moving, aiming, sneaking; the Immersive preset; each box's rule set in the edit menu); built, not played | Played; the conditions' step 5, `flags`; the converter's Hardcore needs on it (still C++) |
 | **DLL side** | GFx helpers (`gfx.cpp`), Pip-Boy injection (`LoadOverlay`), natives the movies call (`HudColor`, `Log`, `PipboyCardLines`, `PipboyList`, `TextureExists`) | Injection by menu URL for other menus, settings INI to the movie, GFx log routing |
 | **Translations** ([translations](#translations)) | Files named after `FalloutHelpers.esl`, every language with English fallback, our fixed words as `$F3NV_` keys, the key check in preflight (spike 5, played) | The keys played; Papyrus key check; slot and per-language counts; a test language |
 | **Controller** ([controller](#controller)) | The casino and dialogue menu on `Input` and `HintBar` (built, not played) | Playing them with a pad; the Pip-Boy "more" button; roulette's board on a pad |
@@ -855,7 +855,7 @@ or over the whole movie (ours then multiplies with it: green times amber
 is darker); a colored part keeps its color as the HUD color changes in
 the settings.
 
-### <a id="hud-conditions"></a>Parts shown on conditions (plan 2026-11-13; steps 1 to 3 built, not played)
+### <a id="hud-conditions"></a>Parts shown on conditions (plan 2026-11-13; steps 1 to 4 built, not played)
 
 The most used HUD option after moving parts is hiding them while they
 aren't needed: health and ammo out of fights, the compass until a key is
@@ -897,8 +897,8 @@ the crosshair on `drawn`, `aiming`; the compass on `peek`, `moved`,
 preset's.
 
 **Edited in the edit menu**: a key (`sHudShow`, default V) over a box opens
-a `ScrollList` of the conditions to tick, with the linger; the box shows
-its rule's names under its own.
+a `ScrollList` of the conditions to tick; the box shows its rule after its
+name (step 4, below).
 
 **Step 1, built 2026-11-13, not played** (`dll/framework/show.cpp`,
 `menus/hud/as3/ShowRules.as`, framework version 12):
@@ -931,7 +931,7 @@ its rule's names under its own.
   doesn't know counts as holding (logged once), so a typo never hides a
   part for good; without the DLL every part shows.
 - **In the edit menu** each box shows its rule in brackets after its name;
-  editing it there is step 4 (until then, the layout file).
+  V edits it (step 4).
 
 **Play check (step 1):** with `sShow=Immersive`, HP and AP fade in as a
 fight starts and out three seconds after it ends, and show in V.A.T.S.;
@@ -994,6 +994,31 @@ all the time and the compass never hides: then the meter's text is the
 next thing to watch); `aiming` in iron sights and through a scope, and
 not in third person.
 
+**Step 4, built 2026-11-13, not played** (`menus/hud/as3/RuleList.as`,
+`HudSetShow` in `layout.cpp`, framework version 15):
+- **V** (`[Keys] sHudShow`) over a box in the edit menu opens a list in
+  a pop-up in the middle of the screen: *As the preset sets*, *Always
+  shown*, then each condition marked ON or not, then *Done*. Arrows or the
+  mouse move, Enter or a click picks, Esc or Tab closes it (not the
+  menu); while it is open the menu's own keys, dragging and the wheel
+  leave the boxes alone.
+- **Picking** the preset's or always sets that; picking a condition
+  switches it in the box's own rule, starting from the rule in force (the
+  preset's, when the box had none of its own), so a player tweaks the
+  preset's rule instead of starting over; switching the last one off
+  leaves the box always shown. A threshold on `low` (`low:0.3`, set in the
+  file) stays while `low` stays on.
+- Each pick goes to the DLL at once (`HudSetShow(name, rule)`: `""` the
+  preset's, `always` none); Esc on the menu saves it with the rest of the
+  layout. `HudLayout` now also gives each box's own rule (`showOwn`) next
+  to the one in force (`show`).
+- The linger stays one setting for every box (`fShowLinger`).
+
+**Play check (step 4):** V opens the list over the box under the cursor;
+the list's keys and clicks don't move or close anything else; Esc closes
+the list first, then the menu; a rule set there survives a restart; the
+preset's choice follows `sShow` after a change in MCM.
+
 **Order of work**, each its own play test:
 1. **Built.** The DLL's state (`combat`, `drawn`, `vats`) and the peek key
    (read with `GetAsyncKeyState`, held then the linger), the rule column
@@ -1001,7 +1026,7 @@ not in third person.
 2. **Built.** `changed` and `low` from the values the host reads; `moved`
    for the compass.
 3. **Built.** `aiming` and `sneaking`.
-4. The rule list in the edit menu.
+4. **Built.** The rule list in the edit menu.
 5. `CRUI_Hud.SetCondition` for other mods; fades if play asks for them.
 
 **Open questions:** whether a part the engine hides on its own (the enemy
@@ -1452,6 +1477,7 @@ sHudReset=R   ; HUD edit menu: put the widget under the cursor back
 sHudHide=H    ; HUD edit menu: hide the widget under the cursor, or show it
 sHudColor=C   ; HUD edit menu: give the widget under the cursor the next color
 sHudPeek=Y    ; in play: show the HUD parts shown on conditions (held, then the linger)
+sHudShow=V    ; HUD edit menu: set when the widget under the cursor is shown
 ```
 - `Data\MCM\Settings\CleanroomUI.ini` is read after it and wins: that is
   where an MCM page saves a setting with id `sRepair:Keys` and so on, so a
@@ -1459,12 +1485,12 @@ sHudPeek=Y    ; in play: show the HUD parts shown on conditions (held, then the 
 - They are read as the plugin loads and again each time the Pip-Boy or the
   edit menu opens, so a change applies the next time either opens.
 - The Pip-Boy's REPAIR and AMMO hints and the edit menu's hint
-  (`$CRUI_HUD_EDIT_HINT`: `{0}` reset, `{1}` hide, `{2}` color) show the
-  keys set.
+  (`$CRUI_HUD_EDIT_HINT`: `{0}` reset, `{1}` hide, `{2}` color, `{3}`
+  when shown) show the keys set.
 - A key that isn't a letter, digit or F1-F12 keeps its default, as do
   `sRepair` and `sAmmo` set to W, S or E (the lists move and choose with
-  them) or to the same key, and the edit menu's three set to the same
-  key (all three go back to R, H and C); each logs a warning.
+  them) or to the same key, and two of the edit menu's four set to the
+  same key (all four go back to R, H, C and V); each logs a warning.
 - Not checked: the game's own Pip-Boy keys. A key the Pip-Boy page also
   uses does both (V zooms the Pip-Boy, which is why the ammo key is B).
 

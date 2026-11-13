@@ -22,7 +22,7 @@ namespace crui {
 
 // The framework's version (CRUI_Framework.GetVersion, the F4SE version query, F4SEPlugin_Version): raised whenever a
 // native, event or rule changes, so a mod can ask for the one it was built against.
-constexpr UInt32 VERSION = 14;
+constexpr UInt32 VERSION = 15;
 
 // The forms that wear (CRUI_Condition.Track): the Pip-Boy shows their condition.
 extern std::mutex g_lock;
@@ -293,7 +293,7 @@ void HudChanged();
 void LoadLayout();
 
 // Give `plugin` the host's HudReport and HudPlaceOf, and the edit menu's HudLayout, HudMove, HudScale, HudHide,
-// HudTint, HudReset and HudEditDone.
+// HudTint, HudSetShow, HudReset and HudEditDone.
 void RegisterHudLayout(GFxMovieRoot *movie, GFxValue *plugin);
 
 // Register CRUI_HudNative's natives.
@@ -311,7 +311,7 @@ void RegisterHudParts(GFxMovieRoot *movie, GFxValue *plugin);
 // ---- Our own keys (keys.cpp; docs/swf_framework.md#keys) ----
 
 // The keys the game has no controls for, set under [Keys] in CleanroomUI.ini.
-enum class OurKey { Repair, Ammo, HudReset, HudHide, HudColor, HudPeek };
+enum class OurKey { Repair, Ammo, HudReset, HudHide, HudColor, HudPeek, HudShow };
 
 // Read the keys again from the INI files.
 void ReadKeys();

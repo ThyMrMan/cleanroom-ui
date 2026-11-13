@@ -106,7 +106,7 @@ def test_the_edit_menu_and_host_use_every_layout_native():
     layout = _source(REPO / 'dll' / 'framework' / 'layout.cpp')
     natives = re.findall(r'RegisterFunction<\w+>\(plugin, movie, "(\w+)"\);', layout)
     assert sorted(natives) == ['HudEditDone', 'HudHide', 'HudLayout', 'HudMove', 'HudPlaceOf', 'HudReport',
-                               'HudReset', 'HudScale', 'HudTint']
+                               'HudReset', 'HudScale', 'HudSetShow', 'HudTint']
     host = _source(MENU.sources / f'{MENU.document}.as')
     parts = _source(MENU.sources / 'PartLayout.as')
     edit_menu = menus.BY_NAME['hud_edit']
@@ -297,3 +297,27 @@ def test_parts_show_while_aiming_or_sneaking():
     assert 'sneaking = watched != null && onScreen(watched[MOVED]);' in rules and 'word == "sneaking"' in rules
     on_screen = rules[rules.index('function onScreen('):rules.index('function textOf(')]
     assert 'if (!at.visible)' in on_screen and 'alpha *= at.alpha;' in on_screen and '.mask' not in on_screen
+
+
+def test_the_edit_menu_sets_when_each_box_shows():
+    """Step 4: the show key (V, [Keys] sHudShow) over a box opens a list in a pop-up: the preset's rule, always, each
+    condition on or off, Done. Each pick goes to HudSetShow at once ("" the preset's, "always" none); while it is open
+    the menu's own keys and mouse leave it alone. Every condition the DLL and the host know is on the list."""
+    edit_menu = menus.BY_NAME['hud_edit']
+    edit = _source(edit_menu.sources / f'{edit_menu.document}.as')
+    assert 'e.keyCode == showKey' in edit and 'dll.HudSetShow(box, rule);' in edit and 'keys.showName' in edit
+    on_key = edit[edit.index('private function onKey('):]
+    assert on_key.index('if (modal.isOpen)') < on_key.index('var name:String = under();')
+    rules = _source(edit_menu.sources / 'RuleList.as')
+    listed = re.search(r'CONDITIONS:Array = \[([^\]]+)\]', rules).group(1)
+    listed = set(re.findall(r'"(\w+)"', listed))
+    show = _source(REPO / 'dll' / 'framework' / 'show.cpp')
+    state = set(re.findall(r'SetMember\("(\w+)", &\w+\);', show[show.index('class StateNative'):]))
+    host = _source(MENU.sources / 'ShowRules.as')
+    assert listed == (state - {'linger', 'health', 'ap', 'rads', 'condition', 'weapon'}) | {
+        word for word in ('changed', 'low', 'moved', 'sneaking') if f'word == "{word}"' in host}
+    layout = _source(REPO / 'dll' / 'framework' / 'layout.cpp')
+    assert 'entry.SetMember("showOwn", &own);' in layout and 'g_places[Arg(args, 0)].show = rule;' in layout
+    assert '{"sHudShow", "V", "", \'V\'}' in _source(REPO / 'dll' / 'framework' / 'keys.cpp')
+    hint = re.search(r'^\$CRUI_HUD_EDIT_HINT\t(.*)$', _source(REPO / 'translations' / 'CleanroomUI' / 'en.txt'), re.M)
+    assert '{3}' in hint.group(1)
