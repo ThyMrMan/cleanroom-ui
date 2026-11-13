@@ -22,7 +22,7 @@ namespace crui {
 
 // The framework's version (CRUI_Framework.GetVersion, the F4SE version query, F4SEPlugin_Version): raised whenever a
 // native, event or rule changes, so a mod can ask for the one it was built against.
-constexpr UInt32 VERSION = 16;
+constexpr UInt32 VERSION = 17;
 
 // The forms that wear (CRUI_Condition.Track): the Pip-Boy shows their condition.
 extern std::mutex g_lock;
@@ -334,5 +334,10 @@ void RegisterKeys(GFxMovieRoot *movie, GFxValue *plugin);
 
 // Register CRUI_Sex's native ChangeSex, run through F4SE's task interface `tasks`.
 void RegisterSex(VirtualMachine *vm, void *tasks);
+
+// ---- The game's perk points (perks.cpp; docs/level_up_plan.md#game-points) ----
+
+// Register CRUI_LevelUpNative's SetGamePerkPoints, run as a task of `tasks` (F4SETaskInterface).
+void RegisterPerks(VirtualMachine *vm, void *tasks);
 
 }  // namespace crui

@@ -184,7 +184,7 @@ in every mode.
 `fo4_import/level_up/` (`F3NV_LevelUp.as`, `f3nv/levelup/Character.as`)
 on f3ui, built by `mxmlc`, installed by the masterless build as
 `Interface/F3NV_LevelUp.swf`, registered by `F3NV_LevelUp.psc` with the
-casino's menu flags. Three pages (Prev/Next):
+casino's menu flags. Three pages (Prev/Next, or a click on a tab):
 - **SKILLS:** each skill and its value. Accept or Right sets a point, Left
   takes one back, within the points, the base and `SkillCap`; Y resets;
   X spends them. The list shows "45 > 50" while set, and the right side
@@ -300,6 +300,45 @@ since `Open`.
 
 **Play check:** those lines per open show which step holds the menu, and
 the time from the button (or the stage) to a filled menu.
+
+Played 2026-11-13: the Pip-Boy button to a filled level-up took 2.1 s,
+1.8 s of it `gathered in` (the tag menu's 0.83 s, with 20 values to read);
+the menu opened and filled in under 0.1 s after that. Since then:
+- **Registered once per load.** `Register` re-registered the menu and its
+  six external events on every open, each F4SE call a frame (about 0.2 s);
+  it now does so only when `UI.IsMenuRegistered` says a load dropped them.
+- **The gather timed by part.** `gathered in` now gives `collect`,
+  `stacks` (the slowest chunk and `ScanUnlisted`, each from the end of
+  `collect`) and `the rest` (joining the args).
+
+**Play check:** the next play's `gathered in` line says which part to cut.
+
+## <a id="game-points"></a>The game's own perk points (built 2026-11-13, not played)
+
+FO4 adds a perk point at each level, and the Pip-Boy's LEVEL UP notice
+shows that count (`PerkPoints` in `pipboymenu.swf`'s player info). Our
+points are this script's own, so the game's count only grew: played
+2026-11-13, the Pip-Boy kept saying 3 after the levels were spent.
+
+Papyrus can only add to it: `Game.AddPerkPoints` (Fallout4.exe 1.11.240,
+RVA 0x1121690) returns unless the amount is above 0, and nothing in
+Papyrus or F4SE reads or sets it. That native ends in the game's setter,
+RVA 0xD75FF0 (`PlayerCharacter *`, `UInt8`), which writes the count at
+`PlayerCharacter` +0xCF1 and sends the game's perk points event, which the
+Pip-Boy reads. `CleanroomUI.dll` (framework version 17, `perks.cpp`) runs
+that setter as a main-thread task for
+`CRUI_LevelUpNative.SetGamePerkPoints` (no-wait, so it costs its stack no
+frame).
+
+`ShowGamePoints` sets it to what is left to spend here: the perk points,
+else 1 while skill points are left (so the Pip-Boy's button still opens
+the menu for them), else 0. It runs whenever the points change
+(`AddPerkPoints`, `AddSkillPoints`, `RaiseSkill`, `TakePerk`) and as our
+menu closes, which also mends a save whose count already grew. A level
+gained shows the game's own +1 until our menu next opens and closes.
+
+**Play check:** after spending everything, the Pip-Boy shows no level-up;
+gaining a level shows it again.
 
 ## <a id="tags"></a>Tag skills and traits (built 2026-11-12, not played)
 

@@ -71,6 +71,8 @@ String[] extraParts
 String unlisted
 Var[] ready
 Float openAsked
+Float chunksDone
+Float unlistedDone
 
 ; ---------------------------------------------------------------------------
 ; For other mods (docs/level_up_plan.md#api)
@@ -165,6 +167,7 @@ Int Function AddPerkPoints(Int aiPoints)
   If PerkPoints < 0
     PerkPoints = 0
   EndIf
+  ShowGamePoints()
   Return PerkPoints
 EndFunction
 
@@ -174,7 +177,19 @@ Int Function AddSkillPoints(Int aiPoints)
   If SkillPoints < 0
     SkillPoints = 0
   EndIf
+  ShowGamePoints()
   Return SkillPoints
+EndFunction
+
+Function ShowGamePoints()
+  {The game's own perk points, which the Pip-Boy's LEVEL UP notice shows (the game adds one each level), set to what
+  is left to spend here: the perk points, else 1 while skill points are left, else none. Needs CleanroomUI.dll.
+  See docs/level_up_plan.md#game-points}
+  Int points = PerkPoints
+  If points <= 0 && SkillPoints > 0
+    points = 1
+  EndIf
+  CRUI_LevelUpNative.SetGamePerkPoints(points)
 EndFunction
 
 ; ---------------------------------------------------------------------------
@@ -224,6 +239,7 @@ Int Function RaiseSkill(ActorValue akSkill, Int aiPoints)
   EndIf
   player.SetValue(akSkill, base + spend)
   SkillPoints -= spend
+  ShowGamePoints()
   Var[] args = new Var[3]
   args[0] = akSkill
   args[1] = spend
@@ -278,6 +294,7 @@ Bool Function TakePerk(Perk akPerk)
   Perk rank = NextRank(akPerk)
   Game.GetPlayer().AddPerk(rank)
   PerkPoints -= 1
+  ShowGamePoints()
   SendCustomEvent("PerkTaken", FormArgs(rank))
   Return True
 EndFunction
@@ -340,15 +357,16 @@ Function Prepare(Int aiMode, Int aiCount, Int aiBonus)
 EndFunction
 
 Function Register()
-  {Register the menu with F4SE (registrations do not last past a load) and its events, each once; be the level-up
-  Get() finds.}
+  {Be the level-up Get() finds; once per load (F4SE's registrations do not last past one), register the menu with
+  F4SE and its events: each of those calls costs a frame. See docs/level_up_plan.md#open-delay}
   Announce()
-  If !UI.IsMenuRegistered(MenuName)
-    UI:MenuData data = new UI:MenuData
-    data.menuFlags = MenuFlags
-    data.extendedFlags = ExtendedFlags
-    UI.RegisterCustomMenu(MenuName, MenuName, "root1", data)
+  If UI.IsMenuRegistered(MenuName)
+    Return
   EndIf
+  UI:MenuData data = new UI:MenuData
+  data.menuFlags = MenuFlags
+  data.extendedFlags = ExtendedFlags
+  UI.RegisterCustomMenu(MenuName, MenuName, "root1", data)
   UnregisterForMenuOpenCloseEvent(MenuName)
   RegisterForMenuOpenCloseEvent(MenuName)
   UnregisterForExternalEvent("CRUI_LevelUpTake")
@@ -373,6 +391,7 @@ Event OnMenuOpenCloseEvent(String asMenuName, Bool abOpening)
     Send()
     Return
   EndIf
+  ShowGamePoints()
   Var[] args = new Var[3]
   args[0] = mode
   args[1] = PerkPoints
@@ -400,8 +419,10 @@ Var[] Function Built()
   Float started = Utility.GetCurrentRealTime()
   Actor player = Game.GetPlayer()
   Collect()
+  Float collected = Utility.GetCurrentRealTime()
   Int specialCount = Specials.GetSize()
   Gather(specialCount, Skills.GetSize())
+  Float gathered = Utility.GetCurrentRealTime()
   Var[] args = new Var[35]
   args[0] = PerkPoints
   args[1] = SkillPoints
@@ -438,8 +459,10 @@ Var[] Function Built()
   args[32] = ShowAllPerks
   args[33] = GroupCounts(perkCounts)
   args[34] = GroupCounts(rowCounts)
-  Debug.Trace("CRUI_LevelUp: gathered in " + (Utility.GetCurrentRealTime() - started) + "s, mode " + mode + ", " \
-              + shown.Length + " tables")
+  Debug.Trace("CRUI_LevelUp: gathered in " + Since(started) + "s, mode " + mode + ", " + shown.Length + " tables: " \
+              + "collect " + (collected - started) + "s, stacks " + (gathered - collected) + "s (last chunk +" \
+              + (chunksDone - collected) + "s, unlisted +" + (unlistedDone - collected) + "s), the rest " \
+              + Since(gathered) + "s")
   Return args
 EndFunction
 
@@ -584,6 +607,8 @@ Function Gather(Int aiSpecials, Int aiSkills)
   tagParts = new String[Chunks]
   traitParts = new String[Chunks]
   pending = Chunks
+  chunksDone = 0.0
+  unlistedDone = 0.0
   If mode == LevelUpMode
     pending += 1
     CallFunctionNoWait("ScanUnlisted", new Var[0])
@@ -630,6 +655,7 @@ Function ScanChunk(Int aiChunk, Int aiFirst, Int aiEnd, Int aiSpecials, Int aiSk
   EndWhile
   valueParts[aiChunk] = values
   tagParts[aiChunk] = tags
+  chunksDone = Utility.GetCurrentRealTime()
   pending -= 1
 EndFunction
 
@@ -644,6 +670,7 @@ Function ScanUnlisted()
     first += rowCounts[t]
     t += 1
   EndWhile
+  unlistedDone = Utility.GetCurrentRealTime()
   pending -= 1
 EndFunction
 

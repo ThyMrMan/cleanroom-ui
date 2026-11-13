@@ -49,8 +49,8 @@ def test_every_native_script_the_dlls_register_exists():
     scripts = set()
     for source in DLL.rglob('*.cpp'):
         scripts |= set(re.findall(r'\b\w*SCRIPT = "(\w+)"', source.read_text(encoding='utf-8')))
-    assert scripts == {'CRUI_Condition', 'CRUI_Framework', 'CRUI_HudNative', 'CRUI_ItemCard', 'CRUI_Pipboy',
-                       'CRUI_PipboyAmmo', 'CRUI_Sex'}
+    assert scripts == {'CRUI_Condition', 'CRUI_Framework', 'CRUI_HudNative', 'CRUI_ItemCard', 'CRUI_LevelUpNative',
+                       'CRUI_Pipboy', 'CRUI_PipboyAmmo', 'CRUI_Sex'}
     assert all((REPO / 'papyrus' / f'{name}.psc').is_file() for name in scripts)
 
 

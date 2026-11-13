@@ -28,6 +28,7 @@ installs all of them at load.
 | `damage.cpp` | Flat Damage Threshold, per pellet | `F3NV_Damage.SetRules` | Four resistance-curve call redirects; off until `SetRules` |
 | `hardcore.cpp` | Ammo weight outside Survival, HUD needs | `F3NV_HardcoreNative.Track` | One call redirect; off until its global is set |
 | `sex.cpp` | Change an actor's sex through the game's own handler | `F3NV_Sex.ChangeSex` | Nothing |
+| `perks.cpp` | Set the game's own perk points (the Pip-Boy's LEVEL UP notice) | `CRUI_LevelUpNative.SetGamePerkPoints` | Nothing |
 | `dialogue.cpp` | Dialogue menu with any number of options | Scaleform natives `F3NV` | Three call redirects at PostLoad; stays out when `XDI.dll` is loaded |
 | `plugin.cpp` | No combat sprinting | none | Turns `bCombatPathSprinting` off for every actor, always |
 
@@ -54,8 +55,9 @@ Not released on their own:
 In Cleanroom UI (`dll/`, `python -m crui dll`), from F3NV.dll's sources:
 - **`CleanroomUI.dll`** (`dll/framework/`): condition API, Pip-Boy overlay,
   item-card lines, STAT tabs, repair and vendor repair lists, ammo list,
-  transfer and barter CND lines, `ChangeSex`. Natives on `CRUI_Condition`,
-  `CRUI_ItemCard`, `CRUI_Pipboy`, `CRUI_PipboyAmmo`, `CRUI_Sex`; movies
+  transfer and barter CND lines, `ChangeSex`, the game's perk points. Natives on
+  `CRUI_Condition`, `CRUI_ItemCard`, `CRUI_LevelUpNative`, `CRUI_Pipboy`,
+  `CRUI_PipboyAmmo`, `CRUI_Sex`; movies
   reach it as `f4se.plugins.CleanroomUI`; external events
   `CRUI_ConditionRepair`, `CRUI_AmmoSwitch`; log `CleanroomUI.log`. It takes
   no trampoline and no longer sets the spawn condition or combat sprint.

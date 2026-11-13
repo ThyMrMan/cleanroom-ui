@@ -14,6 +14,7 @@ package
    import flash.display.MovieClip;
    import flash.display.Sprite;
    import flash.events.Event;
+   import flash.events.MouseEvent;
    import flash.text.TextField;
    import flash.text.TextFieldAutoSize;
 
@@ -177,7 +178,7 @@ package
          tabs = [];
          for (var i:int = 0; i < pages.length; i++)
          {
-            tabs.push(Text.show(Text.label(this, LIST_X + i * 170, 24, 28), TITLES[pages[i]]));
+            tabs.push(tab(i));
          }
          points = Text.label(this, detailX, 30, 20);
          list = new ScrollList();
@@ -208,6 +209,26 @@ package
             hints.y = high - 36;
             addChild(hints);
          }
+      }
+
+      // Page `at`'s title at the top, which a click turns to.
+      private function tab(at:int) : Sprite
+      {
+         var out:Sprite = new Sprite();
+         Text.show(Text.label(out, 0, 0, 28), TITLES[pages[at]]);
+         out.x = LIST_X + at * 170;
+         out.y = 24;
+         out.mouseChildren = false;
+         out.buttonMode = true;
+         out.addEventListener(MouseEvent.CLICK, function(e:MouseEvent) : void
+         {
+            if (who != null && !busy && !modal.isOpen)
+            {
+               turnTo(pages[at]);
+            }
+         });
+         addChild(out);
+         return out;
       }
 
       // The menu's ground: a level-up darkens the whole screen; a panel sits centered (this clip moved there) over a
@@ -446,9 +467,7 @@ package
          if ((action == Input.PREV || action == Input.NEXT) && pages.length > 1)
          {
             var at:int = pages.indexOf(page);
-            page = pages[(at + (action == Input.NEXT ? 1 : pages.length - 1)) % pages.length];
-            say("");
-            showPage(0);
+            turnTo(pages[(at + (action == Input.NEXT ? 1 : pages.length - 1)) % pages.length]);
             return true;
          }
          if (page == TAGS || page == TRAITS)
@@ -456,6 +475,14 @@ package
             return pickAction(action);
          }
          return page == SKILLS ? skillAction(action) : (page == PERKS ? perkAction(action) : move(action));
+      }
+
+      // Show page `to` from its top.
+      private function turnTo(to:int) : void
+      {
+         page = to;
+         say("");
+         showPage(0);
       }
 
       // The tag and trait menus: Accept tags or picks the highlighted entry (within the count); X keeps the picks,
