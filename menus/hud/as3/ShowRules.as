@@ -10,7 +10,9 @@ package
    // ShowRule). With no rule it is always shown. A box shows while any of its conditions holds and for the linger
    // after the last one ends, so it doesn't flicker. A condition nobody knows counts as holding (logged once), so a
    // typo never hides a box for good; so does every rule without the DLL.
-   // - combat, drawn, vats, peek: from the DLL (HudState), once a frame.
+   // - combat, drawn, vats, peek, aiming: from the DLL (HudState), once a frame.
+   // - sneaking: the game's sneak meter (StealthMeter_mc) is on screen: it and every clip above it visible and not
+   //   faded out. The engine shows it only while the player sneaks; our own hiding (a mask) doesn't change that.
    // - changed: the box's value changed (a meter's, from HudValues, a few times a second: HP, AP, rads, the CND
    //   bar's condition), or, for a part with no value (the ammo count, the explosives count, ...), the text it shows.
    // - low (low:F for a threshold F from 0 to 1): the box's value is under F (HP, AP, the CND bar: 0.5 by default),
@@ -24,8 +26,11 @@ package
       private static const VALUES:Object = {
          "part:HPMeter_mc": "health", "part:ActionPointMeter_mc": "ap", "part:RadsMeter_mc": "rads",
          "part:CRUI_WeaponCondition_mc": "condition"};
-      // The parts whose text `moved` watches.
-      public static const MOVED:Array = ["LocationText_mc", "QuestUpdates_mc"];
+      // The parts the host hands update(): those whose text `moved` watches, then the sneak meter.
+      public static const WATCHED:Array = ["LocationText_mc", "QuestUpdates_mc", "StealthMeter_mc"];
+      private static const MOVED:int = 2;
+      // How faded a clip may be and still count as on screen.
+      private static const SHOWN_ALPHA:Number = 0.05;
       // The ammo count's part (low is its magazine).
       private static const AMMO:String = "part:AmmoCount_mc";
       // The default thresholds of low, how much a value must move to count as changed, how often the values are
@@ -45,8 +50,9 @@ package
       // The ammo count: the fullest magazine seen, and the weapon it was seen with.
       private var fullest:Number = 0;
       private var fullestWeapon:Number = -1;
-      // The frame `moved` last held on.
+      // The frame `moved` last held on, and whether the sneak meter is on screen.
       private var movedFrame:int = -1;
+      private var sneaking:Boolean = false;
       private var log:Function;
       private var seen:Object = {};
 
@@ -56,8 +62,8 @@ package
          this.log = log;
       }
 
-      // The conditions now, from `dll` (HudState each frame, HudValues every few), and `moved` from the parts
-      // `watched` (MOVED's views, null where not found).
+      // The conditions now, from `dll` (HudState each frame, HudValues every few), and `moved` and `sneaking` from
+      // the parts `watched` (WATCHED's views, null where not found).
       public function update(dll:Object, watched:Array) : void
       {
          state = dll != null && dll.HudState != null ? dll.HudState() : null;
@@ -65,15 +71,16 @@ package
          {
             values = dll.HudValues();
          }
-         for (var i:int = 0; i < MOVED.length; i++)
+         for (var i:int = 0; i < MOVED; i++)
          {
             // A new name or objective, not one being cleared away.
             var text:String = watched != null ? textOf(watched[i]) : null;
-            if (note("moved:" + MOVED[i], text, getTimer()) && text != null && text.replace(/[|\s]/g, "") != "")
+            if (note("moved:" + WATCHED[i], text, getTimer()) && text != null && text.replace(/[|\s]/g, "") != "")
             {
                movedFrame = frames;
             }
          }
+         sneaking = watched != null && onScreen(watched[MOVED]);
       }
 
       // Whether box `name` under rule `rule` ("" or null: always) is shown now; `view` is the part (null for a
@@ -107,6 +114,10 @@ package
             else if (word == "moved")
             {
                holds = holds || movedFrame == frames;
+            }
+            else if (word == "sneaking")
+            {
+               holds = holds || sneaking;
             }
             else if (state[word] === undefined)
             {
@@ -183,6 +194,25 @@ package
          }
          fullest = Math.max(fullest, magazine);
          return fullest > 0 && magazine <= Math.floor(fullest * (isNaN(given) ? LOW_AMMO : given));
+      }
+
+      // Whether `view` is on screen: it and every clip above it visible, and not faded out.
+      private static function onScreen(view:DisplayObject) : Boolean
+      {
+         if (view == null || view.stage == null)
+         {
+            return false;
+         }
+         var alpha:Number = 1;
+         for (var at:DisplayObject = view; at != null && at != at.stage; at = at.parent)
+         {
+            if (!at.visible)
+            {
+               return false;
+            }
+            alpha *= at.alpha;
+         }
+         return alpha > SHOWN_ALPHA;
       }
 
       // The text `view` shows: its text fields' text, in order, joined (null for no view).

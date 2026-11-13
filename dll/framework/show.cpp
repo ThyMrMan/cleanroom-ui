@@ -13,12 +13,17 @@
 // - vats: V.A.T.S. is open (VATSMenu).
 // - peek: our show key ([Keys] sHudPeek) is held while the game's window is in front, read with GetAsyncKeyState
 //   (keyboard only; a key also bound in game does both).
+// - aiming (step 3): the player aims down the sights (the player camera in its iron sights state, F4SE's
+//   PlayerCamera) or through a scope (ScopeMenu open). Third person's over-the-shoulder aim isn't a camera state of
+//   its own and doesn't count.
+// Step 3's sneaking is the host's: the game's sneak meter on screen (ShowRules.as).
 // Step 2's are worked out by the host (ShowRules.as) from what it reads: changed (the box's value or text changed),
 // low (its value under a threshold) and moved (the location text or the quest updates changed). The values come
 // from HudValues: the player's health and AP as fractions, rads, the equipped weapon and its condition.
 // The settings are read again each time the HUD movie loads (a game loads), so a change in MCM applies then.
 #include "condition.h"
 
+#include "f4se/GameCamera.h"
 #include "f4se/GameMenus.h"
 #include "f4se/GameReferences.h"
 #include "f4se/ScaleformCallbacks.h"
@@ -40,7 +45,8 @@ const UInt32 HEALTH = 0x2D4, ACTION_POINTS = 0x2D5, RADS = 0x2E1;
 // The Immersive preset: the parts that only show while needed. HP and AP in fights and V.A.T.S., as they change
 // (a hit, healing, AP spent or coming back) and while low; the ammo count and the explosives count with a weapon
 // out and as they change (ammo picked up), the ammo also while low; the FNV preset's CND bar with a weapon out and
-// while low; the compass as the location or an objective changes. Every one also on the show key. The rest are
+// while low; the compass as the location or an objective changes and while sneaking. Every one also on the show
+// key. The rest are
 // always shown (the crosshair also aims activation; the engine shows the enemy health, sneak and rads meters
 // itself).
 const std::map<std::string, std::string> IMMERSIVE = {
@@ -49,7 +55,7 @@ const std::map<std::string, std::string> IMMERSIVE = {
     {"part:AmmoCount_mc", "drawn,changed,low,peek"},
     {"part:ExplosiveAmmoCount_mc", "drawn,changed,peek"},
     {"part:CRUI_WeaponCondition_mc", "drawn,low,peek"},
-    {"part:CompassWidget_mc", "moved,peek"},
+    {"part:CompassWidget_mc", "moved,sneaking,peek"},
 };
 
 std::mutex g_settingsLock;
@@ -75,7 +81,7 @@ bool GameInFront() {
     return process == GetCurrentProcessId();
 }
 
-// HudState(): the conditions now, {combat, drawn, vats, peek} (each true or false), and linger (seconds).
+// HudState(): the conditions now, {combat, drawn, vats, peek, aiming} (each true or false), and linger (seconds).
 class StateNative : public GFxFunctionHandler {
 public:
     void Invoke(Args *args) override {
@@ -87,6 +93,11 @@ public:
             std::lock_guard<std::mutex> hold(g_settingsLock);
             linger = g_linger;
         }
+        PlayerCamera *camera = *g_playerCamera;
+        BSFixedString scopeMenu("ScopeMenu");
+        bool sighted = camera && camera->cameraState &&
+                       camera->GetCameraStateId(camera->cameraState) == PlayerCamera::kCameraState_IronSights;
+        GFxValue aiming(sighted || (*g_ui != nullptr && (*g_ui)->IsMenuOpen(scopeMenu)));
         GFxValue combat(player != nullptr && player->IsInCombat()),
             drawn(player != nullptr && player->actorState.IsWeaponDrawn()),
             vats(*g_ui != nullptr && (*g_ui)->IsMenuOpen(vatsMenu)),
@@ -96,6 +107,7 @@ public:
         args->result->SetMember("drawn", &drawn);
         args->result->SetMember("vats", &vats);
         args->result->SetMember("peek", &peek);
+        args->result->SetMember("aiming", &aiming);
         args->result->SetMember("linger", &seconds);
     }
 };

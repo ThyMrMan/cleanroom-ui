@@ -163,11 +163,11 @@ package
          }
       }
 
-      // The parts `moved` watches (ShowRules.MOVED), as found by the last place() (null where not found).
-      public function moved() : Array
+      // The parts the show rules watch (ShowRules.WATCHED), as found by the last place() (null where not found).
+      public function watched() : Array
       {
          var out:Array = [];
-         for each (var name:String in ShowRules.MOVED)
+         for each (var name:String in ShowRules.WATCHED)
          {
             out.push(parts[name] != null ? parts[name].view : null);
          }

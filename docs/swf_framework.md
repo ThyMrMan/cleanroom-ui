@@ -44,7 +44,7 @@ licensed way to build menus without starting from decompiled Bethesda files.
 | **Own menu** | Casino (Papyrus `UI.RegisterCustomMenu`), HUD color by the menu itself (spike 2b, played) | Registering from the DLL: not needed for color; only if a later menu needs it |
 | **Replace a vanilla movie** | Dialogue menu on our own movie (spike 3, played); its `mxmlc` build. Level-up: our own registered menu opened in place of `LevelUpMenu` from Papyrus, no vanilla file shipped ([open](fo4_level_up_plan.md#open), built) | Both played; if the moment of `LevelUpMenu` first shows, F3NV.dll swapping its constructor |
 | **Inject into a vanilla menu** | Pip-Boy (spike 4, played under vanilla); CND, lists and item-card API built | Any of it played; FallUI played; container and barter (still C++) |
-| **HUD widget** | `CRUI_Hud`: HUDFramework hosts the widgets when installed, else our host movie loaded into any HUD by `CleanroomUI.dll`; widget movies with HUDFramework's `processMessage`; the built-in stats line ([host](#hud-built)); our host's saved places and edit menu ([edit](#hud-edit)); DEF_HUD.xml layouts of the game's parts ([layouts](#hud-layout)), moved and scaled in the edit menu too; the [FNV preset](#fnv-preset) with its [CND bar](#fnv-widgets); [hiding and recoloring](#hud-look) in the edit menu; parts shown on [conditions](#hud-conditions) (steps 1 and 2: combat, weapon drawn, V.A.T.S., a show key, a value changing or low, the location moving; the Immersive preset); built, not played | Played; the conditions' steps 3 to 5, `flags`; the converter's Hardcore needs on it (still C++) |
+| **HUD widget** | `CRUI_Hud`: HUDFramework hosts the widgets when installed, else our host movie loaded into any HUD by `CleanroomUI.dll`; widget movies with HUDFramework's `processMessage`; the built-in stats line ([host](#hud-built)); our host's saved places and edit menu ([edit](#hud-edit)); DEF_HUD.xml layouts of the game's parts ([layouts](#hud-layout)), moved and scaled in the edit menu too; the [FNV preset](#fnv-preset) with its [CND bar](#fnv-widgets); [hiding and recoloring](#hud-look) in the edit menu; parts shown on [conditions](#hud-conditions) (steps 1 to 3: combat, weapon drawn, V.A.T.S., a show key, a value changing or low, the location moving, aiming, sneaking; the Immersive preset); built, not played | Played; the conditions' steps 4 and 5, `flags`; the converter's Hardcore needs on it (still C++) |
 | **DLL side** | GFx helpers (`gfx.cpp`), Pip-Boy injection (`LoadOverlay`), natives the movies call (`HudColor`, `Log`, `PipboyCardLines`, `PipboyList`, `TextureExists`) | Injection by menu URL for other menus, settings INI to the movie, GFx log routing |
 | **Translations** ([translations](#translations)) | Files named after `FalloutHelpers.esl`, every language with English fallback, our fixed words as `$F3NV_` keys, the key check in preflight (spike 5, played) | The keys played; Papyrus key check; slot and per-language counts; a test language |
 | **Controller** ([controller](#controller)) | The casino and dialogue menu on `Input` and `HintBar` (built, not played) | Playing them with a pad; the Pip-Boy "more" button; roulette's board on a pad |
@@ -855,7 +855,7 @@ or over the whole movie (ours then multiplies with it: green times amber
 is darker); a colored part keeps its color as the HUD color changes in
 the settings.
 
-### <a id="hud-conditions"></a>Parts shown on conditions (plan 2026-11-13; steps 1 and 2 built, not played)
+### <a id="hud-conditions"></a>Parts shown on conditions (plan 2026-11-13; steps 1 to 3 built, not played)
 
 The most used HUD option after moving parts is hiding them while they
 aren't needed: health and ammo out of fights, the compass until a key is
@@ -871,8 +871,8 @@ frame into one native (`HudState()`: a set of names that hold now):
 |---|---|---|
 | `combat` | The player is in combat | `Actor::IsInCombat` (F4SE names the virtual) |
 | `drawn` | A weapon is out | `ActorState::IsWeaponDrawn` (F4SE) |
-| `aiming` | Aiming down the sights or the scope | **Research:** the player's gun state (CommonLibF4 names more of `ActorState`; read with the Address Library) |
-| `sneaking` | Sneaking | **Research:** the movement flags in `ActorState` |
+| `aiming` | Aiming down the sights or the scope | Built: the player camera in its iron sights state, or `ScopeMenu` open |
+| `sneaking` | Sneaking | Built: the game's sneak meter on screen (the engine shows it only while sneaking) |
 | `vats` | V.A.T.S. is open | `UI::IsMenuOpen("VATSMenu")` |
 | `peek` | Our show key is held (and the linger after) | `GetAsyncKeyState` on `[Keys] sHudPeek` while the game's window is in front (built); a `BSInputEventUser` would add a pad button |
 | `changed` | The part's own value changed (HP, AP, rads, ammo, condition) | Built: the actor values (`HudValues`) for the meters, else the part's text |
@@ -973,13 +973,34 @@ objective, not as the name fades; whether the HUD reads the ammo count's
 text as "magazine, then reserve" (its text fields' order isn't named in
 the game's files).
 
+**Step 3, built 2026-11-13, not played** (framework version 14):
+- **`aiming`** (the DLL's, in `HudState`): the player camera in its iron
+  sights state (F4SE's `PlayerCamera`, `kCameraState_IronSights`), or the
+  scope menu (`ScopeMenu`) open. Third person's over-the-shoulder aim
+  isn't a camera state of its own, so it doesn't count.
+- **`sneaking`** (the host's): the game's sneak meter (`StealthMeter_mc`)
+  is on screen, that is it and every clip above it visible and not faded
+  out. The engine shows that meter only while the player sneaks (it calls
+  `SetStealthMeter` then), so no engine state is read; F4SE names no
+  sneaking flag, and the actor state's movement bits would need the game's
+  code read first. Our own hiding is a mask, which leaves `visible` and
+  `alpha` alone, so a player who hides the meter still has `sneaking`.
+- **The preset:** the compass on `moved,sneaking,peek`.
+
+**Play check (step 3):** the compass shows while crouched and goes three
+seconds after standing; whether the sneak meter's clip really goes
+invisible out of sneak (if the engine only empties it, `sneaking` holds
+all the time and the compass never hides: then the meter's text is the
+next thing to watch); `aiming` in iron sights and through a scope, and
+not in third person.
+
 **Order of work**, each its own play test:
 1. **Built.** The DLL's state (`combat`, `drawn`, `vats`) and the peek key
    (read with `GetAsyncKeyState`, held then the linger), the rule column
    and the `Immersive` preset, instant show and hide.
 2. **Built.** `changed` and `low` from the values the host reads; `moved`
    for the compass.
-3. Research and add `aiming` and `sneaking`.
+3. **Built.** `aiming` and `sneaking`.
 4. The rule list in the edit menu.
 5. `CRUI_Hud.SetCondition` for other mods; fades if play asks for them.
 

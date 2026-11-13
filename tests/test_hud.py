@@ -247,9 +247,10 @@ def test_parts_and_widgets_show_on_conditions():
     assert 'GetAsyncKeyState(key)' in show and 'GameInFront()' in show
     assert 'Setting("sShow")' in show and 'Setting("fShowLinger")' in show
     rules = dict(re.findall(r'\{"(part:\w+)", "([\w,]+)"\}', show))
-    assert rules['part:CompassWidget_mc'] == 'moved,peek' and 'combat' in rules['part:HPMeter_mc']
+    assert rules['part:CompassWidget_mc'] == 'moved,sneaking,peek' and 'combat' in rules['part:HPMeter_mc']
     assert all('peek' in rule for rule in rules.values())
-    assert set(','.join(rules.values()).split(',')) <= {'combat', 'drawn', 'vats', 'peek', 'changed', 'low', 'moved'}
+    known = {'combat', 'drawn', 'vats', 'peek', 'changed', 'low', 'moved', 'aiming', 'sneaking'}
+    assert set(','.join(rules.values()).split(',')) <= known
     hud = _source(HUD_CPP)
     assert 'RegisterHudShow(movie, plugin);' in hud
     assert hud.index('ReadShowSettings();') < hud.index('if (root.HasMember(HOOKED)) return;')
@@ -260,7 +261,7 @@ def test_parts_and_widgets_show_on_conditions():
     movie = _source(MENU.sources / 'ShowRules.as')
     assert 'state[word] === undefined' in movie and 'Number(state.linger) * 1000' in movie
     host = _source(MENU.sources / f'{MENU.document}.as')
-    assert 'rules.update(dll, parts.moved());' in host and 'dll.HudState' in movie
+    assert 'rules.update(dll, parts.watched());' in host and 'dll.HudState' in movie
 
 
 def test_parts_show_as_their_values_change_run_low_or_the_location_moves():
@@ -274,12 +275,25 @@ def test_parts_show_as_their_values_change_run_low_or_the_location_moves():
     assert 'WeaponCondition(player, weapon)' in show
     rules = _source(MENU.sources / 'ShowRules.as')
     assert '"part:HPMeter_mc": "health"' in rules and '"part:CRUI_WeaponCondition_mc": "condition"' in rules
-    assert 'MOVED:Array = ["LocationText_mc", "QuestUpdates_mc"];' in rules
+    assert 'WATCHED:Array = ["LocationText_mc", "QuestUpdates_mc", "StealthMeter_mc"];' in rules
     assert 'condition.split(":")' in rules and 'dll.HudValues()' in rules
     assert 'if (weapon != fullestWeapon)' in rules and 'movedFrame == frames' in rules
-    start = rules.index('MOVED:Array')
+    start = rules.index('WATCHED:Array')
     named = set(re.findall(r'"(\w+_mc)"', rules[start:rules.index(';', start)]))
     layout = _source(MENU.sources / 'PartLayout.as')
     table = layout[layout.index('GROUPS:Object = {'):layout.index('};', layout.index('GROUPS:Object = {'))]
     assert named <= set(re.findall(r'"(\w+_mc)"', table))
     assert 'rules.shows(PREFIX + part.name, part.show, part.view)' in layout
+
+
+def test_parts_show_while_aiming_or_sneaking():
+    """Step 3: aiming is the DLL's (the player camera in its iron sights state, or the scope menu open); sneaking is the
+    host's, the game's sneak meter on screen (it and every clip above it visible and not faded), which the engine
+    shows only while sneaking and our mask doesn't change."""
+    show = _source(REPO / 'dll' / 'framework' / 'show.cpp')
+    assert 'PlayerCamera::kCameraState_IronSights' in show and '"ScopeMenu"' in show
+    assert 'SetMember("aiming", &aiming);' in show
+    rules = _source(MENU.sources / 'ShowRules.as')
+    assert 'sneaking = watched != null && onScreen(watched[MOVED]);' in rules and 'word == "sneaking"' in rules
+    on_screen = rules[rules.index('function onScreen('):rules.index('function textOf(')]
+    assert 'if (!at.visible)' in on_screen and 'alpha *= at.alpha;' in on_screen and '.mask' not in on_screen
