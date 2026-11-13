@@ -206,8 +206,9 @@ def test_the_fnv_preset_draws_the_weapon_condition_bar_fnv_has_and_fo4_has_not()
     assert 'parts.draw(hud, dll, rules);' in _source(MENU.sources / f'{MENU.document}.as')
     parts = _source(REPO / 'dll' / 'framework' / 'parts.cpp')
     native = parts[parts.index('class WeaponConditionNative'):parts.index('}  // namespace')]
-    assert 'EquippedWeapon(player)' in native and 'g_tracked.count(weapon->formID)' in native
-    assert 'health = set < 0.0f ? 1.0 : double(set);' in native
+    assert 'WeaponCondition(player, EquippedWeapon(player))' in native
+    condition = parts[parts.index('double WeaponCondition('):]
+    assert 'g_tracked.count(weapon->formID)' in condition and 'return set < 0.0f ? 1.0 : double(set);' in condition
 
 
 def test_the_player_hides_and_colors_widgets_and_parts_without_fighting_the_game():
@@ -240,15 +241,15 @@ def test_parts_and_widgets_show_on_conditions():
     linger. A box shows while one of its conditions holds and for the linger after; with no rule, or a condition the
     DLL doesn't know, it shows. The settings are read as each HUD loads."""
     show = _source(REPO / 'dll' / 'framework' / 'show.cpp')
-    assert re.findall(r'RegisterFunction<\w+>\(plugin, movie, "(\w+)"\);', show) == ['HudState']
+    assert re.findall(r'RegisterFunction<\w+>\(plugin, movie, "(\w+)"\);', show) == ['HudState', 'HudValues']
     assert all(f'SetMember("{name}"' in show for name in ('combat', 'drawn', 'vats', 'peek', 'linger'))
     assert 'IsInCombat()' in show and 'actorState.IsWeaponDrawn()' in show and '"VATSMenu"' in show
     assert 'GetAsyncKeyState(key)' in show and 'GameInFront()' in show
     assert 'Setting("sShow")' in show and 'Setting("fShowLinger")' in show
     rules = dict(re.findall(r'\{"(part:\w+)", "([\w,]+)"\}', show))
-    assert rules['part:CompassWidget_mc'] == 'peek' and 'combat' in rules['part:HPMeter_mc']
+    assert rules['part:CompassWidget_mc'] == 'moved,peek' and 'combat' in rules['part:HPMeter_mc']
     assert all('peek' in rule for rule in rules.values())
-    assert set(','.join(rules.values()).split(',')) <= {'combat', 'drawn', 'vats', 'peek'}
+    assert set(','.join(rules.values()).split(',')) <= {'combat', 'drawn', 'vats', 'peek', 'changed', 'low', 'moved'}
     hud = _source(HUD_CPP)
     assert 'RegisterHudShow(movie, plugin);' in hud
     assert hud.index('ReadShowSettings();') < hud.index('if (root.HasMember(HOOKED)) return;')
@@ -257,6 +258,28 @@ def test_parts_and_widgets_show_on_conditions():
     assert '(place.show.empty() ? "-" : place.show)' in layout and 'if (fields >> show && show != "-")' in layout
     assert '{"sHudPeek", "Y", "", \'Y\'}' in _source(REPO / 'dll' / 'framework' / 'keys.cpp')
     movie = _source(MENU.sources / 'ShowRules.as')
-    assert 'state[condition] === undefined' in movie and 'Number(state.linger) * 1000' in movie
+    assert 'state[word] === undefined' in movie and 'Number(state.linger) * 1000' in movie
     host = _source(MENU.sources / f'{MENU.document}.as')
-    assert 'rules.update(dll);' in host and 'dll.HudState' in movie
+    assert 'rules.update(dll, parts.moved());' in host and 'dll.HudState' in movie
+
+
+def test_parts_show_as_their_values_change_run_low_or_the_location_moves():
+    """Step 2: changed (a meter's value from HudValues, else the part's text), low (under a threshold, low:F to set it;
+    the ammo count's magazine against the fullest seen with this weapon) and moved (the location text or the quest
+    updates changed, a cleared text not counting) are worked out by the host; HudValues reads the player's health and
+    AP as fractions, rads, the weapon and its condition."""
+    show = _source(REPO / 'dll' / 'framework' / 'show.cpp')
+    assert 'HEALTH = 0x2D4, ACTION_POINTS = 0x2D5, RADS = 0x2E1' in show
+    assert all(f'SetMember("{name}"' in show for name in ('health', 'ap', 'rads', 'condition', 'weapon'))
+    assert 'WeaponCondition(player, weapon)' in show
+    rules = _source(MENU.sources / 'ShowRules.as')
+    assert '"part:HPMeter_mc": "health"' in rules and '"part:CRUI_WeaponCondition_mc": "condition"' in rules
+    assert 'MOVED:Array = ["LocationText_mc", "QuestUpdates_mc"];' in rules
+    assert 'condition.split(":")' in rules and 'dll.HudValues()' in rules
+    assert 'if (weapon != fullestWeapon)' in rules and 'movedFrame == frames' in rules
+    start = rules.index('MOVED:Array')
+    named = set(re.findall(r'"(\w+_mc)"', rules[start:rules.index(';', start)]))
+    layout = _source(MENU.sources / 'PartLayout.as')
+    table = layout[layout.index('GROUPS:Object = {'):layout.index('};', layout.index('GROUPS:Object = {'))]
+    assert named <= set(re.findall(r'"(\w+_mc)"', table))
+    assert 'rules.shows(PREFIX + part.name, part.show, part.view)' in layout

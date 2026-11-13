@@ -87,7 +87,7 @@ package
             parts = new PartLayout(dll.HudPartLayout != null ? dll.HudPartLayout() : null, log);
             rules = new ShowRules(log);
          }
-         rules.update(dll);
+         rules.update(dll, parts.moved());
          var list:Object = dll.HudWidgets(version);
          if (list != null || frames % REPLACE_FRAMES == 0)
          {

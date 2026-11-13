@@ -123,24 +123,23 @@ class WeaponConditionNative : public GFxFunctionHandler {
 public:
     void Invoke(Args *args) override {
         Actor *player = *g_player;
-        TESForm *weapon = EquippedWeapon(player);
-        double health = -1.0;
-        if (weapon) {
-            bool tracked;
-            {
-                std::lock_guard<std::mutex> hold(g_lock);
-                tracked = g_tracked.count(weapon->formID) != 0;
-            }
-            if (tracked) {
-                float set = HealthOf(FindStack(player, weapon));
-                health = set < 0.0f ? 1.0 : double(set);
-            }
-        }
-        args->result->SetNumber(health);
+        args->result->SetNumber(WeaponCondition(player, EquippedWeapon(player)));
     }
 };
 
 }  // namespace
+
+double WeaponCondition(Actor *player, TESForm *weapon) {
+    if (!weapon) return -1.0;
+    bool tracked;
+    {
+        std::lock_guard<std::mutex> hold(g_lock);
+        tracked = g_tracked.count(weapon->formID) != 0;
+    }
+    if (!tracked) return -1.0;
+    float set = HealthOf(FindStack(player, weapon));
+    return set < 0.0f ? 1.0 : double(set);
+}
 
 void RegisterHudParts(GFxMovieRoot *movie, GFxValue *plugin) {
     RegisterFunction<PartLayoutNative>(plugin, movie, "HudPartLayout");

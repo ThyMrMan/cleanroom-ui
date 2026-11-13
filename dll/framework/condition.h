@@ -22,7 +22,7 @@ namespace crui {
 
 // The framework's version (CRUI_Framework.GetVersion, the F4SE version query, F4SEPlugin_Version): raised whenever a
 // native, event or rule changes, so a mod can ask for the one it was built against.
-constexpr UInt32 VERSION = 12;
+constexpr UInt32 VERSION = 13;
 
 // The forms that wear (CRUI_Condition.Track): the Pip-Boy shows their condition.
 extern std::mutex g_lock;
@@ -277,7 +277,7 @@ void ReadShowSettings();
 // The conditions widget `name` shows under, comma separated ("" always): the player's, else the preset's.
 std::string ShowRule(const std::string &name, const HudPlace &place);
 
-// Give `plugin` the host's HudState.
+// Give `plugin` the host's HudState and HudValues.
 void RegisterHudShow(GFxMovieRoot *movie, GFxValue *plugin);
 
 // Widget `name`'s place (the default for none). Held under g_lock.
@@ -300,6 +300,10 @@ void RegisterHudLayout(GFxMovieRoot *movie, GFxValue *plugin);
 void RegisterHud(VirtualMachine *vm);
 
 // ---- The game's HUD parts laid out from DEF_HUD.xml (parts.cpp; docs/swf_framework.md#hud-layout) ----
+
+// The condition of `weapon` held by `player` as the HUD shows it (0 to 1; 1 while none is set yet); -1 for no
+// weapon or one that doesn't wear (CRUI_Condition.Track).
+double WeaponCondition(Actor *player, TESForm *weapon);
 
 // Give `plugin` the host's HudPartLayout and the FNV preset's HudWeaponCondition.
 void RegisterHudParts(GFxMovieRoot *movie, GFxValue *plugin);

@@ -157,10 +157,21 @@ package
          {
             if (part.view != null)
             {
-               var hidden:Boolean = part.hidden == true || !rules.shows(PREFIX + part.name, part.show);
+               var hidden:Boolean = part.hidden == true || !rules.shows(PREFIX + part.name, part.show, part.view);
                looks.apply(part.view, hidden, part.color != null ? Number(part.color) : -1);
             }
          }
+      }
+
+      // The parts `moved` watches (ShowRules.MOVED), as found by the last place() (null where not found).
+      public function moved() : Array
+      {
+         var out:Array = [];
+         for each (var name:String in ShowRules.MOVED)
+         {
+            out.push(parts[name] != null ? parts[name].view : null);
+         }
+         return out;
       }
 
       // The part `name` in HUD group `group` under `hud`, or null.
