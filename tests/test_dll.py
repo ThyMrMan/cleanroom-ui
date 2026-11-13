@@ -61,13 +61,33 @@ def _body(source, signature):
 
 
 def test_hints_and_keys_wait_for_a_mod():
-    """The REPAIR hint and G wait for a tracked item, the AMMO hint and B for a mod's ammo lists."""
+    """The REPAIR hint and the repair key wait for a tracked item, the AMMO hint and the ammo key for a mod's ammo
+    lists."""
     pipboy = (FRAMEWORK / 'pipboy.cpp').read_text(encoding='utf-8')
     ammo = (FRAMEWORK / 'ammo.cpp').read_text(encoding='utf-8')
     hint = _body(pipboy, 'void AddHint(')
     assert 'repair && MakeHint(' in hint and 'ammo && MakeAmmoHint(' in hint
-    assert 'key == KEY_G && RepairInUse()' in pipboy
-    assert "key != KEY_B || !AmmoInUse()" in _body(ammo, 'bool AmmoKey(')
+    assert 'key == KeyCode(OurKey::Repair) && RepairInUse()' in pipboy
+    assert "key != KeyCode(OurKey::Ammo) || !AmmoInUse()" in _body(ammo, 'bool AmmoKey(')
+
+
+def test_our_keys_are_settings():
+    """The Pip-Boy's keys and hints and the edit menu's reset key come from [Keys] in CleanroomUI.ini (MCM's saved
+    copy over it), read again as the Pip-Boy opens; no fixed G, B or R is left."""
+    keys = (FRAMEWORK / 'keys.cpp').read_text(encoding='utf-8')
+    assert '"Keys"' in keys and 'Data\\\\MCM\\\\Settings\\\\CleanroomUI.ini' in keys
+    assert all(f'"{name}"' in keys for name in ('sRepair', 'sAmmo', 'sHudReset'))
+    pipboy = (FRAMEWORK / 'pipboy.cpp').read_text(encoding='utf-8')
+    ammo = (FRAMEWORK / 'ammo.cpp').read_text(encoding='utf-8')
+    for source in (pipboy, ammo):
+        assert not re.search(r'KEY_[GB]\b|HINT_KEY', source)
+    assert 'KeyName(OurKey::Repair)' in pipboy and 'KeyName(OurKey::Ammo)' in ammo
+    assert 'ReadKeys();' in _body(pipboy, 'class OpenSink')
+    plugin = (FRAMEWORK / 'plugin.cpp').read_text(encoding='utf-8')
+    assert 'ReadKeys();' in plugin and 'RegisterKeys(movie, plugin);' in plugin
+    assert 'keys.cpp' in (DLL / 'build.bat').read_text(encoding='utf-8')
+    edit = (REPO / 'menus' / 'hud' / 'as3' / 'CRUI_HudEdit.as').read_text(encoding='utf-8')
+    assert 'dll.HudKeys()' in edit and 'e.keyCode == resetKey' in edit and 'KEY_R' not in edit
 
 
 def test_several_mods_add_their_lists():

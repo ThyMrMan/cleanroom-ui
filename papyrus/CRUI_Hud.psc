@@ -54,6 +54,18 @@ Function Send(String asName, String asCommand, String[] asParams) Global
   hud.CallFunction("SendMessageString", args)
 EndFunction
 
+Function EditLayout() Global
+{Open the edit menu for the widgets on our host: drag a widget's box to move it, turn the mouse wheel over it to scale it, R puts it back where its mod puts it, Esc or Tab saves and closes. The places are kept for every save, in Documents\My Games\Fallout4\F4SE\CleanroomUI_Hud.txt. Widgets HUDFramework hosts are placed in its own editor. For an MCM button, or the console: cgf "CRUI_Hud.EditLayout".}
+  String menu = "CRUI_HudEdit"
+  If !UI.IsMenuRegistered(menu)
+    UI:MenuData data = new UI:MenuData
+    data.menuFlags = 0x800049D
+    data.extendedFlags = 2
+    UI.RegisterCustomMenu(menu, menu, "root1", data)
+  EndIf
+  UI.OpenMenu(menu)
+EndFunction
+
 ScriptObject Function Framework() Global
 {HUDFramework's quest once it is ready, when HUDFramework.esm (or .esp) is installed; None otherwise.}
   If !Game.IsPluginInstalled("HUDFramework.esm") && !Game.IsPluginInstalled("HUDFramework.esp")

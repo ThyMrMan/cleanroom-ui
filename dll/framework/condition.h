@@ -22,7 +22,7 @@ namespace crui {
 
 // The framework's version (CRUI_Framework.GetVersion, the F4SE version query, F4SEPlugin_Version): raised whenever a
 // native, event or rule changes, so a mod can ask for the one it was built against.
-constexpr UInt32 VERSION = 4;
+constexpr UInt32 VERSION = 6;
 
 // The forms that wear (CRUI_Condition.Track): the Pip-Boy shows their condition.
 extern std::mutex g_lock;
@@ -252,8 +252,44 @@ void ForgetHud();
 // Give `plugin` (a movie's f4se.plugins.CleanroomUI) the host movie's natives HudWidgets, HudMessages and HudStats.
 void RegisterHudMenu(GFxMovieRoot *movie, GFxValue *plugin);
 
-// Register CRUI_Hud's natives.
+// A widget's place on our host, set in the edit menu: its offset from where its mod puts it (fractions of the
+// screen) and its scale (layout.cpp).
+struct HudPlace {
+    float dx = 0.0f, dy = 0.0f, scale = 1.0f;
+};
+
+// Widget `name`'s place (the default for none). Held under g_lock.
+HudPlace PlaceOf(const std::string &name);
+
+// Whether widget `name` is on our host (added, not HUDFramework's). Held under g_lock.
+bool OurWidget(const std::string &name);
+
+// A place changed: the host gets the widget list again. Held under g_lock.
+void HudChanged();
+
+// Read the saved layout (Documents\My Games\Fallout4\F4SE\CleanroomUI_Hud.txt).
+void LoadLayout();
+
+// Give `plugin` the host's HudReport and the edit menu's HudLayout, HudMove, HudScale, HudReset and HudEditDone.
+void RegisterHudLayout(GFxMovieRoot *movie, GFxValue *plugin);
+
+// Register CRUI_HudNative's natives.
 void RegisterHud(VirtualMachine *vm);
+
+// ---- Our own keys (keys.cpp; docs/swf_framework.md#keys) ----
+
+// The keys the game has no controls for, set under [Keys] in CleanroomUI.ini.
+enum class OurKey { Repair, Ammo, HudReset };
+
+// Read the keys again from the INI files.
+void ReadKeys();
+
+// Key `key`'s Flash key code, and its name as a hint shows it ("G", "F5").
+int KeyCode(OurKey key);
+std::string KeyName(OurKey key);
+
+// Give `plugin` the edit menu's HudKeys.
+void RegisterKeys(GFxMovieRoot *movie, GFxValue *plugin);
 
 // ---- Sex change (sex.cpp; docs/fork/fo4_pipeline.md#sex-change) ----
 

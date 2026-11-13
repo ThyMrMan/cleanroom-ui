@@ -82,6 +82,19 @@ const Widget *Find(const std::string &name) {
     return at != g_widgets.end() ? &*at : nullptr;
 }
 
+}  // namespace
+
+bool OurWidget(const std::string &name) {
+    const Widget *widget = Find(name);
+    return widget && widget->host.empty();
+}
+
+void HudChanged() {
+    g_version++;
+}
+
+namespace {
+
 // Load our host into the HUD movie, once per HUD movie and only once a widget of ours has been added.
 class HookTask : public ITaskDelegate {
 public:
@@ -205,8 +218,8 @@ GFxValue Str(GFxMovieRoot *movie, const std::string &text) {
     return out;
 }
 
-// HudWidgets(version): {version, widgets: [{name, movie, anchor, x, y, host}]}, or null while the list is still the
-// one numbered `version`.
+// HudWidgets(version): {version, widgets: [{name, movie, anchor, x, y, host, place: {dx, dy, scale}}]}, or null while
+// the list is still the one numbered `version` (a widget added or removed, or a place changed in the edit menu).
 class WidgetsNative : public GFxFunctionHandler {
 public:
     void Invoke(Args *args) override {
@@ -227,6 +240,13 @@ public:
             entry.SetMember("x", &x);
             entry.SetMember("y", &y);
             entry.SetMember("host", &host);
+            HudPlace at = PlaceOf(w.name);
+            GFxValue place, dx(double(at.dx)), dy(double(at.dy)), scale(double(at.scale));
+            movie->CreateObject(&place);
+            place.SetMember("dx", &dx);
+            place.SetMember("dy", &dy);
+            place.SetMember("scale", &scale);
+            entry.SetMember("place", &place);
             widgets.PushBack(&entry);
         }
         movie->CreateObject(args->result);
@@ -305,6 +325,7 @@ void InstallHud(void *tasks) {
     g_tasks = static_cast<F4SETaskInterface *>(tasks);
     bool added = *g_ui && (*g_ui)->menuOpenCloseEventSource.AddEventSink(&g_openSink);
     _MESSAGE("HUD host %s", added ? "listening for the HUD" : "could not listen for menus");
+    LoadLayout();
     Hook();
 }
 
@@ -320,6 +341,7 @@ void RegisterHudMenu(GFxMovieRoot *movie, GFxValue *plugin) {
     RegisterFunction<WidgetsNative>(plugin, movie, "HudWidgets");
     RegisterFunction<MessagesNative>(plugin, movie, "HudMessages");
     RegisterFunction<StatsNative>(plugin, movie, "HudStats");
+    RegisterHudLayout(movie, plugin);
 }
 
 void RegisterHud(VirtualMachine *vm) {

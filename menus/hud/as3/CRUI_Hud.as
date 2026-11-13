@@ -8,6 +8,7 @@ package
    import flash.display.MovieClip;
    import flash.events.Event;
    import flash.events.IOErrorEvent;
+   import flash.geom.Point;
    import flash.geom.Rectangle;
    import flash.net.URLRequest;
    import flash.system.ApplicationDomain;
@@ -19,14 +20,17 @@ package
    // loads each widget's movie (into the HUD's own class domain, as HUDFramework loads its widgets) or makes a stats
    // line, under the HUD part the widget names; hands each widget the messages sent to it (HudMessages) through
    // processMessage(command, params), HUDFramework's widget method, held until the widget has loaded; and redraws
-   // the stats lines (HudStats). It takes no input.
+   // the stats lines (HudStats). Each widget is moved and scaled by the place the player gave it in the edit menu,
+   // and where its mod puts it is reported for that menu (HudReport). It takes no input.
    // See docs/swf_framework.md#hud
    public class CRUI_Hud extends MovieClip
    {
       // The DLL whose natives give the widgets (f4se.plugins.<DLL>).
       private static const DLL:String = "CleanroomUI";
-      // How long a flashing stats value stays on, then off (ms).
+      // How long a flashing stats value stays on, then off (ms), and how often every widget is placed and reported
+      // again (frames), for a widget whose size changed.
       private static const FLASH_MS:int = 400;
+      private static const REPLACE_FRAMES:int = 15;
       private var bridge:Bridge = new Bridge();
       private var hud:Object;
       private var version:Number = -1;
@@ -35,6 +39,7 @@ package
       // it loads)}.
       private var widgets:Object = {};
       private var seen:Object = {};
+      private var frames:int = 0;
 
       public function CRUI_Hud()
       {
@@ -72,7 +77,14 @@ package
          var list:Object = dll.HudWidgets(version);
          if (list != null)
          {
-            sync(list);
+            sync(dll, list);
+         }
+         else if (++frames % REPLACE_FRAMES == 0)
+         {
+            for each (var shown:Object in widgets)
+            {
+               place(dll, shown);
+            }
          }
          for each (var message:Object in dll.HudMessages() as Array)
          {
@@ -83,7 +95,7 @@ package
 
       // Show our widgets of `list` ({version, widgets}; HUDFramework hosts those naming it): add the new ones, re-add
       // one whose movie or HUD part changed, move the rest, and take off those no longer listed.
-      private function sync(list:Object) : void
+      private function sync(dll:Object, list:Object) : void
       {
          version = Number(list.version);
          var wanted:Object = {};
@@ -105,8 +117,7 @@ package
                shown = add(entry);
             }
             shown.entry = entry;
-            shown.view.x = shown.corner.x + Number(entry.x);
-            shown.view.y = shown.corner.y + Number(entry.y);
+            place(dll, shown);
          }
          var gone:Array = [];
          for (var name:String in widgets)
@@ -119,6 +130,35 @@ package
          for each (name in gone)
          {
             remove(name);
+         }
+      }
+
+      // Put widget `shown` where its mod puts it and report that to CleanroomUI.dll (origin and bounds, in fractions of
+      // the screen), then move and scale it by the place the player gave it.
+      private function place(dll:Object, shown:Object) : void
+      {
+         var view:DisplayObject = shown.view;
+         var entry:Object = shown.entry;
+         view.scaleX = view.scaleY = 1;
+         view.x = shown.corner.x + Number(entry.x);
+         view.y = shown.corner.y + Number(entry.y);
+         if (stage == null || view.parent == null)
+         {
+            return;
+         }
+         var wide:Number = stage.stageWidth, high:Number = stage.stageHeight;
+         var origin:Point = view.parent.localToGlobal(new Point(view.x, view.y));
+         var bounds:Rectangle = view.getBounds(stage);
+         dll.HudReport(String(entry.name), origin.x / wide, origin.y / high, bounds.x / wide, bounds.y / high,
+                       bounds.width / wide, bounds.height / high);
+         var at:Object = entry.place;
+         if (at != null)
+         {
+            var moved:Point = view.parent.globalToLocal(new Point(origin.x + Number(at.dx) * wide,
+                                                                  origin.y + Number(at.dy) * high));
+            view.x = moved.x;
+            view.y = moved.y;
+            view.scaleX = view.scaleY = Number(at.scale);
          }
       }
 

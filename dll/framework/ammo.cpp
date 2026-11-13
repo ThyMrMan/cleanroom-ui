@@ -1,11 +1,11 @@
 // Our ammo list in the Pip-Boy (docs/fork/fo4_condition.md#ammo-list): FNV's choice of ammo for the
-// highlighted gun, drawn by our Pip-Boy movie from AmmoView the way the repair list is (pipboy.cpp). B or the AMMO
-// hint opens it on a gun of an FNV ammo list: each round of the list the player carries, and the loaded one, with
+// highlighted gun, drawn by our Pip-Boy movie from AmmoView the way the repair list is (pipboy.cpp). The ammo key
+// (B, a setting: keys.cpp) or the AMMO hint opens it on a gun of an FNV ammo list: each round of the list the player carries, and the loaded one, with
 // the count carried, the loaded one marked. Not V: V is the game's own Pip-Boy zoom, which a list closed by any
 // other key left on (played 2026-11-12). Confirming sends the F4SE external event CRUI_AmmoSwitch; F3NV_AmmoSwitch
 // takes the choice (CRUI_PipboyAmmo.ChosenGun, TakeChoice) and attaches that round's ammo mod
 // (fo4_import/spike/ammo_switch.py). Keys (Flash key codes): Up or W, Down or S move; Enter or E loads; Esc, Tab or
-// B cancels.
+// the ammo key cancels.
 #include "condition.h"
 
 #include "f4se/GameObjects.h"
@@ -21,9 +21,9 @@ namespace crui {
 
 namespace {
 
-const char *SCRIPT = "CRUI_PipboyAmmo", *EVENT = "CRUI_AmmoSwitch", *HINT = "$CRUI_AMMO", *HINT_KEY = "B";
-enum : int { KEY_TAB = 9, KEY_ENTER = 13, KEY_ESC = 27, KEY_UP = 38, KEY_DOWN = 40, KEY_B = 66, KEY_E = 69,
-             KEY_S = 83, KEY_W = 87 };
+const char *SCRIPT = "CRUI_PipboyAmmo", *EVENT = "CRUI_AmmoSwitch", *HINT = "$CRUI_AMMO";
+enum : int { KEY_TAB = 9, KEY_ENTER = 13, KEY_ESC = 27, KEY_UP = 38, KEY_DOWN = 40, KEY_E = 69, KEY_S = 83,
+             KEY_W = 87 };
 
 // One FNV ammo list (F3NV_AmmoSwitch's arrays): the keyword its guns carry, its first round's index there, its
 // rounds and the form IDs of their ammo mods.
@@ -159,7 +159,7 @@ void Close(GFxMovieRoot *movie, bool load) {
 class HintClick : public GFxFunctionHandler {
 public:
     void Invoke(Args *args) override {
-        if (!g_ammo.open && !RepairListOpen()) AmmoKey(args->movie->movieRoot, KEY_B);
+        if (!g_ammo.open && !RepairListOpen()) AmmoKey(args->movie->movieRoot, KeyCode(OurKey::Ammo));
     }
 };
 
@@ -235,7 +235,7 @@ void ForgetAmmoList() {
 
 bool AmmoKey(GFxMovieRoot *movie, int key) {
     if (!g_ammo.open) {
-        if (key != KEY_B || !AmmoInUse()) return false;
+        if (key != KeyCode(OurKey::Ammo) || !AmmoInUse()) return false;
         Open(movie);
         return true;
     }
@@ -245,7 +245,7 @@ bool AmmoKey(GFxMovieRoot *movie, int key) {
         g_ammo.chosen = std::max<SInt32>(0, std::min<SInt32>(last, g_ammo.chosen + step));
     } else if (key == KEY_ENTER || key == KEY_E) {
         if (g_ammo.chosen == g_ammo.loaded || CanLoad()) Close(movie, CanLoad());
-    } else if (key == KEY_ESC || key == KEY_TAB || key == KEY_B) {
+    } else if (key == KEY_ESC || key == KEY_TAB || key == KeyCode(OurKey::Ammo)) {
         Close(movie, false);
     }
     return true;
@@ -267,7 +267,7 @@ bool AmmoView(ListView *view) {
 }
 
 bool MakeAmmoHint(GFxMovieRoot *movie, GFxValue *hint) {
-    return MakeHint(movie, HINT, HINT_KEY, [](GFxMovieRoot *m, GFxValue *out) { CreateFunction<HintClick>(out, m); },
+    return MakeHint(movie, HINT, KeyName(OurKey::Ammo).c_str(), [](GFxMovieRoot *m, GFxValue *out) { CreateFunction<HintClick>(out, m); },
                     hint);
 }
 

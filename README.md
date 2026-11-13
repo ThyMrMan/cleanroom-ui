@@ -58,7 +58,7 @@ mods reach the running one with that plugin as their only master
 | `translations/` | Our words, `$CRUI_KEY<tab>text` per line: a folder per release (`CleanroomUI/`, `CleanroomDialogue/`), one UTF-8 file per language (`en.txt` holds every key) |
 | `menus/level_up/` | The level-up, tag-skill and trait menu (`Interface/CRUI_LevelUp.swf`) |
 | `menus/pipboy/` | The Pip-Boy overlay CleanroomUI.dll loads (`Interface/CRUI_Pipboy.swf`): item-card lines, the list panel |
-| `menus/hud/` | The HUD host CleanroomUI.dll loads (`Interface/CRUI_Hud.swf`): mods' widget movies and the built-in stats line; and the stats widget HUDFramework hosts when installed (`Interface/CRUI_HudStats.swf`) |
+| `menus/hud/` | The HUD host CleanroomUI.dll loads (`Interface/CRUI_Hud.swf`): mods' widget movies and the built-in stats line; the stats widget HUDFramework hosts when installed (`Interface/CRUI_HudStats.swf`); and the edit menu for our host's widgets (`Interface/CRUI_HudEdit.swf`) |
 | `menus/dialogue/` | The dialogue menu (`Interface/DialogueMenu.swf`) |
 | `papyrus/` | The level-up host, its holder and its per-plugin tables (`CRUI_LevelUp`, `CRUI_LevelUpHolder`, `CRUI_LevelUpTable`), `CRUI_Array`, and the scripts declaring CleanroomUI.dll's natives (`CRUI_Condition`, `CRUI_Framework`, `CRUI_HudNative`, `CRUI_ItemCard`, `CRUI_Pipboy`, `CRUI_PipboyAmmo`, `CRUI_Sex`), and `CRUI_Hud`, which puts widgets on HUDFramework when installed, else on our host |
 | `dll/` | `build.bat` (both DLLs); `framework/` (CleanroomUI.dll: condition API, Pip-Boy overlay, card lines, tabs, repair and ammo lists, transfer menus, `ChangeSex`); `dialogue/` (CleanroomDialogue.dll); `shared/` (Flash helpers and the natives every movie may call, compiled into both) |
@@ -90,9 +90,9 @@ weight, weapons' spawn condition, no combat sprint).
    CommonLibF4 (Dear-Modding), Address Library, xmake
    ([runtime](docs/spin_offs.md#runtime)).
 4. **The HUD, the rest** ([host](docs/swf_framework.md#hud-built), with
-   HUDFramework as host when installed, built, not played): our own saved
-   positions and drag-to-edit, the
-   [layout module](docs/swf_framework.md#hud-layout)
+   HUDFramework as host when installed, and our own
+   [saved places and edit menu](docs/swf_framework.md#hud-edit), built, not
+   played): the [layout module](docs/swf_framework.md#hud-layout)
    (reads `DEF_HUD.xml`), then an FNV layout preset with FNV-style widgets
    drawn by our own code.
 5. **An example menu** for authors, and the API in this README.

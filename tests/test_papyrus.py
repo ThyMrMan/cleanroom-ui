@@ -7,9 +7,10 @@ import pytest
 from crui import papyrus
 
 OURS = {p.stem for p in papyrus.SCRIPTS.glob('*.psc')}
-#: Names in code that are not scripts: the level-up movie's external events, and the HUD stats widget's movie.
+#: Names in code that are not scripts: the level-up movie's external events, and the HUD's stats widget and edit
+#: menu movies.
 EVENTS = {'CRUI_LevelUpTake', 'CRUI_LevelUpRaise', 'CRUI_LevelUpClose', 'CRUI_LevelUpLog', 'CRUI_LevelUpTags',
-          'CRUI_LevelUpTraits', 'CRUI_HudStats'}
+          'CRUI_LevelUpTraits', 'CRUI_HudStats', 'CRUI_HudEdit'}
 
 
 @pytest.mark.skipif(not papyrus.available(), reason='the Fallout 4 Papyrus compiler or Base sources are missing')

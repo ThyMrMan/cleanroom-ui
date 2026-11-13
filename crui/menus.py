@@ -26,12 +26,13 @@ class Menu:
 
 
 #: The level-up, tag and trait menu (CRUI_LevelUp.psc opens it); the Pip-Boy overlay (pipboy.cpp loads it); the HUD
-#: host (hud.cpp loads it) and the stats widget HUDFramework hosts (CRUI_Hud.psc registers it), from one folder; the
-#: dialogue menu (dialogue.cpp drives it).
+#: host (hud.cpp loads it), the stats widget HUDFramework hosts (CRUI_Hud.psc registers it) and the host's edit menu
+#: (CRUI_Hud.EditLayout opens it), from one folder; the dialogue menu (dialogue.cpp drives it).
 MENUS = (Menu('level_up', 'CRUI_LevelUp', 'Interface/CRUI_LevelUp.swf'),
          Menu('pipboy', 'CRUI_Pipboy', 'Interface/CRUI_Pipboy.swf'),
          Menu('hud', 'CRUI_Hud', 'Interface/CRUI_Hud.swf'),
          Menu('hud_stats', 'CRUI_HudStats', 'Interface/CRUI_HudStats.swf', 'hud'),
+         Menu('hud_edit', 'CRUI_HudEdit', 'Interface/CRUI_HudEdit.swf', 'hud'),
          Menu('dialogue', 'DialogueMenuRoot', 'Interface/DialogueMenu.swf'))
 BY_NAME = {menu.name: menu for menu in MENUS}
 

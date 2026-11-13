@@ -138,6 +138,7 @@ bool RegisterMovie(GFxMovieView *view, GFxValue *plugin) {
     if (!movie || !plugin) return false;
     RegisterPipboyMenu(movie, plugin);
     RegisterHudMenu(movie, plugin);
+    RegisterKeys(movie, plugin);
     RegisterSharedNatives(movie, plugin);
     return true;
 }
@@ -334,6 +335,7 @@ __declspec(dllexport) F4SEPluginVersionData F4SEPlugin_Version = {
 
 __declspec(dllexport) bool F4SEPlugin_Load(const F4SEInterface *f4se) {
     OpenLog("CleanroomUI");
+    ReadKeys();
     g_handle = f4se->GetPluginHandle();
     auto *papyrus = static_cast<F4SEPapyrusInterface *>(f4se->QueryInterface(kInterface_Papyrus));
     if (!papyrus) {

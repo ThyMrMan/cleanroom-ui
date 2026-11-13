@@ -1,5 +1,5 @@
 // Our Pip-Boy: a CND line on the inventory item card for items that wear, a REPAIR (G) button
-// hint, the AMMO (V) hint and its keys (ammo.cpp), and the highlighted item for CRUI_Condition.PipboySelection
+// hint, the AMMO (B) hint and its keys (ammo.cpp; G and B are settings, keys.cpp), and the highlighted item for CRUI_Condition.PipboySelection
 // (docs/fork/fo4_condition.md#pipboy).
 //
 // When the Pip-Boy menu opens (a menu open event, then a UI task), its movie gets a native enterFrame listener.
@@ -32,7 +32,7 @@ namespace crui {
 namespace {
 
 // The Pip-Boy's own keys there: Enter, X, R, Q, C, Tab, Z, and T (Grid View); G is free. No gamepad button is.
-const char *MENU = "PipboyMenu", *LINE = "$CRUI_CND", *HINT = "$CRUI_REPAIR", *HINT_KEY = "G", *HOOKED = "cruiHooked";
+const char *MENU = "PipboyMenu", *LINE = "$CRUI_CND", *HINT = "$CRUI_REPAIR", *HOOKED = "cruiHooked";
 const char *HINT_CLASS = "Shared.AS3.BSButtonHintData", *REPAIR_EVENT = "CRUI_ConditionRepair";
 const UInt32 KEYBOARD_MOUSE = 0;  // PlatformChangeEvent.PLATFORM_PC_KB_MOUSE
 F4SETaskInterface *g_tasks = nullptr;
@@ -147,8 +147,8 @@ bool g_hasPending = false;  // under g_lock
 Row g_say;                  // why nothing opened, shown on the card until the selection changes (UI thread only)
 bool g_movieThere = false;  // our movie called PipboyCardLines in this Pip-Boy menu (UI thread only)
 UInt32 g_selectedForm = 0;  // the highlighted entry's form (UI thread only)
-enum : int { KEY_TAB = 9, KEY_ENTER = 13, KEY_ESC = 27, KEY_UP = 38, KEY_DOWN = 40, KEY_E = 69, KEY_G = 71,
-             KEY_S = 83, KEY_W = 87 };
+enum : int { KEY_TAB = 9, KEY_ENTER = 13, KEY_ESC = 27, KEY_UP = 38, KEY_DOWN = 40, KEY_E = 69, KEY_S = 83,
+             KEY_W = 87 };
 
 std::string Percent(float health) {
     return std::to_string(int(std::floor(health * 100.0f + 0.5f))) + "%";
@@ -315,8 +315,8 @@ bool Typed(GFxValue &event) {
            !strcmp(type.GetString(), "input");
 }
 
-// The Pip-Boy's own key events: G opens the repair list on an item that wears, V the ammo list (ammo.cpp); the
-// open list's keys. Keys typed into a text box are left alone.
+// The Pip-Boy's own key events: the repair key (G) opens the repair list on an item that wears, the ammo key (B)
+// the ammo list (ammo.cpp); the open list's keys. Keys typed into a text box are left alone.
 class KeyHandler : public GFxFunctionHandler {
 public:
     void Invoke(Args *args) override {
@@ -326,7 +326,7 @@ public:
         int key = int(Num(code));
         if (!g_list.open && AmmoKey(movie, key)) return;
         if (!g_list.open) {
-            if (key == KEY_G && RepairInUse()) OpenList(movie);
+            if (key == KeyCode(OurKey::Repair) && RepairInUse()) OpenList(movie);
             return;
         }
         SInt32 last = SInt32(g_list.spares.size()) - 1;
@@ -335,7 +335,7 @@ public:
             g_list.chosen = std::max<SInt32>(0, std::min<SInt32>(last, g_list.chosen + (key == KEY_UP || key == KEY_W ? -1 : 1)));
         } else if ((key == KEY_ENTER || key == KEY_E) && (!g_list.service || g_list.caps >= g_list.offer.cost)) {
             CloseList(movie, true);
-        } else if (key == KEY_ESC || key == KEY_TAB || key == KEY_G) {
+        } else if (key == KEY_ESC || key == KEY_TAB || key == KeyCode(OurKey::Repair)) {
             CloseList(movie, false);
         }
     }
@@ -351,7 +351,7 @@ void AddHint(GFxMovieRoot *movie, GFxValue &root, GFxValue &page) {
     g_hintPage = page.data.obj;
     if (Get(root, "uiPlatform", &platform) && Num(platform) != KEYBOARD_MOUSE) return;
     MakeClick click = [](GFxMovieRoot *m, GFxValue *out) { CreateFunction<HintClick>(out, m); };
-    if (repair && MakeHint(movie, HINT, HINT_KEY, click, &hint)) hints.Invoke("push", nullptr, &hint, 1);
+    if (repair && MakeHint(movie, HINT, KeyName(OurKey::Repair).c_str(), click, &hint)) hints.Invoke("push", nullptr, &hint, 1);
     if (ammo && MakeAmmoHint(movie, &ammoHint)) hints.Invoke("push", nullptr, &ammoHint, 1);
     bar.Invoke("SetButtonHintData", nullptr, &hints, 1);
     _VMESSAGE("added the Pip-Boy hints (repair %d, ammo %d)", repair, ammo);
@@ -581,7 +581,10 @@ public:
         if (evn && !evn->isOpen && !strcmp(evn->menuName.c_str(), MENU)) SetVendor(nullptr);
         const char *name = evn && evn->isOpen ? evn->menuName.c_str() : nullptr;
         if (!name || !g_tasks) return kEvent_Continue;
-        if (!strcmp(name, MENU)) g_tasks->AddUITask(new HookTask);
+        if (!strcmp(name, MENU)) {
+            ReadKeys();
+            g_tasks->AddUITask(new HookTask);
+        }
         for (const char *transfer : TRANSFER_MENUS)
             if (!strcmp(name, transfer)) g_tasks->AddUITask(new TransferHookTask(transfer));
         return kEvent_Continue;

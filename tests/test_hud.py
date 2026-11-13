@@ -95,3 +95,32 @@ def test_the_stats_widget_builds_from_the_hosts_folder(tmp_path):
     raw = menus.compile_movie(stats, tmp_path / 'stats.swf').read_bytes()
     for name in (b'CRUI_HudStats', b'StatsLine', b'HudWidgets', b'HudStats', b'processMessage'):
         assert name in raw
+
+
+def test_the_edit_menu_and_host_use_every_layout_native():
+    """layout.cpp's natives are each called: HudReport by the host, which applies a widget's place; HudLayout,
+    HudMove, HudScale, HudReset and HudEditDone by the edit menu, which CRUI_Hud.EditLayout opens by its movie's
+    name; the build compiles layout.cpp and HudWidgets hands each widget its place."""
+    layout = _source(REPO / 'dll' / 'framework' / 'layout.cpp')
+    natives = re.findall(r'RegisterFunction<\w+>\(plugin, movie, "(\w+)"\);', layout)
+    assert sorted(natives) == ['HudEditDone', 'HudLayout', 'HudMove', 'HudReport', 'HudReset', 'HudScale']
+    host = _source(MENU.sources / f'{MENU.document}.as')
+    edit_menu = menus.BY_NAME['hud_edit']
+    edit = _source(edit_menu.sources / f'{edit_menu.document}.as')
+    assert 'dll.HudReport(' in host and 'view.scaleX = view.scaleY = Number(at.scale);' in host
+    assert all(f'dll.{name}(' in edit for name in natives if name != 'HudReport')
+    menu = edit_menu.movie.removeprefix('Interface/').removesuffix('.swf')
+    assert f'String menu = "{menu}"' in _source(REPO / 'papyrus' / 'CRUI_Hud.psc')
+    assert f'EDIT_MENU = "{menu}"' in layout and 'layout.cpp' in _source(REPO / 'dll' / 'build.bat')
+    assert 'entry.SetMember("place", &place);' in _source(HUD_CPP)
+
+
+def test_places_are_kept_for_every_save_and_only_for_our_host():
+    """Places live in a file under Documents (read once as the game loads, written when the edit menu is done), not
+    in a save; HudLayout lists only widgets on our host."""
+    layout = _source(REPO / 'dll' / 'framework' / 'layout.cpp')
+    assert 'CleanroomUI_Hud.txt' in layout and 'CSIDL_MYDOCUMENTS' in layout
+    assert 'if (!OurWidget(name)) continue;' in layout
+    assert 'LoadLayout();' in _source(HUD_CPP)
+    done = layout[layout.index('class DoneNative'):layout.index('}  // namespace')]
+    assert done.index('Save();') < done.index('kMessage_Close')

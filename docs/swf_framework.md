@@ -44,7 +44,7 @@ licensed way to build menus without starting from decompiled Bethesda files.
 | **Own menu** | Casino (Papyrus `UI.RegisterCustomMenu`), HUD color by the menu itself (spike 2b, played) | Registering from the DLL: not needed for color; only if a later menu needs it |
 | **Replace a vanilla movie** | Dialogue menu on our own movie (spike 3, played); its `mxmlc` build. Level-up: our own registered menu opened in place of `LevelUpMenu` from Papyrus, no vanilla file shipped ([open](fo4_level_up_plan.md#open), built) | Both played; if the moment of `LevelUpMenu` first shows, F3NV.dll swapping its constructor |
 | **Inject into a vanilla menu** | Pip-Boy (spike 4, played under vanilla); CND, lists and item-card API built | Any of it played; FallUI played; container and barter (still C++) |
-| **HUD widget** | `CRUI_Hud`: HUDFramework hosts the widgets when installed, else our host movie loaded into any HUD by `CleanroomUI.dll`; widget movies with HUDFramework's `processMessage`; the built-in stats line ([host](#hud-built), built, not played) | Played; our own saved positions and drag-to-edit; [layouts](#hud-layout); the converter's Hardcore needs on it (still C++) |
+| **HUD widget** | `CRUI_Hud`: HUDFramework hosts the widgets when installed, else our host movie loaded into any HUD by `CleanroomUI.dll`; widget movies with HUDFramework's `processMessage`; the built-in stats line ([host](#hud-built)); our host's saved places and edit menu ([edit](#hud-edit)); built, not played | Played; [layouts](#hud-layout); the converter's Hardcore needs on it (still C++) |
 | **DLL side** | GFx helpers (`gfx.cpp`), Pip-Boy injection (`LoadOverlay`), natives the movies call (`HudColor`, `Log`, `PipboyCardLines`, `PipboyList`, `TextureExists`) | Injection by menu URL for other menus, settings INI to the movie, GFx log routing |
 | **Translations** ([translations](#translations)) | Files named after `FalloutHelpers.esl`, every language with English fallback, our fixed words as `$F3NV_` keys, the key check in preflight (spike 5, played) | The keys played; Papyrus key check; slot and per-language counts; a test language |
 | **Controller** ([controller](#controller)) | The casino and dialogue menu on `Input` and `HintBar` (built, not played) | Playing them with a pad; the Pip-Boy "more" button; roulette's board on a pad |
@@ -631,14 +631,48 @@ host asks `HudWidgets(version)` (null while the list is unchanged),
 `HudColor(prefix)` and `Log(text)` (the framework DLL had no `Log` since the
 split, so the Pip-Boy movie's lines were lost).
 
-Not built yet: our own saved positions and drag-to-edit (for players
-without HUDFramework), the power armor HUD on our host, the
+Not built yet: the power armor HUD on our host ([saved places and the
+edit menu](#hud-edit) are built), the
 [layout module](#hud-layout), and the converter's Hardcore needs on
 `AddStats` in place of `hardcore.cpp`. **Play check:** a test widget and a
 stats line under vanilla, DEF_HUD and HUDFramework (registered once, moved
 in its editor, still there after a save loads); a message reaches the
 widget under both hosts; on our host a widget anchored on a part hides with
 it in menus and power armor.
+
+### <a id="hud-edit"></a>Saved places and the edit menu (built 2026-11-12, not played)
+
+For players without HUDFramework, our host keeps a place per widget
+(`dll/framework/layout.cpp`, framework version 5):
+- **A place** is an offset from where the widget's mod puts it, in
+  fractions of the screen, and a scale (a quarter to four times). Places are
+  kept by widget name in `Documents\My Games\Fallout4\F4SE\CleanroomUI_Hud.txt`
+  (`name<tab>x offset<tab>y offset<tab>scale`), so one layout serves every
+  save. The DLL reads it once as the game loads and writes it when the edit
+  menu is done.
+- **The host** places each widget where its mod puts it, reports that origin
+  and bounds (`HudReport`), then moves and scales it by its place (each
+  `HudWidgets` entry carries `place`). It places and reports every widget
+  again every 15 frames, for one whose size changed.
+- **The edit menu** (`Interface/CRUI_HudEdit.swf`) opens with
+  `CRUI_Hud.EditLayout()`, from a mod's MCM button or the console
+  (`cgf "CRUI_Hud.EditLayout"`). It is a custom menu with the level-up
+  menu's flags (pauses, cursor). Over the game dimmed it draws a box with the
+  name of each widget on our host where its place puts it, computed from the
+  host's reports and the places alone (`HudLayout`), so the boxes are right
+  even while the HUD is paused under the menu. Drag a box to move its
+  widget (`HudMove`), turn the wheel over it to scale it (`HudScale`), R (a [setting](#keys)) puts
+  it back (`HudReset`); Esc or Tab saves and closes (`HudEditDone`, which
+  closes the menu through the game's UI messages). Its words are
+  `$CRUI_HUD_EDIT_HINT` and `$CRUI_HUD_EDIT_NONE`.
+- Widgets HUDFramework hosts are not in it: its own editor places them.
+
+Not built yet: opacity, a gamepad in the edit menu, a key to open it
+without an MCM. **Play check:** whether the HUD's widgets show behind the
+menu (the boxes don't depend on it); whether the HUD's and the menu's
+stages line up, since the boxes map the host's fractions of its stage onto
+the menu's; a moved and scaled widget stays put after a save loads and a
+restart.
 
 ### <a id="hud-layout"></a>HUD layouts (what DEF_HUD did)
 
@@ -1043,6 +1077,84 @@ press, one pick), and the log shows `input device` lines.
   controls carry over; our own keyboard keys are settings.
 - **Steam Deck** counts as a gamepad: test it, or at least a pad on PC
   with mouse and keyboard unplugged.
+
+### <a id="remap"></a>The game's Controls page (researched 2026-11-12)
+
+Whether our own actions (the Pip-Boy's Repair and Ammo keys, today fixed
+at G and B) could be listed in Settings → Controls. Read from the game,
+for reference only: `mainmenu.swf` decompiled, the 1.11.240 exe's strings,
+the player's saved remaps, and F4SE 0.7.9's `GameInput.h`.
+- **The page is drawn by the engine's list.** `MainMenu.as` asks
+  `BGSCodeObj.RequestInputMappings(entryList)`, sorts on `sortIndex`, and
+  shows each entry's `text` as `"$" + text`: the label is a translation
+  key named after the control, so our own `translate_*` lines could name
+  ours. Picking a row calls `StartRemapMode(text, list)`, and the engine
+  answers `onFinishRemapMode` ("That button is reserved" on a clash).
+  `ResetControlsToDefaults` is the engine's too. Nothing in the movie
+  decides which controls are listed.
+- **The default map is built into the exe**, a tab-separated table:
+  control name, keyboard key, mouse button, gamepad button, then whether
+  each of the three can be remapped, then the control's group flags. The
+  exe names no loose `ControlMap.txt`, so unlike Skyrim a mod can't add a
+  control with a text file.
+- **The player's remaps** are `ControlMap_Custom.txt` (INI
+  `sControlsRemapFile`) under `My Games\Fallout4`: binary pairs of a button
+  and a number, apparently each control's place in the built-in table,
+  not its name.
+- **At run time** the map is `InputManager` (F4SE `g_inputMgr`): one context
+  per input mode, each with keyboard, mouse and gamepad arrays of
+  `{name, buttonID, sortIndex, two flags}`. F4SE reads it
+  (`GetMappedKey(name, device, context)`; Papyrus `Input.GetMappedKey`),
+  so a DLL can read whatever key a control is bound to now.
+
+**What that allows.** Appending our controls to the gameplay context's
+arrays as the game loads, before the Controls page or the saved remaps
+are read, would list them on the page with our labels; our DLL would then
+read their keys through `GetMappedKey` instead of fixed ones. Unverified
+and with real risks, so not planned yet:
+- which entries `RequestInputMappings` lists (likely the remappable flag
+  among the two unknown flags) and whether it walks only the gameplay
+  context;
+- whether the saved remaps survive: they look like positions in the table,
+  so ours must go after every built-in entry, and a remap of ours saved
+  while our DLL is installed points past the table's end once it's removed
+  (ignored or a crash: test before shipping);
+- a control in the gameplay context is also live in gameplay: a key bound
+  to it fires our control's user event there, which nothing handles, but
+  the page also stops the player binding it to anything else;
+- another mod doing the same would need the same order every launch.
+
+**Built instead, first** ([keys](#keys)): our keys as settings in
+`CleanroomUI.ini`, which an MCM page can write. MCM's own
+hotkeys don't fit: they run scripts as global shortcuts and don't fire
+while the Pip-Boy or another menu is open, where our keys are used. Our
+menus' moves, Accept and Back already follow the game's controls through
+`Input`'s `mapControl`, so a player's remaps carry over there today; the
+fixed keyboard keys `Input` also maps are fallbacks.
+
+### <a id="keys"></a>Our key settings (built 2026-11-13, not played)
+
+The keys the game has no controls for are settings (`dll/framework/keys.cpp`,
+framework version 6), under `[Keys]` in `Data\F4SE\Plugins\CleanroomUI.ini`:
+```ini
+[Keys]
+; A letter, a digit or F1 to F12.
+sRepair=G     ; Pip-Boy: open (and close) the repair list
+sAmmo=B       ; Pip-Boy: open (and close) the ammo list
+sHudReset=R   ; HUD edit menu: put the widget under the cursor back
+```
+- `Data\MCM\Settings\CleanroomUI.ini` is read after it and wins: that is
+  where an MCM page saves a setting with id `sRepair:Keys` and so on, so a
+  mod's MCM page can offer them with no code of ours.
+- They are read as the plugin loads and again each time the Pip-Boy or the
+  edit menu opens, so a change applies the next time either opens.
+- The Pip-Boy's REPAIR and AMMO hints and the edit menu's hint
+  (`$CRUI_HUD_EDIT_HINT`, its `{0}`) show the key set.
+- A key that isn't a letter, digit or F1-F12 keeps its default, as do
+  `sRepair` and `sAmmo` set to W, S or E (the lists move and choose with
+  them) or to the same key; each logs a warning.
+- Not checked: the game's own Pip-Boy keys. A key the Pip-Boy page also
+  uses does both (V zooms the Pip-Boy, which is why the ammo key is B).
 
 ### The Pip-Boy problem
 
