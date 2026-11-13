@@ -1,15 +1,17 @@
 """f3ui's Input and HintBar: the game's controls and glyphs they rely on, and the menus taking input only through them.
 
-See: docs/fork/swf_framework.md#input
+See: docs/swf_framework.md#input
 """
 
 import re
-from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-LIBRARY = ROOT / 'fo4_import' / 'base' / 'as3' / 'f3ui'
-MENUS = (ROOT / 'fo4_import' / 'casino' / 'as3' / 'F3NV_Casino.as',
-         ROOT / 'fo4_import' / 'dialogue_menu' / 'as3' / 'DialogueMenu.as')
+from crui import REPO
+from crui.menus import BY_NAME
+
+LIBRARY = REPO / 'as3' / 'f3ui'
+#: The menus that take keys and controls (the Pip-Boy overlay rides the Pip-Boy's own input).
+MENUS = (BY_NAME['level_up'].sources / 'F3NV_LevelUp.as', BY_NAME['dialogue'].sources / 'DialogueMenu.as')
+RUNTIME = REPO / 'dll' / 'f3nv'
 #: FO4's menu-mode controls (the control map in Fallout4.exe) and the action each should be.
 MENU_CONTROLS = {'Accept': 'ACCEPT', 'Cancel': 'BACK', 'Up': 'UP', 'Down': 'DOWN', 'Left': 'LEFT', 'Right': 'RIGHT',
                  'LShoulder': 'PREV', 'RShoulder': 'NEXT', 'LTrigger': 'PREV', 'RTrigger': 'NEXT', 'XButton': 'X',
@@ -38,45 +40,53 @@ def test_input_maps_every_menu_mode_control():
     """The game's menu-mode controls each map to their action; moves fire on the press, accept and back on release."""
     source = (LIBRARY / 'Input.as').read_text(encoding='utf-8')
     assert _object(source, 'names') == MENU_CONTROLS
-    moves = _object(source, 'MOVES')
-    assert set(moves) == {'up', 'down', 'left', 'right', 'prev', 'next'}
+    assert set(_object(source, 'MOVES')) == {'up', 'down', 'left', 'right', 'prev', 'next'}
 
 
 def test_no_movie_calls_flash_11s_remove_children():
     """removeChildren() is Flash Player 11's; Scaleform may lack it, so our AS3 empties a container a child at a time.
 
-    See: docs/fork/swf_framework.md#scroll-list
+    See: docs/swf_framework.md#scroll-list
     """
-    for path in (ROOT / 'fo4_import').rglob('*.as'):
+    for path in [*(REPO / 'menus').rglob('*.as'), *LIBRARY.rglob('*.as')]:
         assert 'removeChildren(' not in path.read_text(encoding='utf-8'), path.name
 
 
 def test_images_asks_the_dll_for_a_texture_by_the_name_it_registers():
-    """F3NV.dll registers TextureExists on every movie of ours (opening Textures\\<path> as F4SE opens a translation
-    file); Images calls it with the path MountImage takes, and treats a DLL without it as found.
+    """F3NV.dll registers TextureExists on every movie of ours; Images calls it with the path MountImage takes, and
+    treats a DLL without it as found.
 
-    See: docs/fork/swf_framework.md#images
+    See: docs/swf_framework.md#images
     """
-    runtime = ROOT / 'tes_runtime' / 'fo4_condition'
-    gfx = (runtime / 'gfx.cpp').read_text(encoding='utf-8')
+    gfx = (RUNTIME / 'gfx.cpp').read_text(encoding='utf-8')
     assert 'RegisterFunction<TextureExistsNative>(plugin, movie, "TextureExists")' in gfx
     assert 'std::string("Textures\\\\")' in gfx and 'BSResourceNiBinaryStream stream(path.c_str());' in gfx
-    assert 'RegisterImageNatives(movie, plugin);' in (runtime / 'dialogue.cpp').read_text(encoding='utf-8')
+    assert 'RegisterImageNatives(movie, plugin);' in (RUNTIME / 'dialogue.cpp').read_text(encoding='utf-8')
     images = (LIBRARY / 'Images.as').read_text(encoding='utf-8')
     assert 'dll.TextureExists == null || dll.TextureExists(texturePath(path)) == true' in images
 
 
 def test_both_lists_are_the_librarys():
     """The Pip-Boy's list panel is a Modal round a ScrollList, and the dialogue's rows are a ScrollList."""
-    panel = (ROOT / 'fo4_import' / 'pipboy_overlay' / 'as3' / 'ListPanel.as').read_text(encoding='utf-8')
+    panel = (BY_NAME['pipboy'].sources / 'ListPanel.as').read_text(encoding='utf-8')
     assert 'new Modal()' in panel and 'new ScrollList()' in panel and 'modal.open(body' in panel
     assert 'new ScrollList()' in MENUS[1].read_text(encoding='utf-8')
 
 
 def test_the_menus_take_keys_and_controls_only_through_input():
-    """Neither menu listens for keys itself, and each hands the game's controls and platform to Input."""
+    """No menu listens for keys itself; each hands the game's controls and platform to Input and shows a HintBar."""
     for menu in MENUS:
         source = menu.read_text(encoding='utf-8')
         assert 'KeyboardEvent' not in source, menu.name
         assert 'input.control(' in source and 'input.setPlatform(platform)' in source, menu.name
         assert 'new HintBar(' in source, menu.name
+
+
+def test_movie_sources_use_no_bethesda_classes():
+    """Every import in every movie is Flash's, our f3ui's or the movie's own package: nothing from the game's."""
+    for menu in BY_NAME.values():
+        own = {p.parent.relative_to(menu.sources).as_posix().replace('/', '.') for p in menu.sources.rglob('*.as')}
+        for path in menu.sources.rglob('*.as'):
+            imports = re.findall(r'^\s*import ([\w.]+);', path.read_text(encoding='utf-8'), re.M)
+            assert all(name.startswith(('flash.', 'f3ui.')) or name.rsplit('.', 1)[0] in own for name in imports), \
+                (path.name, imports)

@@ -9,6 +9,7 @@ __pycache__/
 .pytest_cache/
 
 # DLL build output
+obj/
 *.obj
 *.dll
 *.lib

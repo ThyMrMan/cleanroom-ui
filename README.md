@@ -5,29 +5,64 @@ Bethesda interface files. Mod authors get their own menus, Pip-Boy tabs and
 item-card lines without shipping anyone else's movie.
 
 **Status: private, pre-release.** The code was split out of the FO3/FNV →
-Fallout 4 conversion (`ThyMrMan/fo3fnv-in-fo4`) with its history, and still
-carries that project's names and imports. Nothing here builds on its own yet.
+Fallout 4 conversion (`ThyMrMan/fo3fnv-in-fo4`) with its history and still
+carries that project's names (`F3NV_`, `f3ui`).
 
 Prefix for scripts, translation keys and files: **`CRUI_`** (not applied yet).
 
+## Build
+
+```
+python -m crui all --out dist/CleanroomUI
+python -m pytest
+```
+
+`all` runs three steps, each also on its own (`movies`, `scripts`, `dll`), and
+writes a mod folder: `Interface/` (movies), `Scripts/` (Papyrus), `F4SE/Plugins/`
+(the DLL). Built movies, scripts and DLLs never go in git.
+
+| Step | Needs | Found at |
+|---|---|---|
+| `movies` | Java and the Apache Flex SDK 4.16.1 with playerglobal 11.2 ([setup](docs/swf_framework.md#mxmlc-setup)) | `CRUI_FLEX`, else `../tools_ext/FlexSDK` |
+| `scripts` | Fallout 4's Creation Kit (the Papyrus compiler and `Base.zip`) and F4SE's script sources | `CRUI_FALLOUT4`, else the registered install, else Steam's default; F4SE's in `CRUI_F4SE_SCRIPTS`, else `Data/Scripts/Source` |
+| `dll` | Visual Studio with the C++ x64 tools (found by vswhere); F4SE 0.7.9's source and ianpatt's `common`, built as static libraries | `TOOLS_EXT` (default `../tools_ext`), or `F4SE_ROOT` and `COMMON_ROOT` |
+
+The game's `Base.zip` is unpacked into `out/cache/` when the Creation Kit
+hasn't unpacked it yet.
+
+**Known gap:** `F3NV_LevelUp.psc` still reads the converter's
+`F3NV_CharacterRules` (its menu openers) and `F3NV_CharacterEvents` (the
+tagged skills, and the holder `Get()` finds it through in `FalloutHelpers.esl`).
+Until the generic API below, it compiles only with the converter's scripts
+added: `--imports <fo3fnv-in-fo4>/script_convert/static_scripts/fallout4`
+(plus a `TES4Polyfill` stub). The other nine scripts, all three movies and
+the DLL build here alone.
+
 ## What's here
 
-| Folder | Holds | Came from |
-|---|---|---|
-| `as3/f3ui/` | The AS3 library: `Host`, `Bridge`, `Theme`, `Draw`, `Text`, `ScrollList`, `Modal`, `Images`, `Input`, `HintBar` | `fo4_import/base/as3/f3ui/` |
-| `build/` | The `mxmlc` build (byte-stable movies) and our SWF reader and writer | `fo4_import/base/mxmlc.py`, `asset_convert/ui/swf.py` |
-| `menus/level_up/` | The level-up, tag-skill and trait menu: movie source, MCM page, options, table builder and icons | `fo4_import/level_up/`, `fo4_import/spike/level_up*.py` |
-| `papyrus/` | `F3NV_LevelUp`, `F3NV_LevelUpTable` (the menu host and per-plugin tables), `F3NV_Array` | `script_convert/static_scripts/fallout4/` |
-| `dll/f3nv/` | F3NV.dll as it is today: GFx helpers, Pip-Boy overlay, tabs, card lines, ammo list, condition API, dialogue menu, plus the FNV-only rules | `tes_runtime/fo4_condition/` |
-| `docs/` | The framework, level-up and spin-off plans | `docs/fork/` |
-| `tests/` | The menu, input, Pip-Boy and level-up tests | `tests/` |
+| Folder | Holds |
+|---|---|
+| `crui/` | The build: `mxmlc.py` (byte-stable movies), `swf.py` (SWF reader and writer), `papyrus.py`, `menus.py` (every movie), the `python -m crui` command |
+| `as3/f3ui/` | The AS3 library: `Host`, `Bridge`, `Theme`, `Draw`, `Text`, `ScrollList`, `Modal`, `Images`, `Input`, `HintBar` |
+| `menus/level_up/` | The level-up, tag-skill and trait menu (`Interface/F3NV_LevelUp.swf`) |
+| `menus/pipboy/` | The Pip-Boy overlay F3NV.dll loads (`Interface/F3NV_Pipboy.swf`): item-card lines, the list panel |
+| `menus/dialogue/` | The dialogue menu (`Interface/DialogueMenu.swf`) |
+| `papyrus/` | The level-up host and its per-plugin tables (`F3NV_LevelUp`, `F3NV_LevelUpTable`), `F3NV_Array`, and the scripts declaring the DLL's natives (`F3NV_Condition`, `F3NV_ItemCard`, `F3NV_Pipboy`, `F3NV_PipboyAmmo`, `F3NV_Sex`, `F3NV_Damage`, `F3NV_HardcoreNative`) |
+| `dll/f3nv/` | F3NV.dll as it is today: GFx helpers, Pip-Boy overlay, tabs, card lines, ammo list, condition API, dialogue menu, plus the FNV-only rules |
+| `docs/` | The framework, level-up and spin-off plans, as written for the converter |
+| `tests/` | Contract tests between movies, scripts and the DLL, and the reproducible builds |
+
+Stayed in the converter: the FNV table and icon builders (they read FNV
+records), the level-up MCM page (it sets the converter's rule rates), the
+Pip-Boy tab quests, the dialogue links writer and test mod, and the casino.
 
 ## Next
 
-1. **Stand alone.** The Python still imports the converter (`fo4_import`,
-   `asset_convert`, `script_convert`, `core`). Fix imports to this layout,
-   take the converter-only parts out of the table and icon builders, and
-   make the tests run here.
+1. **Generic level-up host.** Move the tagged skills and the `Get()` holder
+   into the framework, and let the menu openers be any mod's (an event or a
+   registered opener) instead of `F3NV_CharacterRules`. Then
+   `F3NV_LevelUp` compiles here alone. Saves matter: the converter's tags
+   live on `F3NV_CharacterEvents` today.
 2. **Rename** `f3ui` → `crui`, `F3NV_` → `CRUI_`, and the `$F3NV_`/`$F3UI_`
    translation keys. The converter keeps thin `F3NV_*` wrappers until its
    scripts are regenerated, so saves keep working.
@@ -38,8 +73,7 @@ Prefix for scripts, translation keys and files: **`CRUI_`** (not applied yet).
    converter. Then the shared base: CommonLibF4 (Dear-Modding), Address
    Library, xmake ([runtime](docs/spin_offs.md#runtime)).
 4. **An example menu** for authors, and the API in this README.
-5. **CI** that fetches the Apache Flex SDK and builds the movies. Built
-   `.swf` files ship as release assets, never in git.
+5. **CI** that fetches the Flex SDK and builds the movies; release assets.
 6. **The converter uses this repo** as a pinned submodule in `external/`.
 
 ## License

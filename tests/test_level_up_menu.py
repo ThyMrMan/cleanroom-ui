@@ -1,29 +1,21 @@
-"""Our level-up menu: the movie mxmlc builds, the contract between it and F3NV_LevelUp.psc, and the character rules
-opening it in place of LevelUpMenu.
+"""Our level-up menu: the movie mxmlc builds, and the contract between it, F3NV_LevelUp.psc and F3NV_LevelUpTable.psc.
 
-See: docs/fork/fo4_level_up_plan.md#menu
+See: docs/level_up_plan.md#menu
 """
 
 import re
-import shutil
-from pathlib import Path
 
 import pytest
 
-from asset_convert.ui.swf import Swf
-from fo4_import import level_up as M
-from fo4_import.base import mxmlc
-from fo4_import.base.papyrus import FO4_COMPILER, compile_folder, header_dirs
-from script_convert.constants import FALLOUT4_HELPER_PLUGIN, FALLOUT4_HELPER_QUESTS
+from crui import REPO, menus, mxmlc
+from crui.swf import Swf
 
-STATIC = Path(__file__).resolve().parents[1] / 'script_convert' / 'static_scripts' / 'fallout4'
-SCRIPT = (STATIC / 'F3NV_LevelUp.psc').read_text(encoding='utf-8')
-RULES = (STATIC / 'F3NV_CharacterRules.psc').read_text(encoding='utf-8')
-MOVIE = (M.SOURCES / 'F3NV_LevelUp.as').read_text(encoding='utf-8')
-CHARACTER = (M.SOURCES / 'f3nv' / 'levelup' / 'Character.as').read_text(encoding='utf-8')
-#: The polyfill functions the rules call, for compiling them without the assembled TES4Polyfill.
-POLYFILL_STUB = ('ScriptName TES4Polyfill Hidden\nBool Function Tracing() Global\n  Return False\nEndFunction\n'
-                 'Function TraceWrite(String asKind, String asText) Global\nEndFunction\n')
+MENU = menus.BY_NAME['level_up']
+PAPYRUS = REPO / 'papyrus'
+SCRIPT = (PAPYRUS / 'F3NV_LevelUp.psc').read_text(encoding='utf-8')
+TABLE = (PAPYRUS / 'F3NV_LevelUpTable.psc').read_text(encoding='utf-8')
+MOVIE = (MENU.sources / 'F3NV_LevelUp.as').read_text(encoding='utf-8')
+CHARACTER = (MENU.sources / 'f3nv' / 'levelup' / 'Character.as').read_text(encoding='utf-8')
 
 
 def _function(source: str, name: str) -> str:
@@ -34,7 +26,7 @@ def _function(source: str, name: str) -> str:
 def test_the_script_opens_the_movie_the_build_installs():
     """The menu name F3NV_LevelUp.psc registers is the movie's file and document class."""
     name = re.search(r'String Property MenuName = "(\w+)"', SCRIPT).group(1)
-    assert M.MOVIE == f'Interface/{name}.swf' and M.DOCUMENT == name and f'MENU:String = "{name}"' in MOVIE
+    assert MENU.movie == f'Interface/{name}.swf' and MENU.document == name and f'MENU:String = "{name}"' in MOVIE
 
 
 def test_the_script_and_movie_agree_on_events_and_calls():
@@ -64,74 +56,29 @@ def test_built_hands_over_what_the_movie_reads():
     assert 'args[32] = ShowAllPerks' in built and 'showAll = who.showAll;' in MOVIE
 
 
-def test_the_rules_gather_the_menus_data_while_the_pipboy_closes():
-    """ShowOurs prepares our menu (registering it) before listening and waiting, then opens it without the settling
-    wait a message box needs; Open gathers again only for a different open."""
-    shown = _function(RULES, 'ShowOurs')
-    assert shown.index('Prepare(aiMode, aiCount, aiBonus)') < shown.index('RegisterForMenuOpenCloseEvent(') \
-        < shown.index('WaitOutOfMenus(False)') < shown.index('.Open(aiMode, aiCount, aiBonus)')
+def test_built_merges_each_text_the_movie_reads_where_the_table_keeps_it():
+    """Each Merged(n, ...) in Built is the table's Text n, a property written whole (an open joins none), and fills
+    the argument the movie reads that table from; the rows' held tests are gathered beside the ranks."""
+    built = _function(SCRIPT, 'Built')
+    text = re.search(r'String Function Text\(.*?EndFunction', TABLE, re.S).group(0)
+    branches = {**dict(re.findall(r'aiWhich == (\d+)\n\s+Return (\w+)\n', text)), '14': 'RequirementLabels'}
+    assert text.endswith('Return RequirementLabels\nEndFunction') and 'Joined(' not in text
+    wanted = {5: 'PerkNames', 6: 'PerkDescriptions', 7: 'PerkImages', 8: 'PerkLevels', 9: 'PerkRanksText',
+              17: 'RequirementOwners', 18: 'RequirementKinds', 19: 'RequirementTargets', 20: 'RequirementCompares',
+              21: 'RequirementValues', 22: 'RequirementOr', 23: 'RequirementLabels',
+              28: 'TraitNames', 29: 'TraitDescriptions', 30: 'TraitImages'}
+    merged = {int(arg): branches[n] for arg, n in re.findall(r'args\[(\d+)\] = Merged\((\d+),', built)}
+    assert merged == wanted and 'args[24] = unlisted' in built
+    assert 'args[33] = GroupCounts(perkCounts)' in built and 'args[34] = GroupCounts(rowCounts)' in built
+
+
+def test_open_gathers_again_only_for_a_different_open():
+    """Prepare registers the menu and gathers; Open gathers again only for another mode, count or bonus."""
     assert 'Register()' in _function(SCRIPT, 'Prepare') and 'If !ready || mode != aiMode' in _function(SCRIPT, 'Open')
     modes = {m: int(v) for m, v in re.findall(r'Int Property (\w+)Mode = (\d)', SCRIPT)}
     assert modes == {'LevelUp': 0, 'Tags': 1, 'Traits': 2}
     assert all(f'{name}:int = {modes[mode]};' in CHARACTER
                for name, mode in (('LEVEL_UP', 'LevelUp'), ('TAGS', 'Tags'), ('TRAITS', 'Traits')))
-
-
-def test_the_rules_open_ours_in_place_of_level_up_menu():
-    """LevelUpMenu opening closes it and the Pip-Boy, gives this level-up's points and opens ours; points go to
-    F3NV_LevelUp, and LevelUpMenuEx's menus are never opened."""
-    opened = _function(RULES, 'OpenLevelUp')
-    assert opened.index('UI.CloseMenu("LevelUpMenu")') < opened.index('TopUp()') < opened.index('ShowOurs(')
-    assert 'UI.CloseMenu("PipboyMenu")' in opened and 'WaitOutOfMenus(False)' in _function(RULES, 'ShowOurs')
-    assert 'asMenuName == "LevelUpMenu" && abOpening' in RULES and 'PRKF:PRKF.Open' not in RULES
-    top_up = _function(RULES, 'TopUp')
-    assert 'LevelUp().AddSkillPoints(whole)' in top_up and 'PRKF' not in top_up
-
-
-def test_the_tag_and_trait_menus_are_ours():
-    """Our menu is the tag menu (count, bonus) and the trait menu (count, 0)."""
-    assert 'ShowOurs(LevelUp().TagsMode, count, TagBonus)' in _function(RULES, 'OpenTags')
-    assert 'ShowOurs(LevelUp().TraitsMode, count, 0)' in _function(RULES, 'OpenTraits') and 'OpenTraits(0)' in RULES
-
-
-def test_level_up_menu_ex_is_reached_only_by_name_and_only_while_loaded():
-    """No script compiles against LevelUpMenuEx: the rules call PRKF:PRKF by name (Prkf, CallGlobalFunction), only
-    from MovePrkf, and only while PRKF.dll is loaded; nothing else names it."""
-    assert 'PRKF:PRKF.' not in RULES and 'Utility.CallGlobalFunction("PRKF:PRKF"' in _function(RULES, 'Prkf')
-    callers = {m.start() for m in re.finditer(r'\bPrkf\(', RULES)} - {RULES.index('Var Function Prkf(') + 13}
-    moved = re.search(r'Function MovePrkf\(.*?EndFunction', RULES, re.S).span()
-    assert callers and all(moved[0] < at < moved[1] for at in callers)
-    assert 'If Migrated || F4SE.GetPluginVersion("PRKF") < 0' in _function(RULES, 'MovePrkf')
-    for name in ('F3NV_LevelUp', 'F3NV_LevelUpTable', 'F3NV_CharacterEvents'):
-        assert 'PRKF:' not in (STATIC / f'{name}.psc').read_text(encoding='utf-8'), name
-    assert 'LevelUpMenuEx' not in header_dirs()
-
-
-def test_each_tag_gets_its_bonus_once_and_keeps_it():
-    """A skill tagged in the tag menu without its bonus gets TagBonus, one untagged loses it; SPECIAL set again
-    keeps it; the suggestions are done with."""
-    chosen = re.search(r'Event F3NV_LevelUp\.TagsChosen\(.*?EndEvent', RULES, re.S).group(0)
-    assert 'tagged && !HasBonus(skills[i])' in chosen and '+ TagBonus' in chosen and '- TagBonus' in chosen
-    assert 'TES4CharacterEvents.Suggested = new ActorValue[0]' in chosen
-    assert 'If HasBonus(skill)' in _function(RULES, 'SetSkillBases')
-    assert 'SendCustomEvent("TagsChosen"' in _function(SCRIPT, 'OnMenuTags')
-
-
-def test_other_mods_reach_the_level_up_through_the_helper_plugin():
-    """Get() reads the character events quest of FalloutHelpers.esl, which the level-up announces itself to as the
-    rules start and as our menu registers."""
-    get = _function(SCRIPT, 'Get')
-    quest = FALLOUT4_HELPER_QUESTS['F3NV_CharacterEvents']
-    assert f'Game.GetFormFromFile(0x{quest:X}, "{FALLOUT4_HELPER_PLUGIN}") as F3NV_CharacterEvents' in get
-    assert 'Announce()' in _function(SCRIPT, 'Register') and 'LevelUp().Announce()' in RULES
-
-
-def test_the_api_opens_each_menu_through_the_rules():
-    """OpenLevelUpMenu, OpenTagMenu and OpenTraitMenu call the rules' openers, which exist."""
-    for api, rules in (('OpenLevelUpMenu', 'OpenLevelUp()'), ('OpenTagMenu', 'OpenTags(aiTags)'),
-                       ('OpenTraitMenu', 'OpenTraits(aiTraits)')):
-        assert f'Rules().{rules}' in _function(SCRIPT, api)
-        assert f'Function {rules.split("(")[0]}(' in RULES
 
 
 def test_the_api_sends_its_events():
@@ -153,26 +100,16 @@ def test_an_added_perk_is_described_and_tested_by_the_game():
     assert 'public static const GAME:int = 4;' in CHARACTER and '"$F3NV_LU_OWN_TEST"' in CHARACTER
 
 
-@pytest.mark.skipif(not FO4_COMPILER.is_file(), reason='the FO4 Papyrus compiler is not installed')
-def test_the_character_scripts_compile_together(tmp_path):
-    """F3NV_CharacterRules.psc, F3NV_LevelUp.psc, F3NV_LevelUpTable.psc and F3NV_CharacterEvents.psc (which holds
-    the tags) compile against FO4's and F4SE's headers alone."""
-    src, stub, out = tmp_path / 'src', tmp_path / 'stub', tmp_path / 'out'
-    for folder in (src, stub, out):
-        folder.mkdir()
-    (stub / 'TES4Polyfill.psc').write_text(POLYFILL_STUB, encoding='utf-8')
-    names = ('F3NV_LevelUp', 'F3NV_LevelUpTable', 'F3NV_CharacterRules', 'F3NV_CharacterEvents')
-    for name in names:
-        shutil.copy(STATIC / f'{name}.psc', src)
-    log = compile_folder(src, out, f'{src};{stub};{STATIC};{header_dirs()}')
-    assert {p.name for p in out.iterdir()} == {f'{n}.pex' for n in names}, log
+def test_level_up_menu_ex_is_never_named():
+    """Neither script compiles against LevelUpMenuEx."""
+    assert 'PRKF:' not in SCRIPT and 'PRKF:' not in TABLE
 
 
 @pytest.mark.skipif(not mxmlc.available(), reason='the Flex SDK is not installed')
 def test_the_movie_builds_the_same_twice(tmp_path):
     """Two uncompressed, undated builds are identical and hold the menu's calls and the library."""
-    raw = M.compile_movie(tmp_path / 'a.swf').read_bytes()
-    assert raw == M.compile_movie(tmp_path / 'b.swf').read_bytes() and raw[:3] == b'FWS'
+    raw = menus.compile_movie(MENU, tmp_path / 'a.swf').read_bytes()
+    assert raw == menus.compile_movie(MENU, tmp_path / 'b.swf').read_bytes() and raw[:3] == b'FWS'
     assert not {t.code for t in Swf.parse(raw).tags} & set(mxmlc.DATED)
     for name in (b'F3NV_LevelUp', b'Open', b'Taken', b'Raised', b'ProcessUserEvent', b'Character', b'ScrollList'):
         assert name in raw
@@ -181,4 +118,4 @@ def test_the_movie_builds_the_same_twice(tmp_path):
 @pytest.mark.skipif(not mxmlc.available(), reason='the Flex SDK is not installed')
 def test_install_writes_the_movie_under_interface(tmp_path):
     """install() copies the built movie to <data>/Interface/F3NV_LevelUp.swf."""
-    assert M.install(tmp_path) == 1 and (tmp_path / M.MOVIE).read_bytes()[:3] == b'FWS'
+    assert menus.install(MENU, tmp_path).read_bytes()[:3] == b'FWS' and (tmp_path / MENU.movie).is_file()

@@ -5,7 +5,7 @@ It writes a build date into tags 41 (ProductInfo) and 77 (Metadata); both
 are dropped and the movie is written uncompressed, so the same sources give the same bytes. The Flex SDK and
 Adobe's playerglobal.swc are build-time tools, never shipped or committed.
 
-See: docs/fork/swf_framework.md#toolchain
+See: docs/swf_framework.md#toolchain
 """
 
 import hashlib
@@ -16,14 +16,14 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from asset_convert.ui.swf import Swf
-from core.subprocess_flags import POPEN_FLAGS
+from crui import POPEN_FLAGS, REPO
+from crui.swf import Swf
 
-REPO = Path(__file__).resolve().parents[2]
-#: The Flex SDK 4.16.1 with playerglobal 11.2 (docs/fork/swf_framework.md#mxmlc-setup): F3NV_FLEX, else tools_ext.
-FLEX = Path(os.environ.get('F3NV_FLEX', REPO.parent / 'tools_ext' / 'FlexSDK'))
+#: The Flex SDK 4.16.1 with playerglobal 11.2 (docs/swf_framework.md#mxmlc-setup): CRUI_FLEX, else a tools_ext
+#: folder beside the repo.
+FLEX = Path(os.environ.get('CRUI_FLEX', REPO.parent / 'tools_ext' / 'FlexSDK'))
 #: Our shared AS3 library (package f3ui), on every movie's source path.
-LIBRARY = Path(__file__).resolve().parent / 'as3'
+LIBRARY = REPO / 'as3'
 #: Stage, frame rate, background, player and SWF version.
 OPTIONS = ('-target-player=11.2', '-swf-version=15', '-static-link-runtime-shared-libraries=true', '-debug=false',
            '-default-size', '1280', '720', '-default-frame-rate', '30', '-default-background-color=0x000000')

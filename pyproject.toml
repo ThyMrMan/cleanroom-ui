@@ -1,0 +1,10 @@
+[project]
+name = "cleanroom-ui"
+version = "0.0.0"
+description = "Fallout 4 menu framework built from scratch: AS3 library, Papyrus menu host, F4SE DLL"
+requires-python = ">=3.11"
+license = "GPL-3.0-only"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
