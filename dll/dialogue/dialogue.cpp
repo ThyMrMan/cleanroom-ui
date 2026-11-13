@@ -2,42 +2,40 @@
 //
 // An option is a player INFO that names an answer topic (the links in Data\F4SE\Plugins\CleanroomDialogue\*.txt); its
 // answer is that topic's first passing INFO, chosen by the engine's own picker, so nothing pairs options and answers
-// by position. The option shows that answer line's prompt (FNV shows the first passing line's) and skill check. The menu movie (Interface/DialogueMenu.swf, built by fo4_import.dialogue_menu) asks for the running
-// Player Dialogue action's options and picks one as option index + 5. The engine then asks three call sites for the
-// INFOs of the picked option; index 5 and up are ours, below 5 go to the engine's functions as before.
+// by position. The option shows that answer line's prompt (FNV shows the first passing line's) and skill check. The
+// menu movie (Interface/DialogueMenu.swf) asks for the running Player Dialogue action's options and picks one as
+// option index + 5. The engine then asks three call sites for the INFOs of the picked option; index 5 and up are ours,
+// below 5 go to the engine's functions as before.
 //
-// Fallout4.exe 1.11.240, read in Fallout4.exe.unpacked.exe; the plan's engine table lists each address.
+// Read in Fallout4.exe 1.11.240 (its RVAs in the comments); each address is its next-gen Address Library ID
+// (docs/spin_offs.md#ids). The engine layouts below were read there only, so the hooks stay off on other runtimes.
 #include "dialogue.h"
-
-#include "f4se/GameData.h"
-#include "f4se/GameMenus.h"
-#include "f4se/GameReferences.h"
-#include "f4se/GameThreads.h"
-#include "f4se/PluginAPI.h"
-#include "f4se/ScaleformCallbacks.h"
-#include "f4se/ScaleformMovie.h"
-#include "f4se/ScaleformValue.h"
-#include "f4se_common/BranchTrampoline.h"
-#include "f4se_common/SafeWrite.h"
 
 #include <atomic>
 #include <cctype>
+#include <chrono>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
 #include <fstream>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <unordered_map>
-#include <unordered_set>
 #include <vector>
 
 namespace crui {
 
 namespace {
 
+using RE::TESForm;
+using RE::TESObjectREFR;
+using Scaleform::GFx::FunctionHandler;
+using Scaleform::GFx::Value;
+
 // ---- Engine functions ----
 // The option's INFO for the player (target the NPC) or the NPC (target the player), reading the action's chosen option.
-using OptionInfoFn = TESForm *(*)(void *action, void *scene, TESObjectREFR *target, SInt32 option);
+using OptionInfoFn = TESForm *(*)(void *action, void *scene, TESObjectREFR *target, std::int32_t option);
 // An NPC Response action's INFO for the player's chosen response (player + PLAYER_RESPONSE).
 using ResponseFn = TESForm *(*)(void *action, void *scene);
 // A topic's first passing INFO for `speaker` talking to `target` (Random runs included).
@@ -50,12 +48,12 @@ using PromptFn = const char *(*)(TESForm *info);
 // Mark an INFO said (its said byte, its change flag for the save, its reset timer), as speaking it does.
 using SaidFn = void (*)(TESForm *info);
 // A quest alias's reference handle, and a handle's reference (the engine's own pair in the option functions).
-using AliasFn = UInt32 *(*)(TESForm *quest, UInt32 *handle, UInt32 alias);
-using HandleFn = NiPointer<TESObjectREFR> *(*)(NiPointer<TESObjectREFR> *out, UInt32 *handle);
+using AliasFn = std::uint32_t *(*)(TESForm *quest, std::uint32_t *handle, std::uint32_t alias);
+using HandleFn = RE::NiPointer<TESObjectREFR> *(*)(RE::NiPointer<TESObjectREFR> *out, std::uint32_t *handle);
 // Pick dialogue option `option` (4: none) for the player.
-using SelectFn = void (*)(PlayerCharacter *player, UInt32 option);
+using SelectFn = void (*)(RE::PlayerCharacter *player, std::uint32_t option);
 // A Player Dialogue action's run function (its vtable slot 21; both option calls are in it).
-using RunFn = UInt64 (*)(void *action, void *scene, void *third, void *fourth);
+using RunFn = std::uint64_t (*)(void *action, void *scene, void *third, void *fourth);
 // Stop a scene: Papyrus Scene.Stop's native (0x1119D20) calls this, then sets SCENE_STOPPING in its flags.
 using StopFn = void (*)(void *scene);
 // An actor's "talking" test, the one the run function waits on before the NPC slot (vtable +0x270, 0x4159BF).
@@ -66,63 +64,74 @@ using ShouldFn = bool (*)(void *handler, void *event);
 using EventNameFn = void **(*)(void *event);
 using StaticNameFn = void **(*)();
 // BSGFxShaderFXTarget::EnableShadedBackground(type, brightness): the UI shader's translucent quad behind a target.
-using ShadeFn = void (*)(void *target, UInt32 type, float brightness);
+using ShadeFn = void (*)(void *target, std::uint32_t type, float brightness);
 // DialogueMenu's holder color (0x1043EF0): 0 the HUD color, 1-7 the speech-challenge tints (iDialogueSC_*_Tint).
-using TintFn = void (*)(void *menu, void *target, UInt32 type, bool dim);
+using TintFn = void (*)(void *menu, void *target, std::uint32_t type, bool dim);
 
-RelocAddr<OptionInfoFn> OptionInfo(0x416600);
-RelocAddr<ResponseFn> ResponseInfo(0x414180);
-RelocAddr<PickFn> Pick(0x698DB0);
-RelocAddr<PassesFn> Passes(0x69F490);
-RelocAddr<PromptFn> Prompt(0x69E740);
-RelocAddr<SaidFn> MarkSaid(0x69F8D0);
-RelocAddr<AliasFn> AliasHandle(0x671FA0);
-RelocAddr<HandleFn> HandleRef(0x21E550);
-RelocAddr<SelectFn> SelectOption(0xD76130);
-RelocAddr<StopFn> StopScene(0x638D60);
+// A next-gen ID (also 1.11's), with `offset` into it; no old-gen ID until each is matched there.
+constexpr Ids Next(std::uint64_t id, std::uintptr_t offset = 0) {
+    return {0, id, id, offset};
+}
+
+const Ids OPTION_INFO = Next(2196825);                      // 0x416600
+const Ids RESPONSE_INFO = Next(2196806);                    // 0x414180
+const Ids PICK = Next(2208361);                             // 0x698DB0
+const Ids PASSES = Next(2208464);                           // 0x69F490
+const Ids PROMPT = Next(2208446);                           // 0x69E740
+const Ids MARK_SAID = Next(2208467);                        // 0x69F8D0
+const Ids ALIAS_HANDLE = Next(2207810);                     // 0x671FA0
+const Ids HANDLE_REF = Next(2188369);                       // 0x21E550
+const Ids SELECT_OPTION = Next(2233190);                    // 0xD76130
+const Ids STOP_SCENE = Next(2206866);                       // 0x638D60
 // The player-slot and NPC-slot calls to OptionInfo (in 0x415280), and the NPC Response call to ResponseInfo.
-RelocAddr<uintptr_t> PLAYER_SLOT_CALL(0x41568A), NPC_SLOT_CALL(0x415A21), RESPONSE_CALL(0x413DA8);
-RelocAddr<uintptr_t> PLAYER_DIALOGUE_VTABLE(0x2488978);
-const size_t RUN_SLOT = 21;
+const Ids PLAYER_SLOT_CALL = Next(2196817, 0x40A);          // 0x41568A
+const Ids NPC_SLOT_CALL = Next(2196817, 0x7A1);             // 0x415A21
+const Ids RESPONSE_CALL = Next(2196800, 0x388);             // 0x413DA8
+const Ids PLAYER_DIALOGUE_VTABLE = Next(388825);            // 0x2488978
+const std::size_t RUN_SLOT = 21;
 // The player starting to say the picked option (`mov rcx, rax` before the call at 0x4158E9); `jmp 0x4158F2` takes
 // the said path without saying it. The camera's switch to the player (its 1 at 0x832665 + 7; 2 keeps it on the NPC).
-RelocAddr<uintptr_t> PLAYER_SPEAKS(0x4158D2), CAMERA_TO_PLAYER(0x83266C);
+const Ids PLAYER_SPEAKS = Next(2196817, 0x652);             // 0x4158D2
+const Ids CAMERA_TO_PLAYER = Next(2214898, 0xADC);          // 0x83266C
 // The camera states that take the mouse wheel (first person: ZoomOut to third; third person: both), their vtables
 // and "should handle" tests; the ZoomIn and ZoomOut name getters those tests call.
-RelocAddr<uintptr_t> FIRST_PERSON_VTABLE(0x25AAB08), FIRST_PERSON_SHOULD(0x10213E0);
-RelocAddr<uintptr_t> THIRD_PERSON_VTABLE(0x2522A88), THIRD_PERSON_SHOULD(0x102DFC0);
-RelocAddr<StaticNameFn> ZoomInName(0xB25620), ZoomOutName(0xA7A080);
+const Ids FIRST_PERSON_VTABLE = Next(246953);               // 0x25AAB08
+const Ids FIRST_PERSON_SHOULD = Next(2248264);              // 0x10213E0
+const Ids THIRD_PERSON_VTABLE = Next(728085);               // 0x2522A88
+const Ids THIRD_PERSON_SHOULD = Next(2248466);              // 0x102DFC0
+const Ids ZOOM_IN_NAME = Next(2224896);                     // 0xB25620
+const Ids ZOOM_OUT_NAME = Next(2223332);                    // 0xA7A080
 // The shaded background, and a plain BSGFxShaderFXTarget's vtable (what DialogueMenu registers its holders as).
-RelocAddr<ShadeFn> EnableShadedBackground(0x1B04350);
-RelocAddr<uintptr_t> SHADER_TARGET_VTABLE(0x27236D0);
-RelocAddr<TintFn> TintChallenge(0x1043EF0);
-const UInt8 SPEAKS[] = {0x48, 0x8B, 0xC8}, SILENT[] = {0xEB, 0x1E, 0x90};
-const UInt8 CAMERA_PLAYER = 1, CAMERA_SPEAKER = 2;
+const Ids ENABLE_SHADED_BACKGROUND = Next(2287022);         // 0x1B04350
+const Ids SHADER_TARGET_VTABLE = Next(298683);              // 0x27236D0
+const Ids TINT_CHALLENGE = Next(2248685);                   // 0x1043EF0
+const std::uint8_t SPEAKS[] = {0x48, 0x8B, 0xC8}, SILENT[] = {0xEB, 0x1E, 0x90};
+const std::uint8_t CAMERA_PLAYER = 1, CAMERA_SPEAKER = 2;
 
-// ---- Engine layouts ----
+// ---- Engine layouts (1.11.240) ----
 // BGSScene: its quest. Scene action: its alias, its four player topics, its chosen option (4: none).
-const size_t SCENE_QUEST = 0xA8, ACTION_ALIAS = 0x08, ACTION_TOPICS = 0x20, ACTION_OPTION = 0xE0;
+const std::size_t SCENE_QUEST = 0xA8, ACTION_ALIAS = 0x08, ACTION_TOPICS = 0x20, ACTION_OPTION = 0xE0;
 // TESTopic: its INFOs, their order (u16 head at +2, next of INFO i at 4 * i + 4), their count. TESTopicInfo: said.
-const size_t TOPIC_INFOS = 0x50, TOPIC_ORDER = 0x58, TOPIC_COUNT = 0x60, INFO_SAID = 0x43;
+const std::size_t TOPIC_INFOS = 0x50, TOPIC_ORDER = 0x58, TOPIC_COUNT = 0x60, INFO_SAID = 0x43;
 // PlayerCharacter: the chosen response an NPC Response action answers.
-const size_t PLAYER_RESPONSE = 0xD3C;
+const std::size_t PLAYER_RESPONSE = 0xD3C;
 // BGSScene flags (Scene.Stop sets STOPPING). Action flags: the player line done (the NPC slot runs next), the NPC
 // line said. Player: the flag that skips the talking wait (0x4159B3). Actor: the "talking" vtable slot.
-const size_t SCENE_FLAGS = 0x28, ACTION_FLAGS = 0x10, PLAYER_NO_WAIT = 0x440, TALKING_SLOT = 0x270 / 8;
+const std::size_t SCENE_FLAGS = 0x28, ACTION_FLAGS = 0x10, PLAYER_NO_WAIT = 0x440, TALKING_SLOT = 0x270 / 8;
 // TESObjectREFR's model state (CommonLibF4's modelState); 1 while its 3D loads, when 0x415AC5 holds the NPC's line.
-const size_t REFR_MODEL_STATE = 0x10A;
-const UInt8 MODEL_LOADING = 1;
-const UInt32 SCENE_STOPPING = 0x100000, PLAYER_DONE = 0x2000000, NPC_SAID = 0x4000;
-const UInt32 NO_OPTION = 4, FIRST_OURS = 5, SLOTS = 4;
+const std::size_t REFR_MODEL_STATE = 0x10A;
+const std::uint8_t MODEL_LOADING = 1;
+const std::uint32_t SCENE_STOPPING = 0x100000, PLAYER_DONE = 0x2000000, NPC_SAID = 0x4000;
+const std::uint32_t NO_OPTION = 4, FIRST_OURS = 5, SLOTS = 4;
 // DialogueMenu: the Question holder's shader target (registerObjects keeps the four at +0xE0, Question last). The
 // shaded background as vanilla menus ask for it: MenuNoColorBackground at full size.
-const size_t MENU_NEGATIVE_TARGET = 0xE8, MENU_QUESTION_TARGET = 0xF8, TARGET_FX_FLAGS = 0x8C;
+const std::size_t MENU_NEGATIVE_TARGET = 0xE8, MENU_QUESTION_TARGET = 0xF8, TARGET_FX_FLAGS = 0x8C;
 // The speech-challenge tint 0x1043EF0 gives types 3 and 7: iDialogueSC_Hard_Tint (red).
-const UInt32 CHALLENGE_HARD = 3;
-const UInt32 FX_BACKGROUND_QUAD = 1;
-const UInt32 MENU_NO_COLOR_BACKGROUND = 1;
+const std::uint32_t CHALLENGE_HARD = 3;
+const std::uint32_t FX_BACKGROUND_QUAD = 1;
+const std::uint32_t MENU_NO_COLOR_BACKGROUND = 1;
 const float FULL_QUAD = 1.0f;
-const UInt16 END = 0xFFFF;
+const std::uint16_t END = 0xFFFF;
 // Our links folder, one file per plugin that has options (a mod or the converter writes it).
 const char *LINKS = "Data\\F4SE\\Plugins\\CleanroomDialogue\\";
 // The converter's folder from before the dialogue menu was its own release: still read, logged DEPRECATED, until
@@ -130,12 +139,26 @@ const char *LINKS = "Data\\F4SE\\Plugins\\CleanroomDialogue\\";
 const char *LEGACY_LINKS = "Data\\F4SE\\Plugins\\F3NV_Menus\\";
 // The links of the XDI-era hub plugin (tools.dialog.menu_rebuild), from before each build wrote its own: still read,
 // logged DEPRECATED. Builds and the deploy delete it.
-const char *LEGACY_HUB = "F3NV_MenuHub.txt";
+const char *LEGACY_HUB = "f3nv_menuhub.txt";
 
-template <class T>
-T &At(void *base, size_t offset) {
-    return *reinterpret_cast<T *>(static_cast<UInt8 *>(base) + offset);
-}
+// The engine functions, resolved by HookDialogue; null until then or when the runtime lacks one.
+struct Engine {
+    OptionInfoFn optionInfo = nullptr;
+    ResponseFn responseInfo = nullptr;
+    PickFn pick = nullptr;
+    PassesFn passes = nullptr;
+    PromptFn prompt = nullptr;
+    SaidFn markSaid = nullptr;
+    AliasFn aliasHandle = nullptr;
+    HandleFn handleRef = nullptr;
+    SelectFn selectOption = nullptr;
+    StopFn stopScene = nullptr;
+    StaticNameFn zoomInName = nullptr, zoomOutName = nullptr;
+    ShadeFn enableShadedBackground = nullptr;
+    TintFn tintChallenge = nullptr;
+    std::uintptr_t shaderTargetVtable = 0;
+};
+Engine g_engine;
 
 struct Option {
     TESForm *info;
@@ -147,8 +170,8 @@ struct Option {
 
 // An option's skill check from its link: the player's actor value and the number it needs.
 struct Check {
-    ActorValueInfo *av;
-    UInt32 needed;
+    RE::ActorValueInfo *av;
+    std::uint32_t needed;
 };
 
 // The options last listed, for which action; the option picked from them.
@@ -160,11 +183,11 @@ struct Menu {
 // frame until the NPC can say it (0x415AC5 waits while the NPC's 3D loads), and each ask must get the same line.
 struct Chosen {
     void *action = nullptr;
-    UInt32 index = 0;
+    std::uint32_t index = 0;
     Option option{};
     TESForm *line = nullptr;
     void *answeredBy = nullptr;
-    UInt32 asks = 0;
+    std::uint32_t asks = 0;
 };
 
 std::mutex g_dialogueLock;
@@ -173,35 +196,41 @@ Chosen g_chosen;
 // The waiting action last logged as listing none of ours (the menu asks again each frame for a while).
 void *g_noneLogged = nullptr;
 // Option INFO FormID -> answer topic FormID, read once the data has loaded.
-std::unordered_map<UInt32, UInt32> g_links;
+std::unordered_map<std::uint32_t, std::uint32_t> g_links;
 // Answer INFO FormID (or a legacy link's option INFO) -> the skill check its prompt carries.
-std::unordered_map<UInt32, Check> g_checks;
+std::unordered_map<std::uint32_t, Check> g_checks;
 bool g_linksRead = false;
 // The Player Dialogue action the engine ran last, and its scene.
 std::atomic<void *> g_running{nullptr}, g_runningScene{nullptr};
-OptionInfoFn g_optionInfo = nullptr;
-ResponseFn g_responseInfo = nullptr;
 RunFn g_run = nullptr;
 ShouldFn g_firstShould = nullptr, g_thirdShould = nullptr;
 bool g_hooked = false, g_speechPatch = false, g_playerSpeaks = true;
-F4SETaskInterface *g_dialogueTasks = nullptr;
-// The wait trace: the last state logged for our picked option, and when it was picked.
-UInt32 g_lastWaits = ~0u;
-ULONGLONG g_pickedAt = 0;
+// The wait trace: the last state logged for our picked option, and when it was picked (0: none).
+std::uint32_t g_lastWaits = ~0u;
+std::chrono::steady_clock::time_point g_pickedAt{};
+
+// Milliseconds since our option was picked.
+long long SincePick() {
+    return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - g_pickedAt).count();
+}
 
 // `plugin`'s object id `id` (hex) as a loaded FormID; 0 when the plugin is not loaded.
-UInt32 Resolve(const std::string &plugin, const std::string &id) {
-    const ModInfo *mod = *g_dataHandler ? (*g_dataHandler)->LookupModByName(plugin.c_str()) : nullptr;
-    return mod && mod->IsActive() ? mod->GetFormID(std::strtoul(id.c_str(), nullptr, 16)) : 0;
+std::uint32_t Resolve(const std::string &plugin, const std::string &id) {
+    auto *data = RE::TESDataHandler::GetSingleton();
+    const RE::TESFile *mod = data ? data->LookupModByName(plugin) : nullptr;
+    if (!mod || !mod->IsActive()) return 0;
+    auto local = std::uint32_t(std::strtoul(id.c_str(), nullptr, 16));
+    if (mod->IsLight()) return 0xFE000000 | (std::uint32_t(mod->GetSmallFileCompileIndex()) << 12) | (local & 0xFFF);
+    return (std::uint32_t(mod->GetCompileIndex()) << 24) | (local & 0xFFFFFF);
 }
 
 // A skill check on INFO `info`: columns `at` to `at` + 2 of `f`, the actor value's plugin and id and the number needed.
-void ReadCheck(UInt32 info, const std::vector<std::string> &f, size_t at, UInt32 *checks) {
+void ReadCheck(std::uint32_t info, const std::vector<std::string> &f, std::size_t at, std::uint32_t *checks) {
     if (!info || f.size() < at + 3) return;
-    UInt32 id = Resolve(f[at], f[at + 1]);
-    TESForm *av = id ? LookupFormByID(id) : nullptr;
-    if (!av || av->formType != kFormType_AVIF) return;
-    g_checks[info] = {static_cast<ActorValueInfo *>(av), UInt32(std::strtoul(f[at + 2].c_str(), nullptr, 10))};
+    std::uint32_t id = Resolve(f[at], f[at + 1]);
+    TESForm *av = id ? TESForm::GetFormByID(id) : nullptr;
+    if (!av || av->GetFormType() != RE::ENUM_FORM_ID::kAVIF) return;
+    g_checks[info] = {static_cast<RE::ActorValueInfo *>(av), std::uint32_t(std::strtoul(f[at + 2].c_str(), nullptr, 10))};
     (*checks)++;
 }
 
@@ -211,11 +240,11 @@ void ReadCheck(UInt32 info, const std::vector<std::string> &f, size_t at, UInt32
 void ReadLinks(const std::string &path) {
     std::ifstream in(path);
     std::string line;
-    UInt32 read = 0, kept = 0, checks = 0;
+    std::uint32_t read = 0, kept = 0, checks = 0;
     while (std::getline(in, line)) {
         if (line.empty() || line[0] == '#') continue;
         std::vector<std::string> f;
-        for (size_t at = 0, tab; at <= line.size(); at = tab + 1) {
+        for (std::size_t at = 0, tab; at <= line.size(); at = tab + 1) {
             tab = line.find('\t', at);
             tab = tab == std::string::npos ? line.size() : tab;
             f.push_back(line.substr(at, tab - at));
@@ -226,29 +255,31 @@ void ReadLinks(const std::string &path) {
             continue;
         }
         read++;
-        UInt32 option = Resolve(f[0], f[1]), answer = Resolve(f[2], f[3]);
-        TESForm *info = option ? LookupFormByID(option) : nullptr, *topic = answer ? LookupFormByID(answer) : nullptr;
-        if (!info || !topic || info->formType != kFormType_INFO || topic->formType != kFormType_DIAL) continue;
+        std::uint32_t option = Resolve(f[0], f[1]), answer = Resolve(f[2], f[3]);
+        TESForm *info = option ? TESForm::GetFormByID(option) : nullptr;
+        TESForm *topic = answer ? TESForm::GetFormByID(answer) : nullptr;
+        if (!info || !topic || info->GetFormType() != RE::ENUM_FORM_ID::kINFO ||
+            topic->GetFormType() != RE::ENUM_FORM_ID::kDIAL)
+            continue;
         g_links[option] = answer, kept++;
         ReadCheck(option, f, 4, &checks);
     }
-    _MESSAGE("dialogue menu: %s: %u links, %u resolved, %u skill checks", path.c_str(), read, kept, checks);
+    REX::INFO("dialogue menu: {}: {} links, {} resolved, {} skill checks", path, read, kept, checks);
 }
 
 // Read every links file in `folder`; how many were read.
-UInt32 ReadFolder(const char *folder) {
-    WIN32_FIND_DATAA found;
-    HANDLE find = FindFirstFileA((std::string(folder) + "*.txt").c_str(), &found);
-    if (find == INVALID_HANDLE_VALUE) return 0;
-    UInt32 files = 0;
-    do {
-        if (!_stricmp(found.cFileName, LEGACY_HUB))
-            _WARNING("dialogue menu: DEPRECATED %s (the XDI-era hub; each plugin now writes its own links)",
-                     found.cFileName);
-        ReadLinks(std::string(folder) + found.cFileName);
+std::uint32_t ReadFolder(const char *folder) {
+    std::uint32_t files = 0;
+    std::error_code error;
+    for (const auto &entry : std::filesystem::directory_iterator(folder, error)) {
+        std::string name = entry.path().filename().string();
+        for (char &c : name) c = char(std::tolower(std::uint8_t(c)));
+        if (!name.ends_with(".txt")) continue;
+        if (name == LEGACY_HUB)
+            REX::WARN("dialogue menu: DEPRECATED {} (the XDI-era hub; each plugin now writes its own links)", name);
+        ReadLinks(entry.path().string());
         files++;
-    } while (FindNextFileA(find, &found));
-    FindClose(find);
+    }
     return files;
 }
 
@@ -256,86 +287,85 @@ UInt32 ReadFolder(const char *folder) {
 void ReadAllLinks() {
     if (g_linksRead) return;
     g_linksRead = true;
-    UInt32 ours = ReadFolder(LINKS), legacy = ReadFolder(LEGACY_LINKS);
-    if (legacy) _WARNING("dialogue menu: DEPRECATED %s (%u files): links now go in %s", LEGACY_LINKS, legacy, LINKS);
-    if (!ours && !legacy) _MESSAGE("dialogue menu: no links in %s", LINKS);
+    std::uint32_t ours = ReadFolder(LINKS), legacy = ReadFolder(LEGACY_LINKS);
+    if (legacy) REX::WARN("dialogue menu: DEPRECATED {} ({} files): links now go in {}", LEGACY_LINKS, legacy, LINKS);
+    if (!ours && !legacy) REX::INFO("dialogue menu: no links in {}", LINKS);
 }
 
 // A topic's INFOs in the engine's order.
 std::vector<TESForm *> Infos(TESForm *topic) {
     std::vector<TESForm *> out;
-    auto *infos = topic ? At<TESForm **>(topic, TOPIC_INFOS) : nullptr;
-    auto *order = topic ? At<UInt16 *>(topic, TOPIC_ORDER) : nullptr;
-    UInt32 count = topic ? At<UInt32>(topic, TOPIC_COUNT) : 0;
+    auto *infos = topic ? Field<TESForm **>(topic, TOPIC_INFOS) : nullptr;
+    auto *order = topic ? Field<std::uint16_t *>(topic, TOPIC_ORDER) : nullptr;
+    std::uint32_t count = topic ? Field<std::uint32_t>(topic, TOPIC_COUNT) : 0;
     if (!infos || !order) return out;
-    for (UInt16 i = order[1]; i != END && i < count && out.size() < count; i = order[2 * i + 2])
+    for (std::uint16_t i = order[1]; i != END && i < count && out.size() < count; i = order[2 * i + 2])
         if (infos[i]) out.push_back(infos[i]);
     return out;
 }
 
 // The reference in `action`'s alias of `scene`'s quest (the NPC who answers).
-NiPointer<TESObjectREFR> ActionActor(void *action, void *scene) {
-    NiPointer<TESObjectREFR> ref;
-    TESForm *quest = scene ? At<TESForm *>(scene, SCENE_QUEST) : nullptr;
+RE::NiPointer<TESObjectREFR> ActionActor(void *action, void *scene) {
+    RE::NiPointer<TESObjectREFR> ref;
+    TESForm *quest = scene ? Field<TESForm *>(scene, SCENE_QUEST) : nullptr;
     if (!quest) return ref;
-    UInt32 handle = 0;
-    UInt32 *at = AliasHandle(quest, &handle, At<UInt32>(action, ACTION_ALIAS));
-    HandleRef(&ref, at ? at : &handle);
+    std::uint32_t handle = 0;
+    std::uint32_t *at = g_engine.aliasHandle(quest, &handle, Field<std::uint32_t>(action, ACTION_ALIAS));
+    g_engine.handleRef(&ref, at ? at : &handle);
     return ref;
 }
 
 // `prompt` with its build-time tag "[Speech 25] " written as FNV writes it (FalloutNV.exe's "[%s", "%s %d/%d",
 // "%s]  %s"): "[Speech 25]  text" when the player's value passes `check`, "[Speech 17/25]  text" when it fails.
-std::string Tagged(const char *prompt, const Check &check, bool *failed) {
-    std::string text(prompt ? prompt : "");
-    size_t open = text.find_first_not_of(' '), close = text.find(']');
-    size_t space = close == std::string::npos ? close : text.rfind(' ', close);
+std::string Tagged(const std::string &text, const Check &check, bool *failed) {
+    std::size_t open = text.find_first_not_of(' '), close = text.find(']');
+    std::size_t space = close == std::string::npos ? close : text.rfind(' ', close);
     if (open == std::string::npos || text[open] != '[' || space == std::string::npos || space <= open) return text;
-    int value = int((*g_player)->actorValueOwner.GetValue(check.av));
+    int value = int(RE::PlayerCharacter::GetSingleton()->GetActorValue(*check.av));
     *failed = value < int(check.needed);
     std::string name = text.substr(open + 1, space - open - 1);
-    size_t rest = text.find_first_not_of(' ', close + 1);
-    char tag[128];
-    if (*failed) snprintf(tag, sizeof(tag), "[%s %d/%u]  ", name.c_str(), value, check.needed);
-    else snprintf(tag, sizeof(tag), "[%s %u]  ", name.c_str(), check.needed);
+    std::size_t rest = text.find_first_not_of(' ', close + 1);
+    std::string tag = *failed ? std::format("[{} {}/{}]  ", name, value, check.needed)
+                              : std::format("[{} {}]  ", name, check.needed);
     return tag + (rest == std::string::npos ? std::string() : text.substr(rest));
 }
 
 // The value of FNV text macro `name` (lower case) for the player, as FalloutNV.exe 0x7070C0 gives it: PCName the
-// player's name, PCRace their race's name; null for any other (the build turns control macros into FO4 tags).
-const char *MacroValue(const std::string &name) {
-    PlayerCharacter *player = *g_player;
-    if (!player) return nullptr;
-    if (name == "pcname") return player->baseForm ? player->baseForm->GetFullName() : nullptr;
-    if (name == "pcrace") return player->race ? player->race->GetFullName() : nullptr;
-    return nullptr;
+// player's name, PCRace their race's name; none for any other (the build turns control macros into FO4 tags).
+std::optional<std::string> MacroValue(const std::string &name) {
+    RE::PlayerCharacter *player = RE::PlayerCharacter::GetSingleton();
+    if (!player) return std::nullopt;
+    RE::TESNPC *npc = player->GetNPC();
+    if (name == "pcname" && npc) return std::string(npc->GetFullName());
+    if (name == "pcrace" && player->race) return std::string(player->race->GetFullName());
+    return std::nullopt;
 }
 
 // The lower-case name between `from` and the next ';' of `text`, and that ';' in `end`; "" when there is none.
-std::string MacroName(const std::string &text, size_t from, size_t *end) {
+std::string MacroName(const std::string &text, std::size_t from, std::size_t *end) {
     *end = text.find(';', from);
     if (*end == std::string::npos) return "";
     std::string name = text.substr(from, *end - from);
-    for (char &c : name) c = char(std::tolower(UInt8(c)));
+    for (char &c : name) c = char(std::tolower(std::uint8_t(c)));
     return name;
 }
 
 // `text` with FNV's player macros (&PCName; and &PCRace;, any case) written out, as FNV writes them in a prompt.
 // Plugins built for XDI wrote the & as &amp; (&amp;PCName;), and are read the same.
 std::string Expanded(std::string text) {
-    size_t at = 0, end = 0;
+    std::size_t at = 0, end = 0;
     while ((at = text.find('&', at)) != std::string::npos) {
         std::string name = MacroName(text, at + 1, &end);
         if (end == std::string::npos) break;
         if (name == "amp") name = MacroName(text, end + 1, &end);
         if (end == std::string::npos) break;
-        const char *value = MacroValue(name);
+        std::optional<std::string> value = MacroValue(name);
         if (!value) {
             at++;
             continue;
         }
-        text.replace(at, end - at + 1, value);
-        at += std::strlen(value);
+        text.replace(at, end - at + 1, *value);
+        at += value->size();
     }
     return text;
 }
@@ -344,37 +374,38 @@ std::string Expanded(std::string text) {
 // FNV's player macros written out; tagged live with the skill check of that line, else of the option. Said (shown
 // dim) when `line` was said: FNV keeps said on its INFO, the answer line here, not on the one option per topic.
 Option Listed(TESForm *info, TESForm *answer, TESForm *line) {
-    const char *own = Prompt(line);
-    Option option{info, answer, Expanded(own && *own ? own : Prompt(info)), At<UInt8>(line, INFO_SAID) != 0, false};
-    auto check = g_checks.find(line->formID);
-    check = check != g_checks.end() ? check : g_checks.find(info->formID);
-    if (check != g_checks.end()) option.prompt = Tagged(option.prompt.c_str(), check->second, &option.failed);
+    const char *own = g_engine.prompt(line);
+    Option option{info, answer, Expanded(own && *own ? own : g_engine.prompt(info)),
+                  Field<std::uint8_t>(line, INFO_SAID) != 0, false};
+    auto check = g_checks.find(line->GetFormID());
+    check = check != g_checks.end() ? check : g_checks.find(info->GetFormID());
+    if (check != g_checks.end()) option.prompt = Tagged(option.prompt, check->second, &option.failed);
     return option;
 }
 
 // How far each line of a menu got: lines, linked, passing their own conditions, answered (listed).
 struct Census {
-    UInt32 lines = 0, linked = 0, passing = 0, answered = 0;
-    UInt32 failed = 0;  // the first linked line whose conditions fail, or whose answer has no passing line
+    std::uint32_t lines = 0, linked = 0, passing = 0, answered = 0;
+    std::uint32_t failed = 0;  // the first linked line whose conditions fail, or whose answer has no passing line
 };
 
 // The linked options of `action` that pass for the player talking to `npc` and whose answer topic has a line.
 std::vector<Option> ListOptions(void *action, TESObjectREFR *npc, Census *census) {
     std::vector<Option> out;
-    TESObjectREFR *player = *g_player;
-    for (UInt32 slot = 0; slot < SLOTS; slot++)
-        for (TESForm *info : Infos(At<TESForm *>(action, ACTION_TOPICS + slot * sizeof(void *)))) {
+    TESObjectREFR *player = RE::PlayerCharacter::GetSingleton();
+    for (std::uint32_t slot = 0; slot < SLOTS; slot++)
+        for (TESForm *info : Infos(Field<TESForm *>(action, ACTION_TOPICS + slot * sizeof(void *)))) {
             census->lines++;
-            auto link = g_links.find(info->formID);
-            TESForm *answer = link == g_links.end() ? nullptr : LookupFormByID(link->second);
+            auto link = g_links.find(info->GetFormID());
+            TESForm *answer = link == g_links.end() ? nullptr : TESForm::GetFormByID(link->second);
             bool flag = false;
             if (!answer) continue;
             census->linked++;
-            bool passes = Passes(info, &flag, player, npc);
+            bool passes = g_engine.passes(info, &flag, player, npc);
             census->passing += passes;
-            TESForm *line = passes ? Pick(answer, npc, player) : nullptr;
+            TESForm *line = passes ? g_engine.pick(answer, npc, player) : nullptr;
             if (!line) {
-                census->failed = census->failed ? census->failed : info->formID;
+                census->failed = census->failed ? census->failed : info->GetFormID();
                 continue;
             }
             census->answered++;
@@ -385,25 +416,25 @@ std::vector<Option> ListOptions(void *action, TESObjectREFR *npc, Census *census
 
 // Why a waiting menu lists none of ours: its scene, its NPC and how far its lines got.
 void LogNoOptions(void *scene, TESObjectREFR *npc, const Census &census) {
-    _VMESSAGE("dialogue menu: none of ours in scene %08X with NPC %08X: %u lines, %u linked, %u pass, %u answered; "
-             "first failing linked line %08X", reinterpret_cast<TESForm *>(scene)->formID, npc ? npc->formID : 0,
-             census.lines, census.linked, census.passing, census.answered, census.failed);
+    REX::DEBUG("dialogue menu: none of ours in scene {:08X} with NPC {:08X}: {} lines, {} linked, {} pass, {} answered; "
+               "first failing linked line {:08X}", static_cast<TESForm *>(scene)->GetFormID(),
+               npc ? npc->GetFormID() : 0, census.lines, census.linked, census.passing, census.answered, census.failed);
 }
 
 // The running Player Dialogue action of the player's scene, waiting for a pick; null when there is none.
 void *WaitingAction(void **scene) {
-    PlayerCharacter *player = *g_player;
+    RE::PlayerCharacter *player = RE::PlayerCharacter::GetSingleton();
     void *action = g_running.load();
     *scene = g_runningScene.load();
     if (!player || !action || !*scene || player->GetCurrentScene() != *scene) return nullptr;
-    return At<UInt32>(action, ACTION_OPTION) == NO_OPTION ? action : nullptr;
+    return Field<std::uint32_t>(action, ACTION_OPTION) == NO_OPTION ? action : nullptr;
 }
 
 // A wheel step (ZoomIn / ZoomOut) while a Player Dialogue choice waits: the menu scrolls with it, not the camera.
 bool WheelWhileChoosing(void *event) {
     void **name = (*reinterpret_cast<EventNameFn **>(event))[2](event);
     void *scene = nullptr;
-    return name && (*name == *ZoomInName() || *name == *ZoomOutName()) && WaitingAction(&scene);
+    return name && (*name == *g_engine.zoomInName() || *name == *g_engine.zoomOutName()) && WaitingAction(&scene);
 }
 
 bool FirstPersonShould(void *state, void *event) {
@@ -415,34 +446,32 @@ bool ThirdPersonShould(void *state, void *event) {
 }
 
 // Route a camera state's "should handle" (vtable slot 1) through `hook` when the slot still holds `vanilla`.
-bool HookShould(uintptr_t vtable, uintptr_t vanilla, ShouldFn hook, ShouldFn *original) {
+bool HookShould(std::uintptr_t vtable, std::uintptr_t vanilla, ShouldFn hook, ShouldFn *original) {
+    if (!vtable || !vanilla) return false;
     auto *slot = reinterpret_cast<ShouldFn *>(vtable + sizeof(void *));
-    if (uintptr_t(*slot) != vanilla) return false;
+    if (std::uintptr_t(*slot) != vanilla) return false;
     *original = *slot;
-    SafeWrite64(uintptr_t(slot), UInt64(hook));
-    return true;
+    return REL::WriteSafe(std::uintptr_t(slot), &hook, sizeof(hook));
 }
 
 // Keep the wheel from the first- and third-person cameras while a choice waits.
 bool HookWheel() {
-    return HookShould(FIRST_PERSON_VTABLE.GetUIntPtr(), FIRST_PERSON_SHOULD.GetUIntPtr(), FirstPersonShould,
-                      &g_firstShould) &&
-           HookShould(THIRD_PERSON_VTABLE.GetUIntPtr(), THIRD_PERSON_SHOULD.GetUIntPtr(), ThirdPersonShould,
-                      &g_thirdShould);
+    return g_engine.zoomInName && g_engine.zoomOutName &&
+           HookShould(Address(FIRST_PERSON_VTABLE), Address(FIRST_PERSON_SHOULD), FirstPersonShould, &g_firstShould) &&
+           HookShould(Address(THIRD_PERSON_VTABLE), Address(THIRD_PERSON_SHOULD), ThirdPersonShould, &g_thirdShould);
 }
 
 // Let the player say the picked option (vanilla) or not (ours: the NPC answers at once, as in FNV).
 void PlayerSpeaks(bool on) {
     if (!g_speechPatch || g_playerSpeaks == on) return;
-    UInt8 code[sizeof(SPEAKS)];
-    std::memcpy(code, on ? SPEAKS : SILENT, sizeof(code));
-    SafeWriteBuf(PLAYER_SPEAKS.GetUIntPtr(), code, sizeof(code));
-    SafeWrite8(CAMERA_TO_PLAYER.GetUIntPtr(), on ? CAMERA_PLAYER : CAMERA_SPEAKER);
+    REL::WriteSafe(Address(PLAYER_SPEAKS), on ? SPEAKS : SILENT, sizeof(SPEAKS));
+    std::uint8_t camera = on ? CAMERA_PLAYER : CAMERA_SPEAKER;
+    REL::WriteSafe(Address(CAMERA_TO_PLAYER), &camera, sizeof(camera));
     g_playerSpeaks = on;
 }
 
 // The option picked through SelectNative when option `chosen` is ours (of `action`, unless null); false otherwise.
-bool PickedOption(void *action, UInt32 chosen, Chosen *out) {
+bool PickedOption(void *action, std::uint32_t chosen, Chosen *out) {
     std::lock_guard<std::mutex> hold(g_dialogueLock);
     if (chosen < FIRST_OURS || !g_chosen.action || (action && g_chosen.action != action) ||
         g_chosen.index != chosen - FIRST_OURS)
@@ -452,71 +481,71 @@ bool PickedOption(void *action, UInt32 chosen, Chosen *out) {
 }
 
 // The player slot: our option's own INFO, marked said, which the player does not say.
-TESForm *PlayerSlot(void *action, void *scene, TESObjectREFR *target, SInt32 option) {
-    UInt32 chosen = At<UInt32>(action, ACTION_OPTION);
+TESForm *PlayerSlot(void *action, void *scene, TESObjectREFR *target, std::int32_t option) {
+    std::uint32_t chosen = Field<std::uint32_t>(action, ACTION_OPTION);
     PlayerSpeaks(chosen < FIRST_OURS);
-    if (chosen < FIRST_OURS) return g_optionInfo(action, scene, target, option);
+    if (chosen < FIRST_OURS) return g_engine.optionInfo(action, scene, target, option);
     Chosen picked;
     if (!PickedOption(action, chosen, &picked)) {
-        _VMESSAGE("dialogue menu: option %u was not picked through the menu; none taken", chosen);
-        At<UInt32>(action, ACTION_OPTION) = NO_OPTION;
+        REX::DEBUG("dialogue menu: option {} was not picked through the menu; none taken", chosen);
+        Field<std::uint32_t>(action, ACTION_OPTION) = NO_OPTION;
         return nullptr;
     }
-    MarkSaid(picked.option.info);
-    _VMESSAGE("dialogue menu: picked %u, %08X '%s', answer topic %08X", picked.index, picked.option.info->formID,
-             picked.option.prompt.c_str(), picked.option.answer->formID);
+    g_engine.markSaid(picked.option.info);
+    REX::DEBUG("dialogue menu: picked {}, {:08X} '{}', answer topic {:08X}", picked.index,
+               picked.option.info->GetFormID(), picked.option.prompt, picked.option.answer->GetFormID());
     return picked.option.info;
 }
 
 // Whether `actor`'s 3D is loading (TESObjectREFR model state 1), which holds its line back (0x2C6E60).
 bool Loading3D(TESObjectREFR *actor) {
-    return actor && At<UInt8>(actor, REFR_MODEL_STATE) == MODEL_LOADING;
+    return actor && Field<std::uint8_t>(actor, REFR_MODEL_STATE) == MODEL_LOADING;
 }
 
 // The answer line already picked for our option: again for the action it went to (the engine asks until the NPC
 // can say it), none for another action. Logs the first ask again and every hundredth.
 TESForm *Again(const Chosen &picked, void *action, void *scene) {
     if (picked.answeredBy != action) return nullptr;
-    UInt32 asks;
+    std::uint32_t asks;
     {
         std::lock_guard<std::mutex> hold(g_dialogueLock);
         asks = g_chosen.line == picked.line ? ++g_chosen.asks : 0;
     }
-    NiPointer<TESObjectREFR> npc = ActionActor(action, scene);
+    RE::NiPointer<TESObjectREFR> npc = ActionActor(action, scene);
     if (asks == 1 || asks % 100 == 0)
-        _VMESSAGE("dialogue menu: +%llu ms: asked again (%u) for %08X; NPC 3D loading %d", GetTickCount64() - g_pickedAt,
-                 asks, picked.line->formID, Loading3D(npc));
+        REX::DEBUG("dialogue menu: +{} ms: asked again ({}) for {:08X}; NPC 3D loading {}", SincePick(), asks,
+                   picked.line->GetFormID(), Loading3D(npc.get()));
     return picked.line;
 }
 
 // The answer to our option `chosen` (of Player Dialogue action `owner`, unless null), said by `action`'s actor: its
 // answer topic's first passing INFO, picked once and given to that action until it is said.
-TESForm *Answer(void *owner, void *action, void *scene, UInt32 chosen, const char *where) {
+TESForm *Answer(void *owner, void *action, void *scene, std::uint32_t chosen, const char *where) {
     Chosen picked;
     if (!PickedOption(owner, chosen, &picked)) return nullptr;
     if (picked.line) return Again(picked, action, scene);
-    NiPointer<TESObjectREFR> npc = ActionActor(action, scene);
-    TESForm *info = npc ? Pick(picked.option.answer, npc, *g_player) : nullptr;
+    RE::NiPointer<TESObjectREFR> npc = ActionActor(action, scene);
+    TESForm *info = npc ? g_engine.pick(picked.option.answer, npc.get(), RE::PlayerCharacter::GetSingleton()) : nullptr;
     if (info) {
         std::lock_guard<std::mutex> hold(g_dialogueLock);
         if (g_chosen.action == picked.action) g_chosen.line = info, g_chosen.answeredBy = action;
     }
-    _VMESSAGE("dialogue menu: %s answers %u from topic %08X with %08X", where, picked.index,
-             picked.option.answer->formID, info ? info->formID : 0);
+    REX::DEBUG("dialogue menu: {} answers {} from topic {:08X} with {:08X}", where, picked.index,
+               picked.option.answer->GetFormID(), info ? info->GetFormID() : 0);
     return info;
 }
 
 // The NPC slot of a Player Dialogue action.
-TESForm *NpcSlot(void *action, void *scene, TESObjectREFR *target, SInt32 option) {
-    UInt32 chosen = At<UInt32>(action, ACTION_OPTION);
-    if (chosen < FIRST_OURS) return g_optionInfo(action, scene, target, option);
+TESForm *NpcSlot(void *action, void *scene, TESObjectREFR *target, std::int32_t option) {
+    std::uint32_t chosen = Field<std::uint32_t>(action, ACTION_OPTION);
+    if (chosen < FIRST_OURS) return g_engine.optionInfo(action, scene, target, option);
     return Answer(action, action, scene, chosen, "NPC slot");
 }
 
 // An NPC Response action after a Player Dialogue one: our option's answer when its NPC slot gave none.
 TESForm *Response(void *action, void *scene) {
-    UInt32 chosen = At<UInt32>(*g_player, PLAYER_RESPONSE);
-    if (chosen < FIRST_OURS) return g_responseInfo(action, scene);
+    std::uint32_t chosen = Field<std::uint32_t>(RE::PlayerCharacter::GetSingleton(), PLAYER_RESPONSE);
+    if (chosen < FIRST_OURS) return g_engine.responseInfo(action, scene);
     return Answer(nullptr, action, scene, chosen, "NPC Response");
 }
 
@@ -528,200 +557,222 @@ bool Talking(void *actor) {
 // While our picked option's action runs, through the NPC's line: each change in what the NPC slot waits on
 // (0x415954, 0x415AC5), with the time since the pick. The NPC talking turning 1 is when the answer starts.
 void TraceWaits(void *action, void *scene) {
-    PlayerCharacter *player = *g_player;
-    if (!player || !g_pickedAt || g_chosen.action != action) return;
-    NiPointer<TESObjectREFR> npc = ActionActor(action, scene);
-    UInt32 flags = At<UInt32>(action, ACTION_FLAGS);
-    UInt32 waits = (flags & PLAYER_DONE ? 1 : 0) | (flags & NPC_SAID ? 2 : 0) | (Talking(player) ? 4 : 0) |
-                   (At<UInt32>(player, PLAYER_NO_WAIT) & 2 ? 8 : 0) | (Talking(npc) ? 16 : 0) |
-                   (Loading3D(npc) ? 32 : 0);
+    RE::PlayerCharacter *player = RE::PlayerCharacter::GetSingleton();
+    if (!player || g_pickedAt == std::chrono::steady_clock::time_point{} || g_chosen.action != action) return;
+    RE::NiPointer<TESObjectREFR> npc = ActionActor(action, scene);
+    std::uint32_t flags = Field<std::uint32_t>(action, ACTION_FLAGS);
+    std::uint32_t waits = (flags & PLAYER_DONE ? 1 : 0) | (flags & NPC_SAID ? 2 : 0) | (Talking(player) ? 4 : 0) |
+                          (Field<std::uint32_t>(player, PLAYER_NO_WAIT) & 2 ? 8 : 0) | (Talking(npc.get()) ? 16 : 0) |
+                          (Loading3D(npc.get()) ? 32 : 0);
     if (waits == g_lastWaits) return;
     g_lastWaits = waits;
-    _VMESSAGE("dialogue menu: +%llu ms: player line %s, NPC line %s, player talking %d (no-wait flag %d), NPC talking %d"
-             ", NPC 3D loading %d", GetTickCount64() - g_pickedAt, waits & 1 ? "done" : "pending",
-             waits & 2 ? "said" : "not said", (waits & 4) != 0, (waits & 8) != 0, (waits & 16) != 0, (waits & 32) != 0);
+    REX::DEBUG("dialogue menu: +{} ms: player line {}, NPC line {}, player talking {} (no-wait flag {}), NPC talking {}"
+               ", NPC 3D loading {}", SincePick(), waits & 1 ? "done" : "pending", waits & 2 ? "said" : "not said",
+               (waits & 4) != 0, (waits & 8) != 0, (waits & 16) != 0, (waits & 32) != 0);
 }
 
 // A Player Dialogue action's run: remember it as the running one.
-UInt64 Run(void *action, void *scene, void *third, void *fourth) {
+std::uint64_t Run(void *action, void *scene, void *third, void *fourth) {
     g_running = action;
     g_runningScene = scene;
     TraceWaits(action, scene);
     return g_run(action, scene, third, fourth);
 }
 
-// End the player's conversation as Papyrus Scene.Stop does, on the game's thread.
-class LeaveTask : public ITaskDelegate {
-public:
-    void Run() override {
-        PlayerCharacter *player = *g_player;
-        BGSScene *scene = player ? player->GetCurrentScene() : nullptr;
-        if (!scene) {
-            _VMESSAGE("dialogue menu: leave: the player is in no scene");
-            return;
-        }
-        StopScene(scene);
-        At<UInt32>(scene, SCENE_FLAGS) |= SCENE_STOPPING;
-        _VMESSAGE("dialogue menu: left the talk (stopped scene %08X)", reinterpret_cast<TESForm *>(scene)->formID);
+// End the player's conversation as Papyrus Scene.Stop does (run on the game's thread).
+void Leave() {
+    RE::PlayerCharacter *player = RE::PlayerCharacter::GetSingleton();
+    RE::BGSScene *scene = player ? player->GetCurrentScene() : nullptr;
+    if (!scene) {
+        REX::DEBUG("dialogue menu: leave: the player is in no scene");
+        return;
     }
-};
+    g_engine.stopScene(scene);
+    Field<std::uint32_t>(scene, SCENE_FLAGS) |= SCENE_STOPPING;
+    REX::DEBUG("dialogue menu: left the talk (stopped scene {:08X})", reinterpret_cast<TESForm *>(scene)->GetFormID());
+}
 
-// The call at `site`'s target when it still calls `vanilla`; null otherwise.
+// The call at `site`'s target as `Fn` when it still calls `vanilla`; null otherwise.
 template <class Fn>
-Fn Target(uintptr_t site, uintptr_t vanilla) {
+Fn Target(std::uintptr_t site, std::uintptr_t vanilla) {
     return CallsTarget(site, vanilla) ? reinterpret_cast<Fn>(vanilla) : nullptr;
+}
+
+// Every engine function into g_engine; false when the runtime's database lacks one.
+bool ResolveEngine() {
+    g_engine = {At<OptionInfoFn>(OPTION_INFO), At<ResponseFn>(RESPONSE_INFO), At<PickFn>(PICK), At<PassesFn>(PASSES),
+                At<PromptFn>(PROMPT), At<SaidFn>(MARK_SAID), At<AliasFn>(ALIAS_HANDLE), At<HandleFn>(HANDLE_REF),
+                At<SelectFn>(SELECT_OPTION), At<StopFn>(STOP_SCENE), At<StaticNameFn>(ZOOM_IN_NAME),
+                At<StaticNameFn>(ZOOM_OUT_NAME), At<ShadeFn>(ENABLE_SHADED_BACKGROUND), At<TintFn>(TINT_CHALLENGE),
+                Address(SHADER_TARGET_VTABLE)};
+    return g_engine.optionInfo && g_engine.responseInfo && g_engine.pick && g_engine.passes && g_engine.prompt &&
+           g_engine.markSaid && g_engine.aliasHandle && g_engine.handleRef && g_engine.selectOption &&
+           g_engine.stopScene;
 }
 
 // ---- The menu's natives (f4se.plugins.CleanroomDialogue in the menu's movie) ----
 
 // GetDialogueOptions(): [{text, said, failed}] of the running action's options; [] when it has none of ours.
-class GetOptionsNative : public GFxFunctionHandler {
+class GetOptionsNative : public FunctionHandler {
 public:
-    void Invoke(Args *args) override {
-        GFxMovieRoot *movie = args->movie->movieRoot;
-        movie->CreateArray(args->result);
+    void Call(const Params &params) override {
+        params.movie->CreateArray(params.retVal);
         void *scene = nullptr, *action = g_hooked ? WaitingAction(&scene) : nullptr;
         if (!action) return;
         std::lock_guard<std::mutex> hold(g_dialogueLock);
         ReadAllLinks();
-        NiPointer<TESObjectREFR> npc = ActionActor(action, scene);
+        RE::NiPointer<TESObjectREFR> npc = ActionActor(action, scene);
         Census census;
         g_menu.action = action;
-        g_menu.options = npc ? ListOptions(action, npc, &census) : std::vector<Option>();
-        if (g_menu.options.empty() && g_noneLogged != action) LogNoOptions(scene, npc, census);
+        g_menu.options = npc ? ListOptions(action, npc.get(), &census) : std::vector<Option>();
+        if (g_menu.options.empty() && g_noneLogged != action) LogNoOptions(scene, npc.get(), census);
         g_noneLogged = g_menu.options.empty() ? action : nullptr;
-        for (UInt32 i = 0; i < g_menu.options.size(); i++) {
+        for (std::uint32_t i = 0; i < g_menu.options.size(); i++) {
             const Option &o = g_menu.options[i];
-            GFxValue entry, text, said(o.said), failed(o.failed);
-            movie->CreateObject(&entry);
-            movie->CreateString(&text, o.prompt.c_str());
-            entry.SetMember("text", &text);
-            entry.SetMember("said", &said);
-            entry.SetMember("failed", &failed);
-            args->result->PushBack(&entry);
-            _VMESSAGE("dialogue menu: option %u: %08X '%s' -> topic %08X%s", i, o.info->formID, o.prompt.c_str(),
-                     o.answer->formID, o.said ? " (said)" : "");
+            Value entry;
+            params.movie->CreateObject(&entry);
+            entry.SetMember("text", String(params.movie, o.prompt.c_str()));
+            entry.SetMember("said", Value(o.said));
+            entry.SetMember("failed", Value(o.failed));
+            params.retVal->PushBack(entry);
+            REX::DEBUG("dialogue menu: option {}: {:08X} '{}' -> topic {:08X}{}", i, o.info->GetFormID(), o.prompt,
+                       o.answer->GetFormID(), o.said ? " (said)" : "");
         }
-        if (!g_menu.options.empty()) _VMESSAGE("dialogue menu: %u options listed", UInt32(g_menu.options.size()));
+        if (!g_menu.options.empty()) REX::DEBUG("dialogue menu: {} options listed", g_menu.options.size());
     }
 };
 
 // SelectDialogueOption(index): pick listed option `index`; false when it is not listed or the action has moved on.
-class SelectNative : public GFxFunctionHandler {
+class SelectNative : public FunctionHandler {
 public:
-    void Invoke(Args *args) override {
-        args->result->SetBool(false);
-        if (args->numArgs < 1) return;
-        UInt32 index = UInt32(Num(args->args[0]));
+    void Call(const Params &params) override {
+        *params.retVal = false;
+        if (params.argCount < 1 || !g_hooked) return;
+        auto index = std::uint32_t(Num(params.args[0]));
         void *scene = nullptr, *action = WaitingAction(&scene);
         {
             std::lock_guard<std::mutex> hold(g_dialogueLock);
             if (!action || action != g_menu.action || index >= g_menu.options.size()) return;
             g_chosen = {action, index, g_menu.options[index]};
-            g_pickedAt = GetTickCount64();
+            g_pickedAt = std::chrono::steady_clock::now();
             g_lastWaits = ~0u;
         }
-        SelectOption(*g_player, index + FIRST_OURS);
-        args->result->SetBool(true);
+        g_engine.selectOption(RE::PlayerCharacter::GetSingleton(), index + FIRST_OURS);
+        *params.retVal = true;
     }
 };
 
 // LeaveDialogue(): end the talk (the menu's Tab, Esc and [Leave] when no option of ours is up).
-class LeaveNative : public GFxFunctionHandler {
+class LeaveNative : public FunctionHandler {
 public:
-    void Invoke(Args *args) override {
-        args->result->SetBool(g_dialogueTasks != nullptr);
-        if (g_dialogueTasks) g_dialogueTasks->AddTask(new LeaveTask);
+    void Call(const Params &params) override {
+        const F4SE::TaskInterface *tasks = g_engine.stopScene ? F4SE::GetTaskInterface() : nullptr;
+        *params.retVal = tasks != nullptr;
+        if (tasks) tasks->AddTask(Leave);
     }
 };
 
 // The DialogueMenu running `movie` and its holder's shader target at `slot`; nulls when either is missing.
-void *HolderTarget(GFxMovieView *movie, size_t slot, IMenu **menu) {
-    *menu = *g_ui ? (*g_ui)->GetMenuByMovie(movie) : nullptr;
-    void *target = *menu ? At<void *>(*menu, slot) : nullptr;
-    return target && *static_cast<uintptr_t *>(target) == SHADER_TARGET_VTABLE.GetUIntPtr() ? target : nullptr;
+void *HolderTarget(Scaleform::GFx::Movie *movie, std::size_t slot, RE::IMenu **out) {
+    auto *ui = RE::UI::GetSingleton();
+    Scaleform::Ptr<RE::IMenu> menu = ui ? ui->GetMenu("DialogueMenu"sv) : nullptr;
+    *out = menu && menu->uiMovie.get() == movie ? menu.get() : nullptr;
+    void *target = *out ? Field<void *>(*out, slot) : nullptr;
+    return target && g_engine.shaderTargetVtable && *static_cast<std::uintptr_t *>(target) == g_engine.shaderTargetVtable
+               ? target
+               : nullptr;
 }
 
 // ShadeList(on): the game's translucent menu background behind the Question holder, where the list lives, on or
 // off. A fill inside a HUD-colored holder draws opaque (its alpha only darkens it), so the backdrop comes from here.
-class ShadeNative : public GFxFunctionHandler {
+class ShadeNative : public FunctionHandler {
 public:
-    void Invoke(Args *args) override {
-        bool on = args->numArgs > 0 && args->args[0].GetBool();
-        IMenu *menu = nullptr;
-        void *target = HolderTarget(args->movie, MENU_QUESTION_TARGET, &menu);
-        if (target && on) EnableShadedBackground(target, MENU_NO_COLOR_BACKGROUND, FULL_QUAD);
-        if (target && !on) At<UInt32>(target, TARGET_FX_FLAGS) &= ~FX_BACKGROUND_QUAD;
-        if (!target) _WARNING("dialogue menu: no shader target for the list's background");
-        args->result->SetBool(target != nullptr);
+    void Call(const Params &params) override {
+        bool on = params.argCount > 0 && params.args[0].IsBoolean() && params.args[0].GetBoolean();
+        RE::IMenu *menu = nullptr;
+        void *target = g_engine.enableShadedBackground ? HolderTarget(params.movie, MENU_QUESTION_TARGET, &menu) : nullptr;
+        if (target && on) g_engine.enableShadedBackground(target, MENU_NO_COLOR_BACKGROUND, FULL_QUAD);
+        if (target && !on) Field<std::uint32_t>(target, TARGET_FX_FLAGS) &= ~FX_BACKGROUND_QUAD;
+        if (!target) REX::WARN("dialogue menu: no shader target for the list's background");
+        *params.retVal = target != nullptr;
     }
 };
 
 // TintFailed(): the Negative holder, where the menu puts its failed skill checks, in the game's own speech-challenge
 // Hard tint. The game re-tints the holders on each SetButtonText, so the menu calls this after them.
-class TintFailedNative : public GFxFunctionHandler {
+class TintFailedNative : public FunctionHandler {
 public:
-    void Invoke(Args *args) override {
-        IMenu *menu = nullptr;
-        void *target = HolderTarget(args->movie, MENU_NEGATIVE_TARGET, &menu);
-        if (target) TintChallenge(menu, target, CHALLENGE_HARD, false);
-        else _WARNING("dialogue menu: no shader target for failed skill checks");
-        args->result->SetBool(target != nullptr);
+    void Call(const Params &params) override {
+        RE::IMenu *menu = nullptr;
+        void *target = g_engine.tintChallenge ? HolderTarget(params.movie, MENU_NEGATIVE_TARGET, &menu) : nullptr;
+        if (target) g_engine.tintChallenge(menu, target, CHALLENGE_HARD, false);
+        else REX::WARN("dialogue menu: no shader target for failed skill checks");
+        *params.retVal = target != nullptr;
     }
 };
 
-// Log(text): a line from the menu in CleanroomDialogue.log.
-class LogNative : public GFxFunctionHandler {
+// Log(text): a line from the menu in CleanroomDialogue.log, with the time since the pick once one is made.
+class LogNative : public FunctionHandler {
 public:
-    void Invoke(Args *args) override {
-        if (args->numArgs < 1 || !args->args[0].IsString()) return;
-        if (g_pickedAt) _VMESSAGE("dialogue menu: +%llu ms: %s", GetTickCount64() - g_pickedAt, args->args[0].GetString());
-        else _VMESSAGE("dialogue menu: %s", args->args[0].GetString());
+    void Call(const Params &params) override {
+        if (params.argCount < 1 || !params.args[0].IsString()) return;
+        if (g_pickedAt != std::chrono::steady_clock::time_point{})
+            REX::DEBUG("dialogue menu: +{} ms: {}", SincePick(), params.args[0].GetString());
+        else REX::DEBUG("dialogue menu: {}", params.args[0].GetString());
     }
 };
 
 }  // namespace
 
-bool RegisterDialogueMenu(GFxMovieView *view, GFxValue *plugin) {
-    GFxMovieRoot *movie = view ? view->movieRoot : nullptr;
-    if (!movie || !plugin) return false;
-    RegisterSharedNatives(movie, plugin);
-    RegisterFunction<GetOptionsNative>(plugin, movie, "GetDialogueOptions");
-    RegisterFunction<SelectNative>(plugin, movie, "SelectDialogueOption");
-    RegisterFunction<LogNative>(plugin, movie, "Log");
-    RegisterFunction<LeaveNative>(plugin, movie, "LeaveDialogue");
-    RegisterFunction<ShadeNative>(plugin, movie, "ShadeList");
-    RegisterFunction<TintFailedNative>(plugin, movie, "TintFailed");
+bool RegisterDialogueMenu(Scaleform::GFx::Movie *view, Value *plugin) {
+    if (!view || !plugin) return false;
+    RegisterSharedNatives(view, plugin);
+    RegisterFunction<GetOptionsNative>(plugin, view, "GetDialogueOptions");
+    RegisterFunction<SelectNative>(plugin, view, "SelectDialogueOption");
+    RegisterFunction<LogNative>(plugin, view, "Log");
+    RegisterFunction<LeaveNative>(plugin, view, "LeaveDialogue");
+    RegisterFunction<ShadeNative>(plugin, view, "ShadeList");
+    RegisterFunction<TintFailedNative>(plugin, view, "TintFailed");
     return true;
 }
 
-bool HookDialogue(void *tasks) {
-    g_dialogueTasks = static_cast<F4SETaskInterface *>(tasks);
-    if (GetModuleHandleA("XDI.dll")) {
-        _MESSAGE("dialogue menu: XDI.dll is loaded; leaving dialogue to XDI");
+bool HookDialogue() {
+    if (REX::W32::GetModuleHandleA("XDI.dll")) {
+        REX::INFO("dialogue menu: XDI.dll is loaded; leaving dialogue to XDI");
         return false;
     }
-    g_optionInfo = Target<OptionInfoFn>(PLAYER_SLOT_CALL.GetUIntPtr(), OptionInfo.GetUIntPtr());
-    bool npc = CallsTarget(NPC_SLOT_CALL.GetUIntPtr(), OptionInfo.GetUIntPtr());
-    g_responseInfo = Target<ResponseFn>(RESPONSE_CALL.GetUIntPtr(), ResponseInfo.GetUIntPtr());
-    auto *slot = reinterpret_cast<RunFn *>(PLAYER_DIALOGUE_VTABLE.GetUIntPtr() + RUN_SLOT * sizeof(void *));
-    if (!g_optionInfo || !npc || !g_responseInfo) {
-        _WARNING("dialogue menu: a call site no longer calls the vanilla function (player %d, NPC %d, response %d); "
-                 "not hooked", g_optionInfo != nullptr, npc, g_responseInfo != nullptr);
+    if (!CheckedRuntime()) {
+        REX::WARN("dialogue menu: not hooked on {}: its engine layouts are read in 1.11.240 only", RuntimeName());
         return false;
     }
-    g_speechPatch = !std::memcmp(reinterpret_cast<void *>(PLAYER_SPEAKS.GetUIntPtr()), SPEAKS, sizeof(SPEAKS)) &&
-                    *reinterpret_cast<UInt8 *>(CAMERA_TO_PLAYER.GetUIntPtr()) == CAMERA_PLAYER;
-    g_hooked = g_branchTrampoline.Write5Call(PLAYER_SLOT_CALL.GetUIntPtr(), uintptr_t(PlayerSlot)) &&
-               g_branchTrampoline.Write5Call(NPC_SLOT_CALL.GetUIntPtr(), uintptr_t(NpcSlot)) &&
-               g_branchTrampoline.Write5Call(RESPONSE_CALL.GetUIntPtr(), uintptr_t(Response));
-    if (g_hooked) {
-        g_run = *slot;
-        SafeWrite64(uintptr_t(slot), UInt64(&Run));
+    if (!ResolveEngine()) {
+        REX::WARN("dialogue menu: not hooked: the Address Library database lacks a function");
+        return false;
     }
-    _MESSAGE("dialogue menu: %s, player line skip %s, wheel zoom %s",
-             g_hooked ? "hooked" : "not hooked (no trampoline space)", g_speechPatch ? "ready" : "unavailable (code differs)",
-             g_hooked && HookWheel() ? "off the camera while choosing" : "unchanged (code differs)");
+    std::uintptr_t playerCall = Address(PLAYER_SLOT_CALL), npcCall = Address(NPC_SLOT_CALL);
+    std::uintptr_t responseCall = Address(RESPONSE_CALL), vtable = Address(PLAYER_DIALOGUE_VTABLE);
+    bool player = Target<OptionInfoFn>(playerCall, std::uintptr_t(g_engine.optionInfo)) != nullptr;
+    bool npc = CallsTarget(npcCall, std::uintptr_t(g_engine.optionInfo));
+    bool response = CallsTarget(responseCall, std::uintptr_t(g_engine.responseInfo));
+    if (!player || !npc || !response || !vtable) {
+        REX::WARN("dialogue menu: a call site no longer calls the vanilla function (player {}, NPC {}, response {}); "
+                  "not hooked", player, npc, response);
+        return false;
+    }
+    std::uintptr_t speaks = Address(PLAYER_SPEAKS), camera = Address(CAMERA_TO_PLAYER);
+    g_speechPatch = speaks && camera && !std::memcmp(reinterpret_cast<void *>(speaks), SPEAKS, sizeof(SPEAKS)) &&
+                    *reinterpret_cast<std::uint8_t *>(camera) == CAMERA_PLAYER;
+    auto &trampoline = REL::GetTrampoline();
+    trampoline.write_call<5>(playerCall, PlayerSlot);
+    trampoline.write_call<5>(npcCall, NpcSlot);
+    trampoline.write_call<5>(responseCall, Response);
+    auto *slot = reinterpret_cast<RunFn *>(vtable + RUN_SLOT * sizeof(void *));
+    g_run = *slot;
+    RunFn run = Run;
+    g_hooked = REL::WriteSafe(std::uintptr_t(slot), &run, sizeof(run));
+    REX::INFO("dialogue menu: {} on {}, player line skip {}, wheel zoom {}", g_hooked ? "hooked" : "not hooked",
+              RuntimeName(), g_speechPatch ? "ready" : "unavailable (code differs)",
+              g_hooked && HookWheel() ? "off the camera while choosing" : "unchanged (code differs)");
     return g_hooked;
 }
 

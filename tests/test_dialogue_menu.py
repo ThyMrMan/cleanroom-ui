@@ -36,14 +36,14 @@ def test_backdrop_is_the_games_shaded_background():
     """The backdrop is the engine's shaded background, never a fill."""
     source = DIALOGUE_CPP.read_text(encoding='utf-8')
     assert 'dll.ShadeList(on)' in MENU_AS.read_text(encoding='utf-8')
-    assert 'EnableShadedBackground(0x1B04350)' in source and 'MENU_QUESTION_TARGET = 0xF8' in source
+    assert 'ENABLE_SHADED_BACKGROUND = Next(2287022);' in source and 'MENU_QUESTION_TARGET = 0xF8' in source
 
 
 def test_failed_skill_checks_show_fnv_tags_in_the_hard_tint():
     """FNV's tags ([Speech 25] / [Sneak 17/25], two spaces after), failed rows in the Negative holder's Hard tint."""
     source, menu = DIALOGUE_CPP.read_text(encoding='utf-8'), MENU_AS.read_text(encoding='utf-8')
-    assert '"[%s %d/%u]  "' in source and '"[%s %u]  "' in source
-    assert 'TintChallenge(0x1043EF0)' in source and 'CHALLENGE_HARD = 3' in source
+    assert '"[{} {}/{}]  "' in source and '"[{} {}]  "' in source
+    assert 'TINT_CHALLENGE = Next(2248685);' in source and 'CHALLENGE_HARD = 3' in source
     assert 'MENU_NEGATIVE_TARGET = 0xE8' in source
     assert 'FadeHolder_mc.Negative.addChild(this.failedRows)' in menu and 'dll.TintFailed()' in menu
 
@@ -66,9 +66,10 @@ def test_npc_slot_gets_the_same_answer_on_every_ask():
 def test_prompts_write_out_the_players_macros_and_gray_on_the_answer_line():
     """&PCName; / &PCRace; (any case, or &amp;-escaped) become the player's; said follows the answer line."""
     source = DIALOGUE_CPP.read_text(encoding='utf-8')
-    assert 'if (name == "pcname")' in source and 'if (name == "pcrace")' in source
+    assert 'if (name == "pcname" && npc)' in source and 'if (name == "pcrace" && player->race)' in source
     assert 'if (name == "amp") name = MacroName(text, end + 1, &end);' in source
-    assert 'Expanded(own && *own ? own : Prompt(info)), At<UInt8>(line, INFO_SAID) != 0' in source
+    assert 'Expanded(own && *own ? own : g_engine.prompt(info))' in source
+    assert 'Field<std::uint8_t>(line, INFO_SAID) != 0' in source
 
 
 def test_unused_rows_leave_the_holder_so_the_backdrop_fits():

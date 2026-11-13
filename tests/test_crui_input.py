@@ -58,11 +58,12 @@ def test_images_asks_the_dll_for_a_texture_by_the_name_it_registers():
 
     See: docs/swf_framework.md#images
     """
-    gfx = (RUNTIME / 'shared' / 'gfx.cpp').read_text(encoding='utf-8')
-    assert 'RegisterFunction<TextureExistsNative>(plugin, movie, "TextureExists")' in gfx
-    assert 'std::string("Textures\\\\")' in gfx and 'BSResourceNiBinaryStream stream(path.c_str());' in gfx
-    for source in (RUNTIME / 'framework' / 'plugin.cpp', RUNTIME / 'dialogue' / 'dialogue.cpp'):
-        assert 'RegisterSharedNatives(movie, plugin);' in source.read_text(encoding='utf-8'), source
+    for shared in (RUNTIME / 'shared' / 'gfx.cpp', RUNTIME / 'base' / 'base.cpp'):
+        gfx = shared.read_text(encoding='utf-8')
+        assert 'RegisterFunction<TextureExistsNative>(plugin, movie, "TextureExists")' in gfx
+        assert 'std::string("Textures\\\\")' in gfx and 'BSResourceNiBinaryStream stream(path.c_str());' in gfx
+    assert 'RegisterSharedNatives(movie, plugin);' in (RUNTIME / 'framework' / 'plugin.cpp').read_text(encoding='utf-8')
+    assert 'RegisterSharedNatives(view, plugin);' in (RUNTIME / 'dialogue' / 'dialogue.cpp').read_text(encoding='utf-8')
     images = (LIBRARY / 'Images.as').read_text(encoding='utf-8')
     assert 'bridge.shared()' in images
     assert 'dll.TextureExists == null || dll.TextureExists(texturePath(path)) == true' in images

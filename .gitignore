@@ -15,3 +15,8 @@ obj/
 *.lib
 *.exp
 *.pdb
+
+# xmake (dll/xmake.lua)
+.xmake/
+build/
+vsxmake*/

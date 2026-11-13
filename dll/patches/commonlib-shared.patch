@@ -1,0 +1,63 @@
+diff --git a/include/REL/IDDB.h b/include/REL/IDDB.h
+index 63acdac..5b3f498 100644
+--- a/include/REL/IDDB.h
++++ b/include/REL/IDDB.h
+@@ -39,6 +39,9 @@ namespace REL
+ 
+ 		std::uint64_t offset(std::uint64_t a_id) const;
+ 
++		// Whether the loaded database has `a_id` (offset fails the game on an unknown one).
++		[[nodiscard]] bool has(std::uint64_t a_id) const noexcept;
++
+ 	private:
+ 		class STREAM;
+ 		class HEADER_V2;
+diff --git a/src/REL/IDDB.cpp b/src/REL/IDDB.cpp
+index 6156277..567d815 100644
+--- a/src/REL/IDDB.cpp
++++ b/src/REL/IDDB.cpp
+@@ -422,6 +422,18 @@ namespace REL
+ 		}
+ 	}
+ 
++	bool IDDB::has(std::uint64_t a_id) const noexcept
++	{
++		if (std::to_underlying(m_format) < 5) {
++			const MAPPING elem{ a_id, 0 };
++			const auto    it = std::lower_bound(m_v0.begin(), m_v0.end(), elem, [](auto&& a_lhs, auto&& a_rhs) {
++                return a_lhs.id < a_rhs.id;
++            });
++			return it != m_v0.end() && it->id == a_id;
++		}
++		return a_id < m_v5.size() && m_v5[a_id] != 0;
++	}
++
+ 	std::uint64_t IDDB::offset(std::uint64_t a_id) const
+ 	{
+ 		const auto mod = REX::FModule::GetExecutingModule();
+diff --git a/src/REX/FModule.cpp b/src/REX/FModule.cpp
+index fbf17f7..ecf898a 100644
+--- a/src/REX/FModule.cpp
++++ b/src/REX/FModule.cpp
+@@ -40,6 +40,11 @@ namespace
+ 		if (Contains(SUPPORTED_AE_VERSIONS, a_version)) {
+ 			return REX::FModule::Runtime::kAE;
+ 		}
++		// A game newer than every version listed runs as the newest runtime, so an update does not stop every plugin
++		// until it is rebuilt; its Address Library database still has to exist.
++		if (a_version > SUPPORTED_AE_VERSIONS.back()) {
++			return REX::FModule::Runtime::kAE;
++		}
+ 
+ 		return std::nullopt;
+ 	}
+@@ -52,7 +57,8 @@ namespace
+ 	static_assert(!GetRuntimeForVersion(REL::Version{ 1, 10, 162 }));
+ 	static_assert(!GetRuntimeForVersion(REL::Version{ 1, 10, 164 }));
+ 	static_assert(!GetRuntimeForVersion(REL::Version{ 1, 10, 985 }));
+-	static_assert(!GetRuntimeForVersion(REL::Version{ 1, 11, 241 }));
++	static_assert(GetRuntimeForVersion(REL::Version{ 1, 11, 241 }) == REX::FModule::Runtime::kAE);
++	static_assert(GetRuntimeForVersion(REL::Version{ 1, 12, 0 }) == REX::FModule::Runtime::kAE);
+ }
+ 
+ volatile const char* _LCE_{ "commonlib-shared (static) is licensed under GPL-3.0-or-later with modding exception and linking exception: github.com/libxse/commonlib-shared" };

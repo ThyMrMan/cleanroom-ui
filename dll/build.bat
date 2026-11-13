@@ -1,6 +1,7 @@
 @echo off
 REM Build Cleanroom UI's F4SE plugins (Fallout4.exe 1.11.240) into %1 (default: the repo's dist folder):
-REM CleanroomUI.dll (framework\) and CleanroomDialogue.dll (dialogue\), each with shared\ compiled in.
+REM CleanroomUI.dll (framework\), with shared\ compiled in. CleanroomDialogue.dll builds on CommonLibF4 with
+REM xmake.lua (python -m crui dll runs both).
 REM
 REM Needs F4SE 0.7.9's source and ianpatt's common, built as static libraries
 REM (docs/spin_offs.md#runtime). TOOLS_EXT defaults to a tools_ext folder beside
@@ -22,8 +23,6 @@ if not exist "%OUT%" mkdir "%OUT%"
 cd /d "%~dp0"
 
 call :plugin CleanroomUI framework plugin.cpp pipboy.cpp repair.cpp transfer.cpp vendor.cpp pages.cpp ammo.cpp card.cpp sex.cpp perks.cpp hud.cpp layout.cpp keys.cpp parts.cpp show.cpp
-if errorlevel 1 exit /b 1
-call :plugin CleanroomDialogue dialogue plugin.cpp dialogue.cpp
 if errorlevel 1 exit /b 1
 endlocal
 exit /b 0

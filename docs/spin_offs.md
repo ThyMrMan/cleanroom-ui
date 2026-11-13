@@ -154,7 +154,12 @@ Every DLL above needs both versions, so the port is done once:
    newer version as the latest known one (what AV does), offer that
    upstream as a pull request, and carry it locally if refused
    ([why](research/commonlibf4_forks.md#verdict)).
-3. Replace each `RelocAddr` with an Address Library ID. The fork names
+   Read 2026-11-13: the check is `GetRuntimeForVersion` in
+   `lib/commonlib-shared/src/REX/FModule.cpp`, an exact list per runtime;
+   `GetRuntimeIndex` calls `REX::FAIL` and `std::terminate` on any other,
+   and its own `static_assert` makes 1.11.241 unsupported.
+3. Replace each `RelocAddr` with an Address Library ID (next-gen IDs for
+   all of ours found 2026-11-13: [ids](#ids)). The fork names
    about half of F3NV.dll's ([coverage](research/commonlibf4_forks.md#ours))
    and the dialogue plan lists IDs for its functions. Find the rest by
    matching each function in the 1.10.163 exe, and send them upstream.
@@ -163,9 +168,145 @@ Every DLL above needs both versions, so the port is done once:
    `build.bat`. xmake finds Visual Studio itself, so the Community
    `vcvars64` workaround ([runtime DLL build](../../tes_runtime/common/msvc.bat))
    should stop being needed.
+   Checked 2026-11-13: the unchanged template (`tools_ext/commonlibf4-template`,
+   xmake 3.1.2) builds in 20 s with `xmake f -p windows -a x64 -m release`,
+   finding Visual Studio itself; without `-p windows`, under Git Bash, xmake
+   picks MinGW and fails on spdlog.
 5. Write a check for each hooked call site: when the bytes there aren't what
    we expect, log it and leave that feature off. The game should keep
    running.
+
+### <a id="port-status"></a>Where the port stands (2026-11-13, not played)
+
+- **CleanroomDialogue.dll is on CommonLibF4**, built by `dll/xmake.lua`
+  (`python -m crui dll` runs it after `build.bat`). CleanroomUI.dll stays on
+  F4SE 0.7.9 and `build.bat` for now. The C runtime is static, so the DLL
+  imports only system DLLs.
+- **Its 25 addresses are next-gen IDs** (each with its 1.11.240 RVA beside
+  it). An ID a database lacks resolves to 0, and the hooks stay off, in
+  place of CommonLibF4 ending the game.
+- **The hooks run only on 1.11.240** (`CheckedRuntime`), the one build whose
+  struct layouts were read. They also stay off when XDI.dll is loaded or a
+  call site doesn't call what we expect (step 5).
+- **Our two patches to commonlib-shared** are in `dll/patches/`, applied by
+  `crui` before each build: the version check (step 2) and `IDDB::has`.
+  Both are meant for upstream.
+- **xmake under the `py` launcher:** `py` is a packaged Windows app, and its
+  children can't see `%LOCALAPPDATA%\.xmake`. So `crui` points
+  `XMAKE_GLOBALDIR` at `out/xmake` (unless it is already set) and
+  reconfigures with `xmake f -c`. The first build downloads the packages
+  there.
+- **Not done:** old-gen IDs (20 still to match), the other game versions'
+  layouts, and moving CleanroomUI.dll over.
+
+### <a id="ids"></a>Our addresses as Address Library IDs (2026-11-13)
+
+Every hard-coded 1.11.240 address in `CleanroomUI.dll`, `CleanroomDialogue.dll`
+and the converter's `F3NV.dll`, as its next-gen ID, read from the Address
+Library databases (`fo3fnv-in-fo4`'s `tools/disasm/address_lib.py --rvas
+... --builds ...`). An ID with `+0x...` is a call site or a vtable slot
+inside that function or vtable: the ID moves with the build, the offset
+inside it may not, so each of those is a byte-checked patch (step 5).
+
+- **All 51 have an ID in 1.11.240**, and 48 exist in every next-gen
+  database (1.10.980, 1.10.984, 1.11.137, 1.11.191, 1.11.221).
+- **Three start at 1.11.137:** the topic manager, the Pip-Boy data and the
+  inventory interface globals (IDs 4796064, 4796372, 4796586). 1.10.980 and
+  984 number those globals elsewhere; find them there by matching.
+- **Old-gen (1.10.163)** numbers its IDs apart and has no table from these;
+  each needs matching in the 1.10.163 exe, which is not on disk.
+
+| DLL, file, name | 1.11.240 RVA | Next-gen ID | In next-gen |
+|---|---|---|---|
+| Dialogue `dialogue.cpp` AliasHandle | 0x671fa0 | 2207810 | all |
+| Dialogue `dialogue.cpp` CAMERA_TO_PLAYER | 0x83266c | 2214898+0xadc | all |
+| Dialogue `dialogue.cpp` EnableShadedBackground | 0x1b04350 | 2287022 | all |
+| Dialogue `dialogue.cpp` FIRST_PERSON_SHOULD | 0x10213e0 | 2248264 | all |
+| Dialogue `dialogue.cpp` FIRST_PERSON_VTABLE | 0x25aab08 | 246953 | all |
+| Dialogue `dialogue.cpp` HandleRef | 0x21e550 | 2188369 | all |
+| Dialogue `dialogue.cpp` MarkSaid | 0x69f8d0 | 2208467 | all |
+| Dialogue `dialogue.cpp` NPC_SLOT_CALL | 0x415a21 | 2196817+0x7a1 | all |
+| Dialogue `dialogue.cpp` OptionInfo | 0x416600 | 2196825 | all |
+| Dialogue `dialogue.cpp` PLAYER_DIALOGUE_VTABLE | 0x2488978 | 388825 | all |
+| Dialogue `dialogue.cpp` PLAYER_SLOT_CALL | 0x41568a | 2196817+0x40a | all |
+| Dialogue `dialogue.cpp` PLAYER_SPEAKS | 0x4158d2 | 2196817+0x652 | all |
+| Dialogue `dialogue.cpp` Passes | 0x69f490 | 2208464 | all |
+| Dialogue `dialogue.cpp` Pick | 0x698db0 | 2208361 | all |
+| Dialogue `dialogue.cpp` Prompt | 0x69e740 | 2208446 | all |
+| Dialogue `dialogue.cpp` RESPONSE_CALL | 0x413da8 | 2196800+0x388 | all |
+| Dialogue `dialogue.cpp` ResponseInfo | 0x414180 | 2196806 | all |
+| Dialogue `dialogue.cpp` SHADER_TARGET_VTABLE | 0x27236d0 | 298683 | all |
+| Dialogue `dialogue.cpp` SelectOption | 0xd76130 | 2233190 | all |
+| Dialogue `dialogue.cpp` StopScene | 0x638d60 | 2206866 | all |
+| Dialogue `dialogue.cpp` THIRD_PERSON_SHOULD | 0x102dfc0 | 2248466 | all |
+| Dialogue `dialogue.cpp` THIRD_PERSON_VTABLE | 0x2522a88 | 728085 | all |
+| Dialogue `dialogue.cpp` TintChallenge | 0x1043ef0 | 2248685 | all |
+| Dialogue `dialogue.cpp` ZoomInName | 0xb25620 | 2224896 | all |
+| Dialogue `dialogue.cpp` ZoomOutName | 0xa7a080 | 2223332 | all |
+| F3NV `damage.cpp` HitResist | 0xe38a00 | 2236862 | all |
+| F3NV `damage.cpp` HitTyped | 0xe387b0 | 2236861 | all |
+| F3NV `damage.cpp` PHYSICAL_CALL | 0xe38c3d | 2236862+0x23d | all |
+| F3NV `damage.cpp` ResistCurve | 0x6cb2e0 | 2209007 | all |
+| F3NV `damage.cpp` SHOT_RESIST_CALL | 0xe37472 | 2236846+0x252 | all |
+| F3NV `damage.cpp` SHOT_TYPED_CALL | 0xe373bf | 2236846+0x19f | all |
+| F3NV `damage.cpp` TYPED_CALL | 0xe3af4a | 2236870+0xca | all |
+| F3NV `hardcore.cpp` AMMO_DIFFICULTY_CALL | 0x3220e0 | 2193446+0x110 | all |
+| F3NV `hardcore.cpp` Difficulty | 0xd6d600 | 2233056 | all |
+| F3NV `plugin.cpp` COMBAT_PATH_SPRINTING | 0x2f38a98 | 2664479 | all |
+| F3NV `plugin.cpp` MaxHealth | 0x316940 | 2193227 | all |
+| F3NV `plugin.cpp` SPAWN_HEALTH_CALL | 0x271611 | 2190031+0xa1 | all |
+| F3NV `talk.cpp` EndTalkNative | 0xbb0720 | 2227155 | all |
+| F3NV `talk.cpp` HandleRef | 0x21e550 | 2188369 | all |
+| F3NV `talk.cpp` TopicManager | 0x30e6e50 | 4796064 | from 1.11.137 |
+| UI `perks.cpp` SetPlayerPerkCount | 0xd75ff0 | 2233187 | all |
+| UI `pipboy.cpp` g_inventoryDataVtable | 0x2544750 | 952887 | all |
+| UI `pipboy.cpp` g_pipboyData | 0x30e8af8 | 4796372 | from 1.11.137 |
+| UI `plugin.cpp` CHECK_STACK_ID_VTABLE | 0x247a038 | 168197 | all |
+| UI `plugin.cpp` FindAndWriteStackData | 0x502560 | 2200937 | all |
+| UI `plugin.cpp` SET_HEALTH_VTABLE | 0x252b680 | 606842 | all |
+| UI `repair.cpp` RemoveFromStack | 0x34e020 | 2194169 | all |
+| UI `transfer.cpp` BARTER_LINE_SLOT | 0x2534710 | 910737+0xe0 | all |
+| UI `transfer.cpp` CONTAINER_LINE_SLOT | 0x25ac7a8 | 1098621+0xe0 | all |
+| UI `transfer.cpp` ItemOf | 0x347c10 | 2194009 | all |
+| UI `transfer.cpp` g_inventoryInterface | 0x30ec470 | 4796586 | from 1.11.137 |
+
+**What CommonLibF4 already names** (`include/RE/IDs.h`, `IDs_VTABLE.h`,
+read 2026-11-13 at the template's pin `a312a9f`): 26 of our 46
+IDs, each with its old-gen ID (a `VariantID {old-gen, next-gen[, 1.11]}`),
+so these need no matching. The three globals missing from 1.10.980/984
+have their 1.10.98x IDs there too. Vtable IDs are one set across builds.
+
+| Next-gen ID | CommonLibF4 name | Old-gen ID |
+|---|---|---|
+| 1098621 | vtable `ContainerMenu` | same ID |
+| 168197 | vtable `BGSInventoryItem::CheckStackIDFunctor` | same ID |
+| 2193227 | `TESHealthForm::GetFormHealth` | 1515099 |
+| 2193446 | `TESWeightForm::GetFormWeight` | 1321341 |
+| 2194009 | `BGSInventoryInterface::RequestInventoryItem` | 1200959 |
+| 2194169 | `BGSInventoryList::RemoveItem1` | 400062 |
+| 2196800 | `BGSSceneActionNPCResponseDialogue::UpdateAction2` | 574707 |
+| 2196817 | `BGSSceneActionNPCResponseDialogue::UpdateAction1` | 1439851 |
+| 2196825 | `BGSSceneActionNPCResponseDialogue::GetCurrentTopicInfo` | 1369299 |
+| 2207810 | `TESQuest::GetAliasedRef` | 847223 |
+| 2209007 | `CombatFormulas::CalcResistedPercentage` | 420470 |
+| 2214898 | `DialogueCameraState::UpdateActorsAndAction` | 24497 |
+| 2233056 | `PlayerCharacter::GetDifficultyLevel` | 922962 |
+| 2233187 | `PlayerCharacter::SetPerkCount` | 616372 |
+| 2233190 | `PlayerCharacter::SetLastDialogueInput` | 696117 |
+| 2287022 | `BSGFxShaderFXTarget::EnableShadedBackground` | 278402 |
+| 246953 | vtable `FirstPersonState` | same ID |
+| 298683 | vtable `BSGFxShaderFXTarget` | same ID |
+| 388825 | vtable `BGSSceneActionPlayerDialogue` | same ID |
+| 4796064 | `MenuTopicManager::Singleton` | 1391114 (1.10.98x: 2688800) |
+| 4796372 | `PipboyDataManager::Singleton` | 1178971 (1.10.98x: 2689086) |
+| 4796586 | `BGSInventoryInterface::Singleton` | 501899 (1.10.98x: 2689299) |
+| 606842 | vtable `BGSInventoryItem::SetHealthFunctor` | same ID |
+| 728085 | vtable `ThirdPersonState` | same ID |
+| 910737 | vtable `BarterMenu` | same ID |
+| 952887 | vtable `PipboyInventoryData` | same ID |
+
+**Still to match in the 1.10.163 exe** (20, and each one we name
+goes upstream): 2188369, 2190031, 2196806, 2200937, 2206866, 2208361, 2208446, 2208464, 2208467, 2223332, 2224896, 2227155, 2236846, 2236861, 2236862, 2236870, 2248264, 2248466, 2248685, 2664479.
 
 ## <a id="platforms"></a>Platforms: PC versions, VR, consoles
 

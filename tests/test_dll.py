@@ -20,15 +20,19 @@ def _scaleform_name(entry):
 
 
 def test_each_dll_is_built_and_named_as_its_movies_ask():
-    """build.bat builds each DLL under the F4SE plugin name it gives and the Scaleform name its movie asks for."""
+    """build.bat builds CleanroomUI.dll and xmake.lua CleanroomDialogue.dll (CommonLibF4), each under the F4SE plugin
+    name it gives and the Scaleform name its movie asks for."""
     build = (DLL / 'build.bat').read_text(encoding='utf-8')
+    xmake = (DLL / 'xmake.lua').read_text(encoding='utf-8')
+    framework = (FRAMEWORK / 'plugin.cpp').read_text(encoding='utf-8')
+    assert 'call :plugin CleanroomUI framework plugin.cpp' in build and 'CleanroomDialogue dialogue' not in build
+    assert '"CleanroomUI",\n    "cleanroom-ui",' in framework.replace('\r\n', '\n')
+    assert 'target("CleanroomDialogue")' in xmake and 'name = "CleanroomDialogue"' in xmake
+    assert 'author = "cleanroom-ui"' in xmake
     for entry, name, movie in ((FRAMEWORK / 'plugin.cpp', 'CleanroomUI', REPO / 'menus/pipboy/as3/CRUI_Pipboy.as'),
                                (DIALOGUE / 'plugin.cpp', 'CleanroomDialogue',
                                 REPO / 'menus/dialogue/as3/DialogueMenu.as')):
-        source = entry.read_text(encoding='utf-8')
-        assert f'call :plugin {name} {entry.parent.name} plugin.cpp' in build
-        assert _scaleform_name(entry) == name and f'"{name}",\n    "cleanroom-ui",' in source.replace('\r\n', '\n')
-        assert re.search(rf'OpenLog\(("{name}"|NAME)\);', source)
+        assert _scaleform_name(entry) == name
         assert f'private static const DLL:String = "{name}";' in movie.read_text(encoding='utf-8')
     bridge = (REPO / 'as3' / 'crui' / 'Bridge.as').read_text(encoding='utf-8')
     assert 'natives("CleanroomUI")' in bridge and 'natives("CleanroomDialogue")' in bridge
@@ -108,18 +112,32 @@ def test_one_version_everywhere():
 
 
 def test_both_dlls_log_at_the_ini_level():
-    """Each DLL opens its log through OpenLog, which reads [Log] iLevel from its own INI."""
-    for entry, name in ((FRAMEWORK / 'plugin.cpp', '"CleanroomUI"'), (DIALOGUE / 'plugin.cpp', 'NAME')):
-        source = entry.read_text(encoding='utf-8')
-        assert f'OpenLog({name});' in source and 'gLog.OpenRelative' not in source
+    """Each DLL logs at the [Log] iLevel of its own INI: CleanroomUI.dll through OpenLog, CleanroomDialogue.dll
+    through LogLevel given to F4SE::Init."""
+    framework = (FRAMEWORK / 'plugin.cpp').read_text(encoding='utf-8')
+    assert 'OpenLog("CleanroomUI");' in framework and 'gLog.OpenRelative' not in framework
     assert '"iLevel"' in (DLL / 'shared' / 'gfx.cpp').read_text(encoding='utf-8')
+    assert '.logLevel = LogLevel(NAME), .logName = NAME' in (DIALOGUE / 'plugin.cpp').read_text(encoding='utf-8')
+    assert '"iLevel"' in (DLL / 'base' / 'base.cpp').read_text(encoding='utf-8')
+
+
+def test_the_dialogue_dll_hooks_only_where_its_layouts_were_read():
+    """Every address in dialogue.cpp is a next-gen Address Library ID (its 1.11.240 RVA beside it), resolved without
+    ending the game when a database lacks it; the hooks wait for the checked runtime."""
+    dialogue = (DIALOGUE / 'dialogue.cpp').read_text(encoding='utf-8')
+    assert 'RelocAddr' not in dialogue and len(re.findall(r'= Next\(\d+(, 0x[0-9A-F]+)?\);\s+// 0x', dialogue)) == 25
+    assert 'if (!CheckedRuntime())' in dialogue and 'if (!ResolveEngine())' in dialogue
+    base = (DLL / 'base' / 'base.cpp').read_text(encoding='utf-8')
+    assert 'if (!id || !db->has(id)) return 0;' in base
+    assert 'bool has(std::uint64_t a_id) const noexcept;' in (DLL / 'patches' / 'commonlib-shared.patch').read_text(
+        encoding='utf-8')
 
 
 def test_the_dialogue_release_stands_alone():
     """CleanroomDialogue.dll loads its own words (no plugin of ours needed) and reads its links from its own folder,
     the converter's old F3NV_Menus folder still read until the converter writes ours."""
     plugin = (DIALOGUE / 'plugin.cpp').read_text(encoding='utf-8')
-    assert 'Translation::ParseTranslation(translator, name);' in plugin and 'kMessage_InputLoaded' in plugin
+    assert 'translator->AddTranslationsMod(NAME);' in plugin and 'kInputLoaded' in plugin
     dialogue = (DIALOGUE / 'dialogue.cpp').read_text(encoding='utf-8')
     assert re.search(r'LINKS = "Data.+CleanroomDialogue.+";', dialogue)
     assert 'ReadFolder(LINKS)' in dialogue and 'ReadFolder(LEGACY_LINKS)' in dialogue
