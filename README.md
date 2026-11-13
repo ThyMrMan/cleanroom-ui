@@ -68,10 +68,12 @@ Pip-Boy tab quests, the dialogue links writer and test mod, and the casino.
 1. **Level-up host, the rest.** Play `CleanroomUI.esl` in game; skills of
    other mods; an MCM page for the host's own options (`SkillCap`,
    `ShowAllPerks`).
-2. **The converter moves to the `CRUI_` scripts.** Its copies are still
-   `F3NV_LevelUp*` (saves carry them: points, tags, added perks), and its
-   `CleanroomUI.esl` still names `F3NV_LevelUpHolder`. It needs a save
-   migration before it can use ours.
+2. **The converter on the `CRUI_` scripts: play it.** Built 2026-11-12, not
+   played (`fo3fnv-in-fo4`, branch `claude/fo4-dialogue-own-movie`): it
+   ships copies of ours and a byte-identical `CleanroomUI.esl`, and moves an
+   older save's `F3NV_LevelUp` points, added perks and options into
+   `CRUI_LevelUp` once. Its level-up movie still builds on its own `f3ui`
+   copy until it takes this repo as a submodule.
 3. **Split the DLL** as [spin_offs.md](docs/spin_offs.md#split) lays out:
    the framework (condition API, card lines, tabs, GFx helpers,
    `ChangeSex`), the dialogue menu as its own DLL, and the FNV-only rules
