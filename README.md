@@ -90,7 +90,12 @@ Status as of 2026-11-14. The full list, in order:
    conditions (combat, weapon drawn, V.A.T.S., a key, a value changing or
    low, the location moving, aiming, sneaking; `[Hud] sShow=Immersive`;
    each part's rule in the edit menu; other mods' conditions and rules
-   through `CRUI_Hud.SetCondition` and `SetShowRule`).
+   through `CRUI_Hud.SetCondition` and `SetShowRule`). And both DLLs as
+   ported to CommonLibF4 on 2026-11-13 and 14: every native and hook of
+   CleanroomUI.dll (item condition, repair and vendor repair, the
+   transfer and barter CND lines, the Pip-Boy lines, `ChangeSex`, the
+   perk points) and the dialogue menu's reference lookup
+   ([port](docs/spin_offs.md#port-status)).
 2. **This repo as the converter's submodule** in `external/`. The converter
    already runs on Cleanroom UI (on its `fo4-2026-10-31`, not played): its
    scripts on the `CRUI_` natives, its F3NV.dll cut to FNV's rules, shipping
@@ -99,7 +104,9 @@ Status as of 2026-11-14. The full list, in order:
 3. **The shared base, other game versions**: both DLLs are on CommonLibF4
    (built 2026-11-14, not played) and run on 1.11.240 only; next, the
    other game versions' layouts (old-gen IDs matched 2026-11-14)
-   ([port](docs/spin_offs.md#port-status)).
+   ([port](docs/spin_offs.md#port-status)). Upstream to CommonLibF4: our
+   two patches (the version check, `IDDB::has`) and its two wrong old-gen
+   IDs ([which](docs/spin_offs.md#og-match)).
 4. **The container and barter CND line** as a movie, retiring that C++, and
    the movie check in preflight.
 5. **The HUD's rest, as play asks**: fades, hiding a part's pieces

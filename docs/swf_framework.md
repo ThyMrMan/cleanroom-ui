@@ -1789,7 +1789,7 @@ Each spike is one change, played in game.
    screen shows DXT3, DXT5 and a name with a space beside the DXT1 card
    ([level-up](#level-up)).
 
-### <a id="next"></a>Next, in order (2026-11-13)
+### <a id="next"></a>Next, in order (2026-11-14)
 
 **Play first.** Everything since the 2026-11-12 play is built and not
 played, and the rest builds on it. In Cleanroom UI's own build
@@ -1810,6 +1810,12 @@ played, and the rest builds on it. In Cleanroom UI's own build
    and a pad, the [layouts](#hud-layout), the [FNV preset](#fnv-preset)
    and [CND bar](#fnv-widgets), [hiding and recoloring](#hud-look), the
    [conditions](#hud-conditions).
+6. **Both DLLs on CommonLibF4** ([port](spin_offs.md#port-status)): every
+   native and hook of CleanroomUI.dll (item condition, repair and vendor
+   repair, the transfer and barter CND lines, the Pip-Boy lines,
+   `ChangeSex`, the perk points), all played before only in the F4SE 0.7.9
+   build, and the dialogue menu's reference lookup (CommonLibF4's
+   `GetSmartPointer`).
 
 **Then build:**
 1. **This repo as the converter's submodule.** The converter already runs on
@@ -1819,7 +1825,9 @@ played, and the rest builds on it. In Cleanroom UI's own build
 2. **The shared base, other game versions**: both DLLs are on CommonLibF4
    (built 2026-11-14, not played) and run on 1.11.240 only; next, the
    other game versions' layouts (old-gen IDs matched 2026-11-14)
-   ([port](spin_offs.md#port-status)).
+   ([port](spin_offs.md#port-status)). Upstream to CommonLibF4: our two
+   patches (the version check, `IDDB::has`) and its two wrong old-gen IDs
+   ([which](spin_offs.md#og-match)).
 3. **The container and barter CND line** through an injected movie, as the
    Pip-Boy's, retiring that C++.
 4. **The [movie check](#testing)** in preflight.
