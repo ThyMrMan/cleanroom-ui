@@ -15,8 +15,9 @@ namespace crui {
 
 namespace {
 
-// The runtime every layout and call site here was read in.
-const REL::Version CHECKED{1, 11, 240, 0};
+// The runtimes every layout and call site here was read in: 1.11.240, and old-gen 1.10.163, where each one used is
+// the same (docs/spin_offs.md#og-layouts).
+const REL::Version CHECKED[] = {{1, 11, 240, 0}, {1, 10, 163, 0}};
 
 // `path` lowercased with backslashes, as a BA2's name table holds it.
 std::string Key(std::string path) {
@@ -120,7 +121,7 @@ std::string RuntimeName() {
 }
 
 bool CheckedRuntime() {
-    return REX::FModule::GetExecutingModule().GetFileVersion() == CHECKED;
+    return std::ranges::contains(CHECKED, REX::FModule::GetExecutingModule().GetFileVersion());
 }
 
 REX::ELogLevel LogLevel(const char *name) {

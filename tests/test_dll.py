@@ -128,6 +128,7 @@ def test_the_dialogue_dll_hooks_only_where_its_layouts_were_read():
     assert 'if (!CheckedRuntime())' in dialogue and 'if (!ResolveEngine())' in dialogue
     base = (DLL / 'base' / 'base.cpp').read_text(encoding='utf-8')
     assert 'if (!id || !db->has(id)) return 0;' in base
+    assert 'CHECKED[] = {{1, 11, 240, 0}, {1, 10, 163, 0}};' in base
     assert 'bool has(std::uint64_t a_id) const noexcept;' in (DLL / 'patches' / 'commonlib-shared.patch').read_text(
         encoding='utf-8')
 

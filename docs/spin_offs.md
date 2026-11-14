@@ -196,8 +196,8 @@ Every DLL above needs both versions, so the port is done once:
 - **Its 25 addresses are next-gen IDs** (each with its 1.11.240 RVA beside
   it). An ID a database lacks resolves to 0, and the hooks stay off, in
   place of CommonLibF4 ending the game.
-- **The hooks run only on 1.11.240** (`CheckedRuntime`), the one build whose
-  struct layouts were read. They also stay off when XDI.dll is loaded or a
+- **The hooks run only on 1.11.240 and 1.10.163** (`CheckedRuntime`), the
+  builds whose struct layouts were read ([old-gen](#og-layouts)). They also stay off when XDI.dll is loaded or a
   call site doesn't call what we expect (step 5). CleanroomUI.dll goes
   further: on any other build it registers no natives and installs no menu
   hook at all, and logs that it is off.
@@ -209,10 +209,11 @@ Every DLL above needs both versions, so the port is done once:
   `XMAKE_GLOBALDIR` at `out/xmake` (unless it is already set) and
   reconfigures with `xmake f -c`. The first build downloads the packages
   there.
-- **Old-gen IDs are in** for both DLLs (2026-11-14, [ids](#ids)), but
-  nothing runs there yet: the hooks wait for old-gen's struct layouts.
-- **Not done:** the other game versions' layouts, and seven of F3NV.dll's
-  old-gen IDs ([open](#og-match)).
+- **Old-gen runs** (2026-11-14, not played): its IDs ([ids](#ids)) and
+  its struct layouts, every one the same ([layouts](#og-layouts)).
+- **Not done:** next-gen 1.10.984 and the other 1.11 builds' layouts
+  (their IDs are in), and seven of F3NV.dll's old-gen IDs
+  ([open](#og-match)).
 
 ### <a id="ids"></a>Our addresses as Address Library IDs (2026-11-13, old-gen 2026-11-14)
 
@@ -321,6 +322,42 @@ have their 1.10.98x IDs there too. Vtable IDs are one set across builds.
 | 728085 | vtable `ThirdPersonState` | same ID |
 | 910737 | vtable `BarterMenu` | same ID |
 | 952887 | vtable `PipboyInventoryData` | same ID |
+
+### <a id="og-layouts"></a>Old-gen's struct layouts (read 2026-11-14)
+
+Every engine layout both DLLs read is the same in 1.10.163 as in 1.11.240,
+so `CheckedRuntime` takes both. Each was read where the engine itself uses
+it, in a function pair matched above, by comparing the offsets the two
+builds' code reads, in order (scripts in `fo3fnv-in-fo4`'s `temp/og_ids/`:
+`og_layout.py`, `og_vtable_layout.py`, `og_field.py`):
+- **Ours, in `dialogue.cpp`:** the scene's quest (+0xA8); the action's
+  alias (+0x08), topics (+0x20), flags (+0x10) and chosen option (+0xE0);
+  the topic's INFOs, order and count (+0x50, +0x58, +0x60) and the INFO's
+  said byte (+0x43); the player's chosen response (+0xD3C) and no-wait
+  flag (+0x440); the actor's "talking" slot (vtable +0x270); the scene's
+  flags (+0x28); a reference's model state (+0x10A); DialogueMenu's holders
+  (+0xE0 on) and the shader target's flags (+0x8C); the camera's state
+  (+0x1D4). The run function reads no field at a different offset at all.
+- **Ours, in the framework:** PipboyInventoryData's line map (+0xF8, the
+  whole object's members lining up), the menus' inventory entry's count
+  and stacks (+0x08, +0x10).
+- **CommonLibF4's, as our code reads them:** the reference's inventory list
+  (+0xF8), its `data` and `rwLock` (+0x58, +0x78), a stack's `nextStack`
+  (+0x10), `ExtraHealth` (+0x18), the health functor's fields,
+  `BGSObjectInstanceExtra::values` (+0x18), `BGSListForm`'s lists (+0x20,
+  +0x38), `TESGlobal` (+0x20, +0x30), the weapon's and armor's value
+  (+0x2A4, +0x298), the camera's states (+0x28, +0xE0),
+  `PipboyDataManager::inventoryData` (+0x358) and the Pip-Boy value types,
+  `IMenu`'s movie and name (+0x40, +0x50), the actor state flags (+0x130,
+  +0x134), the perk count (+0xCF1), `TESDataHandler`'s file collection
+  (+0xFC0) and a file's name and index (+0x70, +0x370).
+- **Virtual functions:** ActorValueOwner, Actor, PlayerCharacter and
+  TESObjectREFR have as many slots in both builds (11, 307, 311, 198), the
+  slots' code alike, so CommonLibF4's slot numbers hold.
+
+Not read: the Scaleform `Value` layout `Identity` uses (the same GFx SDK in
+both builds) and the hash map inside the line map (the engine's own
+template).
 
 ### <a id="og-match"></a>How the old-gen IDs were matched (2026-11-14)
 

@@ -7,8 +7,9 @@
 // option index + 5. The engine then asks three call sites for the INFOs of the picked option; index 5 and up are ours,
 // below 5 go to the engine's functions as before.
 //
-// Read in Fallout4.exe 1.11.240 (its RVAs in the comments); each address is its next-gen Address Library ID
-// (docs/spin_offs.md#ids). The engine layouts below were read there only, so the hooks stay off on other runtimes.
+// Read in Fallout4.exe 1.11.240 (its RVAs in the comments); each address is its old-gen and next-gen Address Library
+// ID (docs/spin_offs.md#ids). The engine layouts below were read there and are the same in old-gen 1.10.163
+// (docs/spin_offs.md#og-layouts); the hooks stay off on other runtimes.
 #include "dialogue.h"
 
 #include <atomic>
@@ -83,7 +84,8 @@ const Ids RESPONSE_CALL = Both(574707, 2196800, 0x388);     // 0x413DA8
 const Ids PLAYER_DIALOGUE_VTABLE = Both(388825, 388825);    // 0x2488978
 const std::size_t RUN_SLOT = 21;
 // The player starting to say the picked option (`mov rcx, rax` before the call at 0x4158E9); `jmp 0x4158F2` takes
-// the said path without saying it (old-gen orders that block otherwise: its jump is 0x14 bytes, not 0x1E). The camera's switch to the player (its 1 at 0x832665 + 7; 2 keeps it on the NPC).
+// the said path without saying it (old-gen orders that block otherwise: its jump is 0x14 bytes, not 0x1E). The
+// camera's switch to the player (its 1 at 0x832665 + 7; 2 keeps it on the NPC).
 const Ids PLAYER_SPEAKS = Both(1439851, 2196817, 0x652, 0x62E); // 0x4158D2
 const Ids CAMERA_TO_PLAYER = Both(24497, 2214898, 0xADC, 0x940); // 0x83266C
 // The camera states that take the mouse wheel (first person: ZoomOut to third; third person: both), their vtables
@@ -101,7 +103,7 @@ const Ids TINT_CHALLENGE = Both(1432530, 2248685);          // 0x1043EF0
 const std::uint8_t SPEAKS[] = {0x48, 0x8B, 0xC8}, SILENT[] = {0xEB, 0x1E, 0x90}, SILENT_OG[] = {0xEB, 0x14, 0x90};
 const std::uint8_t CAMERA_PLAYER = 1, CAMERA_SPEAKER = 2;
 
-// ---- Engine layouts (1.11.240) ----
+// ---- Engine layouts (1.11.240; the same in 1.10.163) ----
 // BGSScene: its quest. Scene action: its alias, its four player topics, its chosen option (4: none).
 const std::size_t SCENE_QUEST = 0xA8, ACTION_ALIAS = 0x08, ACTION_TOPICS = 0x20, ACTION_OPTION = 0xE0;
 // TESTopic: its INFOs, their order (u16 head at +2, next of INFO i at 4 * i + 4), their count. TESTopicInfo: said.
@@ -222,7 +224,8 @@ void ReadCheck(std::uint32_t info, const std::vector<std::string> &f, std::size_
     std::uint32_t id = Resolve(f[at], f[at + 1]);
     TESForm *av = id ? TESForm::GetFormByID(id) : nullptr;
     if (!av || av->GetFormType() != RE::ENUM_FORM_ID::kAVIF) return;
-    g_checks[info] = {static_cast<RE::ActorValueInfo *>(av), std::uint32_t(std::strtoul(f[at + 2].c_str(), nullptr, 10))};
+    auto needed = std::uint32_t(std::strtoul(f[at + 2].c_str(), nullptr, 10));
+    g_checks[info] = {static_cast<RE::ActorValueInfo *>(av), needed};
     (*checks)++;
 }
 
@@ -409,8 +412,8 @@ std::vector<Option> ListOptions(void *action, TESObjectREFR *npc, Census *census
 
 // Why a waiting menu lists none of ours: its scene, its NPC and how far its lines got.
 void LogNoOptions(void *scene, TESObjectREFR *npc, const Census &census) {
-    REX::DEBUG("dialogue menu: none of ours in scene {:08X} with NPC {:08X}: {} lines, {} linked, {} pass, {} answered; "
-               "first failing linked line {:08X}", static_cast<TESForm *>(scene)->GetFormID(),
+    REX::DEBUG("dialogue menu: none of ours in scene {:08X} with NPC {:08X}: {} lines, {} linked, {} pass, "
+               "{} answered; first failing linked line {:08X}", static_cast<TESForm *>(scene)->GetFormID(),
                npc ? npc->GetFormID() : 0, census.lines, census.linked, census.passing, census.answered, census.failed);
 }
 
@@ -671,9 +674,8 @@ void *HolderTarget(Scaleform::GFx::Movie *movie, std::size_t slot, RE::IMenu **o
     Scaleform::Ptr<RE::IMenu> menu = ui ? ui->GetMenu("DialogueMenu"sv) : nullptr;
     *out = menu && menu->uiMovie.get() == movie ? menu.get() : nullptr;
     void *target = *out ? Field<void *>(*out, slot) : nullptr;
-    return target && g_engine.shaderTargetVtable && *static_cast<std::uintptr_t *>(target) == g_engine.shaderTargetVtable
-               ? target
-               : nullptr;
+    std::uintptr_t vtable = g_engine.shaderTargetVtable;
+    return target && vtable && *static_cast<std::uintptr_t *>(target) == vtable ? target : nullptr;
 }
 
 // ShadeList(on): the game's translucent menu background behind the Question holder, where the list lives, on or
@@ -683,7 +685,8 @@ public:
     void Call(const Params &params) override {
         bool on = params.argCount > 0 && params.args[0].IsBoolean() && params.args[0].GetBoolean();
         RE::IMenu *menu = nullptr;
-        void *target = g_engine.enableShadedBackground ? HolderTarget(params.movie, MENU_QUESTION_TARGET, &menu) : nullptr;
+        void *target =
+            g_engine.enableShadedBackground ? HolderTarget(params.movie, MENU_QUESTION_TARGET, &menu) : nullptr;
         if (target && on) g_engine.enableShadedBackground(target, MENU_NO_COLOR_BACKGROUND, FULL_QUAD);
         if (target && !on) Field<std::uint32_t>(target, TARGET_FX_FLAGS) &= ~FX_BACKGROUND_QUAD;
         if (!target) REX::WARN("dialogue menu: no shader target for the list's background");
@@ -735,7 +738,8 @@ bool HookDialogue() {
         return false;
     }
     if (!CheckedRuntime()) {
-        REX::WARN("dialogue menu: not hooked on {}: its engine layouts are read in 1.11.240 only", RuntimeName());
+        REX::WARN("dialogue menu: not hooked on {}: its engine layouts are read in 1.11.240 and 1.10.163 only",
+                  RuntimeName());
         return false;
     }
     if (!ResolveEngine()) {
