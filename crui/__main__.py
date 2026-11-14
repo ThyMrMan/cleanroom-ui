@@ -16,13 +16,12 @@ from crui import POPEN_FLAGS, REPO, menus, mxmlc, papyrus, plugin, translations
 
 STEPS = ('plugin', 'translations', 'movies', 'scripts', 'dll')
 DEFAULT_OUT = REPO / 'dist' / 'CleanroomUI'
-DLL_BUILD = REPO / 'dll' / 'build.bat'
 #: CommonLibF4 (CRUI_COMMONLIBF4, else the template's beside this repo) and our patches to its commonlib-shared.
 COMMONLIB = Path(os.environ.get('CRUI_COMMONLIBF4')
                  or REPO.parent / 'tools_ext' / 'commonlibf4-template' / 'lib' / 'commonlibf4')
 PATCHES = REPO / 'dll' / 'patches'
 #: The DLLs dll/xmake.lua builds, where it puts them, and where xmake is when it is not on PATH.
-XMAKE_DLLS = ('CleanroomDialogue',)
+XMAKE_DLLS = ('CleanroomUI', 'CleanroomDialogue')
 XMAKE_OUT = REPO / 'dll' / 'build' / 'windows' / 'x64' / 'release'
 XMAKE_DEFAULT = Path('C:/Program Files/xmake/xmake.exe')
 #: xmake's folder unless XMAKE_GLOBALDIR is set: children of the py launcher can't see %LOCALAPPDATA%\.xmake.
@@ -89,31 +88,26 @@ def xmake() -> 'str | None':
     return found or (str(XMAKE_DEFAULT) if XMAKE_DEFAULT.is_file() else None)
 
 
-def build_xmake(plugins: Path) -> bool:
-    """XMAKE_DLLS built by dll/xmake.lua (CommonLibF4, patched first) and copied into `plugins`."""
+def build_dll(out: Path) -> bool:
+    """XMAKE_DLLS built by dll/xmake.lua (CommonLibF4, patched first) into <out>/F4SE/Plugins; False when one fails,
+    or off Windows."""
+    if sys.platform != 'win32':
+        print('[dll] needs Windows and Visual Studio')
+        return False
     tool = xmake()
     if not tool:
         print('[dll] xmake not found; install it or set CRUI_XMAKE')
         return False
     dll, env = REPO / 'dll', {'XMAKE_GLOBALDIR': str(XMAKE_HOME), **os.environ}
     if not (patch_commonlib() and _run([tool, 'f', '-c', '-p', 'windows', '-a', 'x64', '-m', 'release', '-y'], dll, env)
-            and _run([tool, 'build', '-y', *XMAKE_DLLS], dll, env)):
+            and all(_run([tool, 'build', '-y', name], dll, env) for name in XMAKE_DLLS)):
         return False
+    plugins = out / 'F4SE' / 'Plugins'
     plugins.mkdir(parents=True, exist_ok=True)
     for name in XMAKE_DLLS:
         shutil.copyfile(XMAKE_OUT / f'{name}.dll', plugins / f'{name}.dll')
         print(f'[dll] {name}.dll -> {plugins}')
     return True
-
-
-def build_dll(out: Path) -> bool:
-    """CleanroomUI.dll (dll/build.bat, F4SE 0.7.9) and CleanroomDialogue.dll (build_xmake, CommonLibF4) into
-    <out>/F4SE/Plugins; False when either fails or off Windows."""
-    if sys.platform != 'win32':
-        print('[dll] needs Windows and Visual Studio')
-        return False
-    plugins = out / 'F4SE' / 'Plugins'
-    return _run(['cmd', '/c', str(DLL_BUILD), str(plugins)]) and build_xmake(plugins)
 
 
 def main(argv=None) -> int:

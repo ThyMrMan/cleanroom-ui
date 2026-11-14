@@ -37,9 +37,8 @@ def test_the_item_card_api_script_declares_the_native_card_cpp_registers():
     card = (RUNTIME / 'card.cpp').read_text(encoding='utf-8')
     name = re.search(r'SCRIPT = "(\w+)"', card).group(1)
     script = (REPO / 'papyrus' / f'{name}.psc').read_text(encoding='utf-8')
-    assert '"SetLine", SCRIPT, SetLine' in card
+    assert 'BindNativeMethod(SCRIPT, "SetLine", SetLine);' in card
     assert 'Function SetLine(Form akItem, String asLabel, String asValue) Global Native' in script
-    assert 'card.cpp' in (REPO / 'dll' / 'build.bat').read_text(encoding='utf-8')
 
 
 @pytest.mark.skipif(not mxmlc.available(), reason='the Flex SDK is not installed')

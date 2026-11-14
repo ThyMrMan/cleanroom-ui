@@ -36,8 +36,7 @@ files never go in git.
 | `plugin`, `translations` | Python alone | |
 | `movies` | Java and the Apache Flex SDK 4.16.1 with playerglobal 11.2 ([setup](docs/swf_framework.md#mxmlc-setup)) | `CRUI_FLEX`, else `../tools_ext/FlexSDK` |
 | `scripts` | Fallout 4's Creation Kit (the Papyrus compiler and `Base.zip`) and F4SE's script sources | `CRUI_FALLOUT4`, else the registered install, else Steam's default; F4SE's in `CRUI_F4SE_SCRIPTS`, else `Data/Scripts/Source` |
-| `dll`: CleanroomUI.dll (`dll/build.bat`) | Visual Studio with the C++ x64 tools (found by vswhere); F4SE 0.7.9's source and ianpatt's `common`, built as static libraries | `TOOLS_EXT` (default `../tools_ext`), or `F4SE_ROOT` and `COMMON_ROOT` |
-| `dll`: CleanroomDialogue.dll (`dll/xmake.lua`) | xmake 3.1 and Visual Studio; Dear-Modding's CommonLibF4 (from `commonlibf4-template`, submodules included), which `crui` patches from `dll/patches/` first | xmake: `CRUI_XMAKE`, else `PATH`, else `C:\Program Files\xmake`; CommonLibF4: `CRUI_COMMONLIBF4`, else `../tools_ext/commonlibf4-template/lib/commonlibf4` |
+| `dll`: CleanroomUI.dll and CleanroomDialogue.dll (`dll/xmake.lua`) | xmake 3.1 and Visual Studio; Dear-Modding's CommonLibF4 (from `commonlibf4-template`, submodules included), which `crui` patches from `dll/patches/` first | xmake: `CRUI_XMAKE`, else `PATH`, else `C:\Program Files\xmake`; CommonLibF4: `CRUI_COMMONLIBF4`, else `../tools_ext/commonlibf4-template/lib/commonlibf4` |
 
 The game's `Base.zip` is unpacked into `out/cache/` when the Creation Kit
 hasn't unpacked it yet. xmake keeps its downloaded libraries in
@@ -64,7 +63,7 @@ mods reach the running one with that plugin as their only master
 | `menus/hud/` | The HUD host CleanroomUI.dll loads (`Interface/CRUI_Hud.swf`): mods' widget movies and the built-in stats line; the stats widget HUDFramework hosts when installed (`Interface/CRUI_HudStats.swf`); the edit menu for our host's widgets (`Interface/CRUI_HudEdit.swf`); and the layout of the game's own HUD parts from `DEF_HUD.xml` (`PartLayout.as`) |
 | `menus/dialogue/` | The dialogue menu (`Interface/DialogueMenu.swf`) |
 | `papyrus/` | The level-up host, its holder and its per-plugin tables (`CRUI_LevelUp`, `CRUI_LevelUpHolder`, `CRUI_LevelUpTable`), `CRUI_Array`, and the scripts declaring CleanroomUI.dll's natives (`CRUI_Condition`, `CRUI_Framework`, `CRUI_HudNative`, `CRUI_ItemCard`, `CRUI_LevelUpNative`, `CRUI_Pipboy`, `CRUI_PipboyAmmo`, `CRUI_Sex`), and `CRUI_Hud`, which puts widgets on HUDFramework when installed, else on our host |
-| `dll/` | `build.bat` and `framework/` (CleanroomUI.dll, F4SE 0.7.9: condition API, Pip-Boy overlay, card lines, tabs, repair and ammo lists, transfer menus, `ChangeSex`, the game's perk points) with `shared/` (Flash helpers and the natives every movie may call); `xmake.lua` and `dialogue/` (CleanroomDialogue.dll, CommonLibF4) with `base/` (the same helpers and natives on CommonLibF4); `patches/` (ours to CommonLibF4) |
+| `dll/` | `xmake.lua` building both DLLs on CommonLibF4: `framework/` (CleanroomUI.dll: condition API, Pip-Boy overlay, card lines, tabs, repair and ammo lists, transfer menus, `ChangeSex`, the game's perk points) and `dialogue/` (CleanroomDialogue.dll), both with `base/` (Flash helpers and the natives every movie may call); `patches/` (ours to CommonLibF4) |
 | `docs/` | The framework, level-up and spin-off plans, as written for the converter |
 | `tests/` | Contract tests between movies, scripts and the DLL, and the reproducible builds |
 
@@ -97,8 +96,8 @@ Status as of 2026-11-14. The full list, in order:
    scripts on the `CRUI_` natives, its F3NV.dll cut to FNV's rules, shipping
    our two DLLs from a pinned commit, its dialogue links in
    `CleanroomDialogue\` ([split](docs/spin_offs.md#split-status)).
-3. **The shared base, CleanroomUI.dll's turn**: CleanroomDialogue.dll is on
-   CommonLibF4 (built 2026-11-13, not played); then CleanroomUI.dll, the
+3. **The shared base, other game versions**: both DLLs are on CommonLibF4
+   (built 2026-11-14, not played) and run on 1.11.240 only; next, the
    other game versions' layouts and old-gen IDs
    ([port](docs/spin_offs.md#port-status)).
 4. **The container and barter CND line** as a movie, retiring that C++, and

@@ -12,13 +12,6 @@
 // are forgotten as a save loads or a new game starts; each mod adds its own on every load.
 #include "condition.h"
 
-#include "f4se/GameMenus.h"
-#include "f4se/GameThreads.h"
-#include "f4se/PapyrusArgs.h"
-#include "f4se/PapyrusNativeFunctions.h"
-#include "f4se/PluginAPI.h"
-#include "f4se/ScaleformCallbacks.h"
-
 #include <algorithm>
 #include <cstring>
 #include <string>
@@ -43,9 +36,9 @@ struct Widget {
 // that shows it while not 0 (none: always).
 struct Stats {
     std::vector<std::string> labels;
-    std::vector<ActorValueInfo *> values;
+    std::vector<RE::ActorValueInfo *> values;
     std::vector<float> steps;
-    TESGlobal *shown = nullptr;
+    RE::TESGlobal *shown = nullptr;
 };
 
 // A message for widget `name`'s processMessage(command, params).
@@ -58,22 +51,10 @@ std::vector<Widget> g_widgets;                   // under g_lock
 std::unordered_map<std::string, Stats> g_stats;  // under g_lock
 std::vector<Message> g_messages;                 // under g_lock
 double g_version = 0.0;                          // raised as g_widgets changes, under g_lock
-F4SETaskInterface *g_tasks = nullptr;
-
-// `array`'s strings.
-std::vector<std::string> Strings(VMArray<BSFixedString> &array) {
-    std::vector<std::string> out;
-    for (UInt32 i = 0; i < array.Length(); i++) {
-        BSFixedString text;
-        array.Get(&text, i);
-        out.push_back(text.c_str() ? text.c_str() : "");
-    }
-    return out;
-}
 
 // The widget named `name`, or null (held under g_lock).
 const Widget *Find(const std::string &name) {
-    auto at = std::find_if(g_widgets.begin(), g_widgets.end(), [&](const Widget &w) { return w.name == name; });
+    auto at = std::ranges::find(g_widgets, name, &Widget::name);
     return at != g_widgets.end() ? &*at : nullptr;
 }
 
@@ -90,35 +71,30 @@ void HudChanged() {
 
 namespace {
 
-// Load our host into the HUD movie, once per HUD movie.
-class HookTask : public ITaskDelegate {
-public:
-    void Run() override {
-        ReadShowSettings();
-        BSFixedString name(MENU);
-        IMenu *menu = *g_ui ? (*g_ui)->GetMenu(name) : nullptr;
-        GFxValue root, flag(true);
-        if (!menu || !menu->movie || !menu->movie->movieRoot) return;
-        GFxMovieRoot *movie = menu->movie->movieRoot;
-        if (!movie->GetVariable(&root, "root") || !root.IsObject()) {
-            _WARNING("HUD opened, but its movie has no root: no widgets");
-            return;
-        }
-        if (root.HasMember(HOOKED)) return;
-        root.SetMember(HOOKED, &flag);
-        _VMESSAGE("HUD: %s %s", HOST, LoadChild(movie, root, HOST) ? "loading" : "not loaded");
+// Load our host into the HUD movie, once per HUD movie. On the UI thread.
+void HookMovie() {
+    ReadShowSettings();
+    Movie *movie = MenuMovie(MENU);
+    Value root;
+    if (!movie) return;
+    if (!movie->GetVariable(&root, "root") || !root.IsObject()) {
+        REX::WARN("HUD opened, but its movie has no root: no widgets");
+        return;
     }
-};
+    if (root.HasMember(HOOKED)) return;
+    root.SetMember(HOOKED, true);
+    REX::DEBUG("HUD: {} {}", HOST, LoadChild(movie, root, HOST) ? "loading" : "not loaded");
+}
 
 void Hook() {
-    if (g_tasks) g_tasks->AddUITask(new HookTask);
+    if (Tasks()) Tasks()->AddUITask([] { HookMovie(); });
 }
 
 // Put `widget` in the list (a name given again is replaced in place).
 void Put(const Widget &widget) {
     {
-        std::lock_guard<std::mutex> hold(g_lock);
-        auto at = std::find_if(g_widgets.begin(), g_widgets.end(), [&](const Widget &w) { return w.name == widget.name; });
+        std::lock_guard hold(g_lock);
+        auto at = std::ranges::find(g_widgets, widget.name, &Widget::name);
         if (at != g_widgets.end()) *at = widget;
         else g_widgets.push_back(widget);
         g_version++;
@@ -127,203 +103,173 @@ void Put(const Widget &widget) {
 }
 
 // The HUD opened (each game load gives a new HUD movie): load our host into it.
-class OpenSink : public BSTEventSink<MenuOpenCloseEvent> {
+class OpenSink : public RE::BSTEventSink<RE::MenuOpenCloseEvent> {
 public:
-    EventResult ReceiveEvent(MenuOpenCloseEvent *evn, void *) override {
-        if (evn && evn->isOpen && !strcmp(evn->menuName.c_str(), MENU)) Hook();
-        return kEvent_Continue;
+    RE::BSEventNotifyControl ProcessEvent(const RE::MenuOpenCloseEvent &event,
+                                          RE::BSTEventSource<RE::MenuOpenCloseEvent> *) override {
+        const char *name = event.menuName.c_str();
+        if (event.opening && name && !std::strcmp(name, MENU)) Hook();
+        return RE::BSEventNotifyControl::kContinue;
     }
 };
 OpenSink g_openSink;
 
 // ---- Papyrus (CRUI_HudNative, called by CRUI_Hud) ----
 
-std::string Text(BSFixedString &text) {
-    return text.c_str() ? text.c_str() : "";
-}
-
 // Papyrus: show `movie` (a path under Interface, any HUDFramework widget) as widget `name` under HUD part `anchor`
 // (a clip path from the HUD's root; "" for the HUD itself) at x, y from that part's top-left, on host `host` ("" ours;
 // "HUDFramework", which CRUI_Hud has registered it with).
-void AddWidget(StaticFunctionTag *, BSFixedString name, BSFixedString movie, float x, float y, BSFixedString anchor,
-               BSFixedString host) {
-    Put({Text(name), Text(movie), Text(anchor), x, y, Text(host)});
+void AddWidget(std::monostate, std::string name, std::string movie, float x, float y, std::string anchor,
+               std::string host) {
+    Put({name, movie, anchor, x, y, host});
 }
 
 // Papyrus: show a stats line as widget `name`: each label with its actor value on the player, dim below steps[0],
 // in the HUD's warning color from steps[1] and flashing from steps[2] (fewer steps: those stay off), while `shown`
 // is not 0 (None: always); placed and hosted as AddWidget does a widget.
-void AddStats(StaticFunctionTag *, BSFixedString name, VMArray<BSFixedString> labels, VMArray<ActorValueInfo *> values,
-              VMArray<float> steps, TESGlobal *shown, float x, float y, BSFixedString anchor, BSFixedString host) {
-    Stats stats;
-    stats.labels = Strings(labels);
-    for (UInt32 i = 0; i < values.Length(); i++) {
-        ActorValueInfo *value = nullptr;
-        values.Get(&value, i);
-        stats.values.push_back(value);
-    }
-    for (UInt32 i = 0; i < steps.Length(); i++) {
-        float step = 0.0f;
-        steps.Get(&step, i);
-        stats.steps.push_back(step);
-    }
-    stats.shown = shown;
+void AddStats(std::monostate, std::string name, std::vector<std::string> labels,
+              std::vector<RE::ActorValueInfo *> values, std::vector<float> steps, RE::TESGlobal *shown, float x,
+              float y, std::string anchor, std::string host) {
     {
-        std::lock_guard<std::mutex> hold(g_lock);
-        g_stats[Text(name)] = stats;
+        std::lock_guard hold(g_lock);
+        g_stats[name] = {labels, values, steps, shown};
     }
-    Put({Text(name), "", Text(anchor), x, y, Text(host)});
+    Put({name, "", anchor, x, y, host});
 }
 
 // Papyrus: widget `name`'s host ("" ours, "HUDFramework"); "none" for no such widget.
-BSFixedString HostOf(StaticFunctionTag *, BSFixedString name) {
-    std::lock_guard<std::mutex> hold(g_lock);
-    const Widget *widget = Find(Text(name));
-    return BSFixedString(widget ? widget->host.c_str() : "none");
+std::string HostOf(std::monostate, std::string name) {
+    std::lock_guard hold(g_lock);
+    const Widget *widget = Find(name);
+    return widget ? widget->host : "none";
 }
 
 // Papyrus: widget `name`'s movie ("" for a stats line or no such widget).
-BSFixedString MovieOf(StaticFunctionTag *, BSFixedString name) {
-    std::lock_guard<std::mutex> hold(g_lock);
-    const Widget *widget = Find(Text(name));
-    return BSFixedString(widget ? widget->movie.c_str() : "");
+std::string MovieOf(std::monostate, std::string name) {
+    std::lock_guard hold(g_lock);
+    const Widget *widget = Find(name);
+    return widget ? widget->movie : "";
 }
 
 // Papyrus: take widget `name` off the HUD.
-void RemoveWidget(StaticFunctionTag *, BSFixedString name) {
-    std::lock_guard<std::mutex> hold(g_lock);
-    std::string key = Text(name);
-    g_widgets.erase(std::remove_if(g_widgets.begin(), g_widgets.end(), [&](const Widget &w) { return w.name == key; }),
-                    g_widgets.end());
-    g_stats.erase(key);
+void RemoveWidget(std::monostate, std::string name) {
+    std::lock_guard hold(g_lock);
+    std::erase_if(g_widgets, [&](const Widget &w) { return w.name == name; });
+    g_stats.erase(name);
     g_version++;
 }
 
 // Papyrus: call widget `name`'s processMessage(command, params) on its next frame (held until it has loaded).
-void Send(StaticFunctionTag *, BSFixedString name, BSFixedString command, VMArray<BSFixedString> params) {
-    std::lock_guard<std::mutex> hold(g_lock);
-    g_messages.push_back({Text(name), Text(command), Strings(params)});
+void Send(std::monostate, std::string name, std::string command, std::vector<std::string> params) {
+    std::lock_guard hold(g_lock);
+    g_messages.push_back({name, command, params});
 }
 
 // ---- The host movie's natives (f4se.plugins.CleanroomUI) ----
 
-GFxValue Str(GFxMovieRoot *movie, const std::string &text) {
-    GFxValue out;
-    movie->CreateString(&out, text.c_str());
-    return out;
+// Widget `w` as the host takes it, {name, movie, anchor, x, y, host, place}.
+Value WidgetObject(Movie *movie, const Widget &w) {
+    Value entry, place;
+    movie->CreateObject(&entry);
+    entry.SetMember("name", String(movie, w.name));
+    entry.SetMember("movie", String(movie, w.movie));
+    entry.SetMember("anchor", String(movie, w.anchor));
+    entry.SetMember("x", double(w.x));
+    entry.SetMember("y", double(w.y));
+    entry.SetMember("host", String(movie, w.host));
+    MakePlace(movie, w.name, PlaceOf(w.name), &place);
+    entry.SetMember("place", place);
+    return entry;
 }
 
 // HudWidgets(version): {version, widgets: [{name, movie, anchor, x, y, host, place: {dx, dy, scale, hidden, color,
-// show}}]},
-// or null while
-// the list is still the one numbered `version` (a widget added or removed, or a place changed in the edit menu).
-class WidgetsNative : public GFxFunctionHandler {
+// show}}]}, or null while the list is still the one numbered `version` (a widget added or removed, or a place
+// changed in the edit menu).
+class WidgetsNative : public FunctionHandler {
 public:
-    void Invoke(Args *args) override {
-        GFxMovieRoot *movie = args->movie->movieRoot;
-        std::lock_guard<std::mutex> hold(g_lock);
-        args->result->SetNull();
-        if (args->numArgs > 0 && Num(args->args[0]) == g_version) return;
-        GFxValue widgets, version(g_version);
+    void Call(const Params &params) override {
+        Movie *movie = params.movie;
+        std::lock_guard hold(g_lock);
+        *params.retVal = nullptr;
+        if (params.argCount > 0 && Num(params.args[0]) == g_version) return;
+        Value widgets;
         movie->CreateArray(&widgets);
-        for (const Widget &w : g_widgets) {
-            GFxValue entry, name = Str(movie, w.name), path = Str(movie, w.movie), anchor = Str(movie, w.anchor),
-                host = Str(movie, w.host);
-            GFxValue x(double(w.x)), y(double(w.y));
-            movie->CreateObject(&entry);
-            entry.SetMember("name", &name);
-            entry.SetMember("movie", &path);
-            entry.SetMember("anchor", &anchor);
-            entry.SetMember("x", &x);
-            entry.SetMember("y", &y);
-            entry.SetMember("host", &host);
-            GFxValue place;
-            MakePlace(movie, w.name, PlaceOf(w.name), &place);
-            entry.SetMember("place", &place);
-            widgets.PushBack(&entry);
-        }
-        movie->CreateObject(args->result);
-        args->result->SetMember("version", &version);
-        args->result->SetMember("widgets", &widgets);
+        for (const Widget &w : g_widgets) widgets.PushBack(WidgetObject(movie, w));
+        movie->CreateObject(params.retVal);
+        params.retVal->SetMember("version", g_version);
+        params.retVal->SetMember("widgets", widgets);
     }
 };
 
 // HudMessages(): the messages sent since the last call, [{name, command, params}], in order.
-class MessagesNative : public GFxFunctionHandler {
+class MessagesNative : public FunctionHandler {
 public:
-    void Invoke(Args *args) override {
-        GFxMovieRoot *movie = args->movie->movieRoot;
+    void Call(const Params &params) override {
+        Movie *movie = params.movie;
         std::vector<Message> messages;
         {
-            std::lock_guard<std::mutex> hold(g_lock);
+            std::lock_guard hold(g_lock);
             messages.swap(g_messages);
         }
-        movie->CreateArray(args->result);
+        movie->CreateArray(params.retVal);
         for (const Message &m : messages) {
-            GFxValue entry, params, name = Str(movie, m.name), command = Str(movie, m.command);
+            Value entry, list;
             movie->CreateObject(&entry);
-            movie->CreateArray(&params);
-            for (const std::string &param : m.params) {
-                GFxValue text = Str(movie, param);
-                params.PushBack(&text);
-            }
-            entry.SetMember("name", &name);
-            entry.SetMember("command", &command);
-            entry.SetMember("params", &params);
-            args->result->PushBack(&entry);
+            movie->CreateArray(&list);
+            for (const std::string &param : m.params) list.PushBack(String(movie, param));
+            entry.SetMember("name", String(movie, m.name));
+            entry.SetMember("command", String(movie, m.command));
+            entry.SetMember("params", list);
+            params.retVal->PushBack(entry);
         }
     }
 };
 
 // HudStats(name): stats line `name` now, {shown, rows: [{text, value}], steps}; null for no such line.
-class StatsNative : public GFxFunctionHandler {
+class StatsNative : public FunctionHandler {
 public:
-    void Invoke(Args *args) override {
-        GFxMovieRoot *movie = args->movie->movieRoot;
-        args->result->SetNull();
-        if (args->numArgs < 1 || !args->args[0].IsString()) return;
+    void Call(const Params &params) override {
+        Movie *movie = params.movie;
+        *params.retVal = nullptr;
+        if (params.argCount < 1 || !params.args[0].IsString()) return;
         Stats stats;
         {
-            std::lock_guard<std::mutex> hold(g_lock);
-            auto it = g_stats.find(args->args[0].GetString());
+            std::lock_guard hold(g_lock);
+            auto it = g_stats.find(params.args[0].GetString());
             if (it == g_stats.end()) return;
             stats = it->second;
         }
-        Actor *player = *g_player;
-        GFxValue rows, steps, shown(player && (!stats.shown || stats.shown->value != 0.0f));
+        RE::PlayerCharacter *player = RE::PlayerCharacter::GetSingleton();
+        Value rows, steps;
         movie->CreateArray(&rows);
-        for (size_t i = 0; i < stats.labels.size() && i < stats.values.size(); i++) {
-            GFxValue row, text = Str(movie, stats.labels[i]);
-            GFxValue value(stats.values[i] && player ? double(player->actorValueOwner.GetValue(stats.values[i])) : 0.0);
+        for (std::size_t i = 0; i < stats.labels.size() && i < stats.values.size(); i++) {
+            Value row;
             movie->CreateObject(&row);
-            row.SetMember("text", &text);
-            row.SetMember("value", &value);
-            rows.PushBack(&row);
+            row.SetMember("text", String(movie, stats.labels[i]));
+            row.SetMember("value", stats.values[i] && player ? double(player->GetActorValue(*stats.values[i])) : 0.0);
+            rows.PushBack(row);
         }
         movie->CreateArray(&steps);
-        for (float step : stats.steps) {
-            GFxValue at{double(step)};
-            steps.PushBack(&at);
-        }
-        movie->CreateObject(args->result);
-        args->result->SetMember("shown", &shown);
-        args->result->SetMember("rows", &rows);
-        args->result->SetMember("steps", &steps);
+        for (float step : stats.steps) steps.PushBack(double(step));
+        movie->CreateObject(params.retVal);
+        params.retVal->SetMember("shown", player && (!stats.shown || stats.shown->GetValue() != 0.0f));
+        params.retVal->SetMember("rows", rows);
+        params.retVal->SetMember("steps", steps);
     }
 };
 
 }  // namespace
 
-void InstallHud(void *tasks) {
-    g_tasks = static_cast<F4SETaskInterface *>(tasks);
-    bool added = *g_ui && (*g_ui)->menuOpenCloseEventSource.AddEventSink(&g_openSink);
-    _MESSAGE("HUD host %s", added ? "listening for the HUD" : "could not listen for menus");
+void InstallHud() {
+    RE::UI *ui = RE::UI::GetSingleton();
+    if (ui) ui->GetEventSource<RE::MenuOpenCloseEvent>()->RegisterSink(&g_openSink);
+    REX::INFO("HUD host {}", ui ? "listening for the HUD" : "could not listen for menus");
     LoadLayout();
     Hook();
 }
 
 void ForgetHud() {
-    std::lock_guard<std::mutex> hold(g_lock);
+    std::lock_guard hold(g_lock);
     g_widgets.clear();
     g_stats.clear();
     g_messages.clear();
@@ -331,7 +277,7 @@ void ForgetHud() {
     ForgetShow();
 }
 
-void RegisterHudMenu(GFxMovieRoot *movie, GFxValue *plugin) {
+void RegisterHudMenu(Movie *movie, Value *plugin) {
     RegisterFunction<WidgetsNative>(plugin, movie, "HudWidgets");
     RegisterFunction<MessagesNative>(plugin, movie, "HudMessages");
     RegisterFunction<StatsNative>(plugin, movie, "HudStats");
@@ -340,20 +286,13 @@ void RegisterHudMenu(GFxMovieRoot *movie, GFxValue *plugin) {
     RegisterHudShow(movie, plugin);
 }
 
-void RegisterHud(VirtualMachine *vm) {
-    vm->RegisterFunction(new NativeFunction6<StaticFunctionTag, void, BSFixedString, BSFixedString, float, float,
-                                             BSFixedString, BSFixedString>("AddWidget", SCRIPT, AddWidget, vm));
-    vm->RegisterFunction(new NativeFunction9<StaticFunctionTag, void, BSFixedString, VMArray<BSFixedString>,
-                                             VMArray<ActorValueInfo *>, VMArray<float>, TESGlobal *, float, float,
-                                             BSFixedString, BSFixedString>("AddStats", SCRIPT, AddStats, vm));
-    vm->RegisterFunction(new NativeFunction1<StaticFunctionTag, BSFixedString, BSFixedString>("HostOf", SCRIPT,
-                                                                                              HostOf, vm));
-    vm->RegisterFunction(new NativeFunction1<StaticFunctionTag, BSFixedString, BSFixedString>("MovieOf", SCRIPT,
-                                                                                              MovieOf, vm));
-    vm->RegisterFunction(new NativeFunction1<StaticFunctionTag, void, BSFixedString>("RemoveWidget", SCRIPT,
-                                                                                     RemoveWidget, vm));
-    vm->RegisterFunction(new NativeFunction3<StaticFunctionTag, void, BSFixedString, BSFixedString,
-                                             VMArray<BSFixedString>>("Send", SCRIPT, Send, vm));
+void RegisterHud(RE::BSScript::IVirtualMachine *vm) {
+    vm->BindNativeMethod(SCRIPT, "AddWidget", AddWidget);
+    vm->BindNativeMethod(SCRIPT, "AddStats", AddStats);
+    vm->BindNativeMethod(SCRIPT, "HostOf", HostOf);
+    vm->BindNativeMethod(SCRIPT, "MovieOf", MovieOf);
+    vm->BindNativeMethod(SCRIPT, "RemoveWidget", RemoveWidget);
+    vm->BindNativeMethod(SCRIPT, "Send", Send);
     RegisterShow(vm);
 }
 

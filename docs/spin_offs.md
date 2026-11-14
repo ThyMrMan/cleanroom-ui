@@ -60,12 +60,12 @@ In Cleanroom UI (`dll/`, `python -m crui dll`), from F3NV.dll's sources:
   `CRUI_PipboyAmmo`, `CRUI_Sex`; movies
   reach it as `f4se.plugins.CleanroomUI`; external events
   `CRUI_ConditionRepair`, `CRUI_AmmoSwitch`; log `CleanroomUI.log`. It takes
-  no trampoline and no longer sets the spawn condition or combat sprint.
+  no trampoline and no longer sets the spawn condition or combat sprint. On
+  CommonLibF4 since 2026-11-14 ([port](#port-status)).
 - **`CleanroomDialogue.dll`** (`dll/dialogue/`): the dialogue menu alone,
   on CommonLibF4 since 2026-11-13 ([port](#port-status));
   `f4se.plugins.CleanroomDialogue`; log `CleanroomDialogue.log`.
-- **`dll/shared/`** in CleanroomUI.dll and **`dll/base/`** in
-  CleanroomDialogue.dll: the Flash helpers and the natives
+- **`dll/base/`** in both DLLs: the Flash helpers and the natives
   every movie may call (`TextureExists`, `HudColor`). crui's `Bridge.shared()`
   asks `CleanroomUI`, then `CleanroomDialogue`, so the level-up menu and
   `Images` work with either installed.
@@ -182,18 +182,25 @@ Every DLL above needs both versions, so the port is done once:
    we expect, log it and leave that feature off. The game should keep
    running.
 
-### <a id="port-status"></a>Where the port stands (2026-11-13, not played)
+### <a id="port-status"></a>Where the port stands (2026-11-14, not played)
 
-- **CleanroomDialogue.dll is on CommonLibF4**, built by `dll/xmake.lua`
-  (`python -m crui dll` runs it after `build.bat`). CleanroomUI.dll stays on
-  F4SE 0.7.9 and `build.bat` for now. The C runtime is static, so the DLL
-  imports only system DLLs.
+- **Both DLLs are on CommonLibF4**, built by `dll/xmake.lua` through
+  `python -m crui dll`: CleanroomDialogue.dll since 2026-11-13,
+  CleanroomUI.dll since 2026-11-14. `build.bat`, `msvc.bat` and
+  `dll/shared/` are gone; both share `dll/base/`. The C runtime is static,
+  so each DLL imports only system DLLs.
+- **CleanroomUI.dll's F4SE plugin version is now 17.0.0**, packed as F4SE
+  packs versions (0x11000000), where the old build gave the raw 17.
+  `xmake.lua` reads it from `VERSION` in `framework/condition.h`; the
+  Papyrus `GetVersion` and the `CRUV` message still give 17.
 - **Its 25 addresses are next-gen IDs** (each with its 1.11.240 RVA beside
   it). An ID a database lacks resolves to 0, and the hooks stay off, in
   place of CommonLibF4 ending the game.
 - **The hooks run only on 1.11.240** (`CheckedRuntime`), the one build whose
   struct layouts were read. They also stay off when XDI.dll is loaded or a
-  call site doesn't call what we expect (step 5).
+  call site doesn't call what we expect (step 5). CleanroomUI.dll goes
+  further: on any other build it registers no natives and installs no menu
+  hook at all, and logs that it is off.
 - **Our two patches to commonlib-shared** are in `dll/patches/`, applied by
   `crui` before each build: the version check (step 2) and `IDDB::has`.
   Both are meant for upstream.
@@ -202,8 +209,8 @@ Every DLL above needs both versions, so the port is done once:
   `XMAKE_GLOBALDIR` at `out/xmake` (unless it is already set) and
   reconfigures with `xmake f -c`. The first build downloads the packages
   there.
-- **Not done:** old-gen IDs (20 still to match), the other game versions'
-  layouts, and moving CleanroomUI.dll over.
+- **Not done:** old-gen IDs (20 still to match) and the other game
+  versions' layouts.
 
 ### <a id="ids"></a>Our addresses as Address Library IDs (2026-11-13)
 

@@ -15,9 +15,6 @@ namespace crui {
 
 namespace {
 
-using Scaleform::GFx::FunctionHandler;
-using Scaleform::GFx::Value;
-
 // The runtime every layout and call site here was read in.
 const REL::Version CHECKED{1, 11, 240, 0};
 
@@ -139,10 +136,60 @@ double Num(const Value &v) {
     }
 }
 
-Value String(Scaleform::GFx::Movie *movie, const char *text) {
+Value String(Movie *movie, const char *text) {
     Value out;
     movie->asMovieRoot->CreateString(&out, text);
     return out;
+}
+
+bool Get(const Value &obj, const char *name, Value *out) {
+    return obj.IsObject() && obj.GetMember(name, out);
+}
+
+const void *Identity(const Value &v) {
+    // The object pointer is the union at +0x10 of CommonLibF4's Value (its own layout, asserted 0x20 there), which
+    // keeps it private.
+    static_assert(sizeof(Value) == 0x20);
+    return v.IsObject() ? *reinterpret_cast<void *const *>(reinterpret_cast<const std::uint8_t *>(&v) + 0x10)
+                        : nullptr;
+}
+
+void LogMembers(const Value &obj) {
+    if (!obj.IsObject()) return;
+    obj.VisitMembers([](const char *member, const Value &value) {
+        REX::INFO("  member {} (type {})", member, std::to_underlying(value.GetType()));
+    });
+}
+
+Movie *MenuMovie(const char *name) {
+    RE::UI *ui = RE::UI::GetSingleton();
+    Scaleform::Ptr<RE::IMenu> menu = ui ? ui->GetMenu(name) : nullptr;
+    return menu && menu->uiMovie ? menu->uiMovie.get() : nullptr;
+}
+
+bool FindMenu(Movie *movie, std::initializer_list<const char *> bases, const char *needs, std::string *base,
+              Value *root, Value *code) {
+    for (const char *path : bases) {
+        Value part;
+        std::string at(path);
+        if (movie->GetVariable(code, (at + ".BGSCodeObj").c_str()) && code->IsObject() &&
+            (!needs || (movie->GetVariable(&part, (at + "." + needs).c_str()) && part.IsObject())) &&
+            movie->GetVariable(root, path)) {
+            *base = at;
+            return true;
+        }
+    }
+    base->clear();
+    return false;
+}
+
+bool LoadChild(Movie *movie, Value &parent, const char *path) {
+    Value loader, request, url = String(movie, path);
+    movie->CreateObject(&loader, "flash.display.Loader");
+    movie->CreateObject(&request, "flash.net.URLRequest", &url, 1);
+    Value args[2] = {request, nullptr};
+    return loader.IsObject() && parent.Invoke("addChild", nullptr, &loader, 1) &&
+           loader.Invoke("load", nullptr, args, 2);
 }
 
 std::uint32_t HudColor(const char *prefix) {
@@ -154,7 +201,7 @@ std::uint32_t HudColor(const char *prefix) {
     return rgb;
 }
 
-void RegisterSharedNatives(Scaleform::GFx::Movie *movie, Value *plugin) {
+void RegisterSharedNatives(Movie *movie, Value *plugin) {
     RegisterFunction<TextureExistsNative>(plugin, movie, "TextureExists");
     RegisterFunction<HudColorNative>(plugin, movie, "HudColor");
     RegisterFunction<LogNative>(plugin, movie, "Log");

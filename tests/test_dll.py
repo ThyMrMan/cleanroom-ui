@@ -20,14 +20,12 @@ def _scaleform_name(entry):
 
 
 def test_each_dll_is_built_and_named_as_its_movies_ask():
-    """build.bat builds CleanroomUI.dll and xmake.lua CleanroomDialogue.dll (CommonLibF4), each under the F4SE plugin
-    name it gives and the Scaleform name its movie asks for."""
-    build = (DLL / 'build.bat').read_text(encoding='utf-8')
+    """xmake.lua builds CleanroomUI.dll and CleanroomDialogue.dll (CommonLibF4), each under the F4SE plugin name it
+    gives and the Scaleform name its movie asks for; the F4SE 0.7.9 build is gone."""
     xmake = (DLL / 'xmake.lua').read_text(encoding='utf-8')
-    framework = (FRAMEWORK / 'plugin.cpp').read_text(encoding='utf-8')
-    assert 'call :plugin CleanroomUI framework plugin.cpp' in build and 'CleanroomDialogue dialogue' not in build
-    assert '"CleanroomUI",\n    "cleanroom-ui",' in framework.replace('\r\n', '\n')
-    assert 'target("CleanroomDialogue")' in xmake and 'name = "CleanroomDialogue"' in xmake
+    assert not (DLL / 'build.bat').exists() and not (DLL / 'shared').exists()
+    for name in ('CleanroomUI', 'CleanroomDialogue'):
+        assert f'target("{name}")' in xmake and f'name = "{name}"' in xmake
     assert 'author = "cleanroom-ui"' in xmake
     for entry, name, movie in ((FRAMEWORK / 'plugin.cpp', 'CleanroomUI', REPO / 'menus/pipboy/as3/CRUI_Pipboy.as'),
                                (DIALOGUE / 'plugin.cpp', 'CleanroomDialogue',
@@ -89,7 +87,7 @@ def test_our_keys_are_settings():
     assert 'ReadKeys();' in _body(pipboy, 'class OpenSink')
     plugin = (FRAMEWORK / 'plugin.cpp').read_text(encoding='utf-8')
     assert 'ReadKeys();' in plugin and 'RegisterKeys(movie, plugin);' in plugin
-    assert 'keys.cpp' in (DLL / 'build.bat').read_text(encoding='utf-8')
+    assert '"framework/*.cpp"' in (DLL / 'xmake.lua').read_text(encoding='utf-8')
     edit = (REPO / 'menus' / 'hud' / 'as3' / 'CRUI_HudEdit.as').read_text(encoding='utf-8')
     assert 'dll.HudKeys()' in edit and 'e.keyCode == resetKey' in edit and 'KEY_R' not in edit
 
@@ -105,19 +103,19 @@ def test_several_mods_add_their_lists():
 
 
 def test_one_version_everywhere():
-    """GetVersion, the version query and F4SE's plugin version all read the one VERSION constant."""
+    """GetVersion, the version query and F4SE's plugin version (VERSION.0.0, read by xmake.lua) all come from the
+    one VERSION constant."""
     plugin = (FRAMEWORK / 'plugin.cpp').read_text(encoding='utf-8')
-    assert 'crui::VERSION,' in plugin and 'return VERSION;' in plugin and 'UInt32 version = VERSION;' in plugin
-    assert re.search(r'constexpr UInt32 VERSION = \d+;', (FRAMEWORK / 'condition.h').read_text(encoding='utf-8'))
+    assert 'return VERSION;' in plugin and 'std::uint32_t version = VERSION;' in plugin
+    assert re.search(r'constexpr std::uint32_t VERSION = \d+;', (FRAMEWORK / 'condition.h').read_text(encoding='utf-8'))
+    xmake = (DLL / 'xmake.lua').read_text(encoding='utf-8')
+    assert 'header:match("constexpr std::uint32_t VERSION = (%d+);")' in xmake
 
 
 def test_both_dlls_log_at_the_ini_level():
-    """Each DLL logs at the [Log] iLevel of its own INI: CleanroomUI.dll through OpenLog, CleanroomDialogue.dll
-    through LogLevel given to F4SE::Init."""
-    framework = (FRAMEWORK / 'plugin.cpp').read_text(encoding='utf-8')
-    assert 'OpenLog("CleanroomUI");' in framework and 'gLog.OpenRelative' not in framework
-    assert '"iLevel"' in (DLL / 'shared' / 'gfx.cpp').read_text(encoding='utf-8')
-    assert '.logLevel = LogLevel(NAME), .logName = NAME' in (DIALOGUE / 'plugin.cpp').read_text(encoding='utf-8')
+    """Each DLL logs at its own INI's [Log] iLevel (LogLevel into F4SE::Init)."""
+    for entry in (FRAMEWORK / 'plugin.cpp', DIALOGUE / 'plugin.cpp'):
+        assert '.logLevel = LogLevel(NAME), .logName = NAME' in entry.read_text(encoding='utf-8')
     assert '"iLevel"' in (DLL / 'base' / 'base.cpp').read_text(encoding='utf-8')
 
 

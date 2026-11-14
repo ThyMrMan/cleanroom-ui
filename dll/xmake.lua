@@ -1,6 +1,5 @@
--- Cleanroom UI's F4SE plugins on CommonLibF4 (Dear-Modding-FO4), one DLL for every Fallout 4 version that has an
--- Address Library database (docs/spin_offs.md#runtime). CleanroomDialogue.dll is built here; CleanroomUI.dll still
--- builds on F4SE 0.7.9 with build.bat until it is ported.
+-- Cleanroom UI's F4SE plugins on CommonLibF4 (Dear-Modding-FO4), one DLL each for every Fallout 4 version that has
+-- an Address Library database (docs/spin_offs.md#runtime): CleanroomUI.dll (the framework) and CleanroomDialogue.dll.
 --
 --   xmake f -p windows -a x64 -m release -y && xmake build -y
 --
@@ -19,9 +18,25 @@ set_warnings("allextra")
 set_encodings("utf-8")
 
 add_rules("mode.release", "mode.releasedbg")
--- The C++ runtime linked in, as build.bat's /MT: a player needs no Visual C++ redistributable.
+-- The C++ runtime linked in: a player needs no Visual C++ redistributable.
 set_runtimes("MT")
 add_defines("COMMONLIB_RUNTIMECOUNT=3")
+
+target("CleanroomUI")
+    -- The framework's one version (framework/condition.h VERSION), so F4SE's plugin version is VERSION.0.0.
+    on_load(function (target)
+        local header = io.readfile(path.join(target:scriptdir(), "framework", "condition.h"))
+        target:set("version", header:match("constexpr std::uint32_t VERSION = (%d+);") .. ".0.0")
+    end)
+    add_rules("commonlibf4.plugin", {
+        name = "CleanroomUI",
+        author = "cleanroom-ui",
+        description = "Cleanroom UI's framework: item condition, Pip-Boy lines, lists and tabs, the HUD host"
+    })
+    add_files("base/*.cpp", "framework/*.cpp")
+    add_headerfiles("base/*.h", "framework/*.h")
+    add_includedirs("base", "framework")
+    set_pcxxheader("base/pch.h")
 
 target("CleanroomDialogue")
     add_rules("commonlibf4.plugin", {

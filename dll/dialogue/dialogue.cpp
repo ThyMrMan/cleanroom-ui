@@ -68,11 +68,6 @@ using ShadeFn = void (*)(void *target, std::uint32_t type, float brightness);
 // DialogueMenu's holder color (0x1043EF0): 0 the HUD color, 1-7 the speech-challenge tints (iDialogueSC_*_Tint).
 using TintFn = void (*)(void *menu, void *target, std::uint32_t type, bool dim);
 
-// A next-gen ID (also 1.11's), with `offset` into it; no old-gen ID until each is matched there.
-constexpr Ids Next(std::uint64_t id, std::uintptr_t offset = 0) {
-    return {0, id, id, offset};
-}
-
 const Ids OPTION_INFO = Next(2196825);                      // 0x416600
 const Ids RESPONSE_INFO = Next(2196806);                    // 0x414180
 const Ids PICK = Next(2208361);                             // 0x698DB0

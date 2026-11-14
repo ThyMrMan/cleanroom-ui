@@ -58,10 +58,9 @@ def test_images_asks_the_dll_for_a_texture_by_the_name_it_registers():
 
     See: docs/swf_framework.md#images
     """
-    for shared in (RUNTIME / 'shared' / 'gfx.cpp', RUNTIME / 'base' / 'base.cpp'):
-        gfx = shared.read_text(encoding='utf-8')
-        assert 'RegisterFunction<TextureExistsNative>(plugin, movie, "TextureExists")' in gfx
-        assert 'std::string("Textures\\\\")' in gfx and 'BSResourceNiBinaryStream stream(path.c_str());' in gfx
+    gfx = (RUNTIME / 'base' / 'base.cpp').read_text(encoding='utf-8')
+    assert 'RegisterFunction<TextureExistsNative>(plugin, movie, "TextureExists")' in gfx
+    assert 'std::string("Textures\\\\")' in gfx and 'BSResourceNiBinaryStream stream(path.c_str());' in gfx
     assert 'RegisterSharedNatives(movie, plugin);' in (RUNTIME / 'framework' / 'plugin.cpp').read_text(encoding='utf-8')
     assert 'RegisterSharedNatives(view, plugin);' in (RUNTIME / 'dialogue' / 'dialogue.cpp').read_text(encoding='utf-8')
     images = (LIBRARY / 'Images.as').read_text(encoding='utf-8')

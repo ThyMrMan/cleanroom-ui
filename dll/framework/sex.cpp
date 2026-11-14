@@ -7,66 +7,39 @@
 // (TES4Polyfill.SetSex) only calls it when the sex differs.
 #include "condition.h"
 
-#include "f4se/GameForms.h"
-#include "f4se/GameReferences.h"
-#include "f4se/GameThreads.h"
-#include "f4se/ObScript.h"
-#include "f4se/PapyrusArgs.h"
-#include "f4se/PapyrusNativeFunctions.h"
-#include "f4se/PluginAPI.h"
-
-#include <cstring>
-
 namespace crui {
 
 namespace {
 
 const char *SEX_SCRIPT = "CRUI_Sex";
-F4SETaskInterface *g_sexTasks = nullptr;
-
-// The game's SexChange script command; nullptr when the table has none.
-ObScriptCommand *SexChangeCommand() {
-    static ObScriptCommand *found = nullptr;
-    ObScriptCommand *first = g_firstObScriptCommand;
-    for (UInt32 i = 0; !found && i < kObScript_NumObScriptCommands; i++)
-        if (first[i].longName && !_stricmp(first[i].longName, "SexChange")) found = &first[i];
-    return found;
-}
 
 // Run SexChange with no arguments on the actor `formID` names, on the main thread.
-class SexChangeTask : public ITaskDelegate {
-public:
-    explicit SexChangeTask(UInt32 formID) : formID_(formID) {}
-
-    void Run() override {
-        TESForm *form = LookupFormByID(formID_);
-        ObScriptCommand *command = SexChangeCommand();
-        if (!form || form->formType != kFormType_ACHR || !command || !command->execute) {
-            _WARNING("SexChange on %08X not run (form %p, command %p)", formID_, form, command);
-            return;
-        }
-        UInt8 data[8] = {};  // the command's compiled arguments: a count of 0 at offset 0
-        UInt32 offset = 0;
-        double result = 0;
-        command->execute(command->params, data, static_cast<TESObjectREFR *>(form), nullptr, nullptr, nullptr,
-                         &result, &offset);
-        _VMESSAGE("SexChange on %08X run", formID_);
+void RunSexChange(std::uint32_t formID) {
+    static RE::SCRIPT_FUNCTION *command = RE::SCRIPT_FUNCTION::LocateScriptCommand("SexChange");
+    auto *actor = FormOf(formID) ? FormOf(formID)->As<RE::Actor>() : nullptr;
+    if (!actor || !command || !command->executeFunction) {
+        REX::WARN("SexChange on {:08X} not run (actor {}, command {})", formID, actor != nullptr, command != nullptr);
+        return;
     }
-
-private:
-    UInt32 formID_;
-};
+    char data[8] = {};  // the command's compiled arguments: a count of 0 at offset 0
+    std::uint32_t offset = 0;
+    double result = 0.0;  // room for the double F4SE's own ObScript declaration writes; CommonLibF4 says float
+    command->executeFunction(command->parameters, data, actor, nullptr, nullptr, nullptr,
+                             *reinterpret_cast<float *>(&result), offset);
+    REX::DEBUG("SexChange on {:08X} run", formID);
+}
 
 // Papyrus: toggle `actor`'s sex (the game's SexChange with no arguments), on the main thread's next task.
-void ChangeSex(StaticFunctionTag *, Actor *actor) {
-    if (actor && g_sexTasks) g_sexTasks->AddTask(new SexChangeTask(actor->formID));
+void ChangeSex(std::monostate, RE::Actor *actor) {
+    if (!actor || !Tasks()) return;
+    std::uint32_t formID = actor->GetFormID();
+    Tasks()->AddTask([formID] { RunSexChange(formID); });
 }
 
 }  // namespace
 
-void RegisterSex(VirtualMachine *vm, void *tasks) {
-    g_sexTasks = static_cast<F4SETaskInterface *>(tasks);
-    vm->RegisterFunction(new NativeFunction1<StaticFunctionTag, void, Actor *>("ChangeSex", SEX_SCRIPT, ChangeSex, vm));
+void RegisterSex(RE::BSScript::IVirtualMachine *vm) {
+    vm->BindNativeMethod(SEX_SCRIPT, "ChangeSex", ChangeSex);
 }
 
 }  // namespace crui

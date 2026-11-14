@@ -26,10 +26,9 @@ def test_the_dll_loads_the_host_the_build_installs_into_every_hud():
     opens); the host skips HUDFramework's widgets."""
     source = _source(HUD_CPP)
     assert 'Interface/' + re.search(r'HOST = "([^"]+)"', source).group(1) == MENU.movie
-    hook = source[source.index('class HookTask'):source.index('void Hook()')]
+    hook = source[source.index('void HookMovie()'):source.index('void Hook()')]
     assert hook.index('if (root.HasMember(HOOKED)) return;') < hook.index('LoadChild(movie, root, HOST)')
     assert 'Ours()' not in hook and 'HasPartLayout' not in source
-    assert 'hud.cpp' in _source(REPO / 'dll' / 'build.bat')
     assert 'if (entry.host != "")' in _source(MENU.sources / f'{MENU.document}.as')
 
 
@@ -40,7 +39,7 @@ def test_the_movie_calls_every_native_the_dll_registers_for_it():
     natives = re.findall(r'RegisterFunction<\w+>\(plugin, movie, "(\w+)"\);', source)
     assert sorted(natives) == ['HudMessages', 'HudStats', 'HudWidgets']
     assert all(f'dll.{name}(' in movie for name in natives + ['HudColor', 'Log'])
-    assert 'RegisterFunction<LogNative>(plugin, movie, "Log");' in _source(REPO / 'dll' / 'shared' / 'gfx.cpp')
+    assert 'RegisterFunction<LogNative>(plugin, movie, "Log");' in _source(REPO / 'dll' / 'base' / 'base.cpp')
 
 
 def test_widgets_take_hudframeworks_method():
@@ -56,7 +55,7 @@ def test_the_native_script_declares_every_native_hud_cpp_registers():
     script_name = re.search(r'SCRIPT = "(\w+)"', source).group(1)
     show = _source(REPO / 'dll' / 'framework' / 'show.cpp')
     assert re.search(r'SCRIPT = "(\w+)"', show).group(1) == script_name and 'RegisterShow(vm);' in source
-    registered = set(re.findall(r'>\(\s*"(\w+)", SCRIPT,', (source + show).replace('\n', ' ').replace('  ', '')))
+    registered = set(re.findall(r'BindNativeMethod\(SCRIPT, "(\w+)"', source + show))
     script = _source(REPO / 'papyrus' / f'{script_name}.psc')
     declared = set(re.findall(r'^\w*\s?Function (\w+)\(.*\) Global Native$', script, re.M))
     assert registered == declared == {'AddWidget', 'AddStats', 'RemoveWidget', 'Send', 'HostOf', 'MovieOf',
@@ -119,8 +118,8 @@ def test_the_edit_menu_and_host_use_every_layout_native():
     assert all(f'dll.{name}(' in edit for name in natives if name not in ('HudReport', 'HudPlaceOf'))
     menu = edit_menu.movie.removeprefix('Interface/').removesuffix('.swf')
     assert f'String menu = "{menu}"' in _source(REPO / 'papyrus' / 'CRUI_Hud.psc')
-    assert f'EDIT_MENU = "{menu}"' in layout and 'layout.cpp' in _source(REPO / 'dll' / 'build.bat')
-    assert 'entry.SetMember("place", &place);' in _source(HUD_CPP)
+    assert f'EDIT_MENU = "{menu}"' in layout
+    assert 'entry.SetMember("place", place);' in _source(HUD_CPP)
 
 
 def test_places_are_kept_for_every_save_and_only_for_our_host():
@@ -128,14 +127,14 @@ def test_places_are_kept_for_every_save_and_only_for_our_host():
     in a save; HudLayout lists only widgets on our host and the HUD's own parts, whose places the host keeps under
     the same prefix the DLL lists."""
     layout = _source(REPO / 'dll' / 'framework' / 'layout.cpp')
-    assert 'CleanroomUI_Hud.txt' in layout and 'CSIDL_MYDOCUMENTS' in layout
-    assert 'if (!OurWidget(name) && name.rfind(PART, 0) != 0) continue;' in layout
+    assert 'CleanroomUI_Hud.txt' in layout and 'FOLDERID_Documents' in layout
+    assert 'if (!OurWidget(name) && !name.starts_with(PART)) continue;' in layout
     prefix = re.search(r'PART = "([^"]+)"', layout).group(1)
     assert f'PREFIX:String = "{prefix}"' in _source(MENU.sources / 'PartLayout.as')
     assert f'name.indexOf("{prefix}") == 0' in _source(menus.BY_NAME['hud_edit'].sources / 'CRUI_HudEdit.as')
     assert 'LoadLayout();' in _source(HUD_CPP)
     done = layout[layout.index('class DoneNative'):layout.index('}  // namespace')]
-    assert done.index('Save();') < done.index('kMessage_Close')
+    assert done.index('Save();') < done.index('UI_MESSAGE_TYPE::kHide')
 
 
 def test_the_host_lays_out_the_hud_parts_from_def_hud_xml():
@@ -147,7 +146,6 @@ def test_the_host_lays_out_the_hud_parts_from_def_hud_xml():
     registered = re.findall(r'RegisterFunction<\w+>\(plugin, movie, "(\w+)"\);', parts)
     assert registered == ['HudPartLayout', 'HudWeaponCondition']
     assert 'RegisterHudParts(movie, plugin);' in _source(HUD_CPP)
-    assert 'parts.cpp' in _source(REPO / 'dll' / 'build.bat')
     host = _source(MENU.sources / f'{MENU.document}.as')
     assert 'new PartLayout(dll.HudPartLayout != null ? dll.HudPartLayout() : null, log);' in host
     assert 'if (list != null || frames % REPLACE_FRAMES == 0)' in host and 'parts.place(hud, dll, stage);' in host
@@ -175,8 +173,10 @@ def test_the_fnv_preset_is_a_setting_run_between_def_and_the_places():
     by the preset, then reports and places them; with a preset DEF_HUD.xml is left aside. The preset moves parts only
     within their own groups."""
     parts = _source(REPO / 'dll' / 'framework' / 'parts.cpp')
-    assert 'GetPrivateProfileStringA("Hud", "sPreset"' in parts and 'MCM' in parts
-    assert 'args->result->SetMember("preset", &presetText);' in parts
+    assert 'IniText("Hud", "sPreset")' in parts
+    assert 'params.retVal->SetMember("preset", String(movie, preset));' in parts
+    keys = _source(REPO / 'dll' / 'framework' / 'keys.cpp')
+    assert 'std::string IniText(' in keys and 'MCM' in keys
     layout = _source(MENU.sources / 'PartLayout.as')
     body = layout[layout.index('public function place('):layout.index('private function find(')]
     order = [body.index(step) for step in ('fnv.add(hud);', 'lay(part);', 'fnv.arrange(found, stage);',
@@ -211,7 +211,7 @@ def test_the_fnv_preset_draws_the_weapon_condition_bar_fnv_has_and_fo4_has_not()
     native = parts[parts.index('class WeaponConditionNative'):parts.index('}  // namespace')]
     assert 'WeaponCondition(player, EquippedWeapon(player))' in native
     condition = parts[parts.index('double WeaponCondition('):]
-    assert 'g_tracked.count(weapon->formID)' in condition and 'return set < 0.0f ? 1.0 : double(set);' in condition
+    assert 'g_tracked.contains(weapon->GetFormID())' in condition and 'return set < 0.0f ? 1.0 : double(set);' in condition
 
 
 def test_the_player_hides_and_colors_widgets_and_parts_without_fighting_the_game():
@@ -247,9 +247,9 @@ def test_parts_and_widgets_show_on_conditions():
     assert re.findall(r'RegisterFunction<\w+>\(plugin, movie, "(\w+)"\);', show) == ['HudState', 'HudValues',
                                                                                     'HudConditions']
     assert all(f'SetMember("{name}"' in show for name in ('combat', 'drawn', 'vats', 'peek', 'linger'))
-    assert 'IsInCombat()' in show and 'actorState.IsWeaponDrawn()' in show and '"VATSMenu"' in show
+    assert 'IsInCombat()' in show and 'GetWeaponMagicDrawn()' in show and 'MenuOpen("VATSMenu")' in show
     assert 'GetAsyncKeyState(key)' in show and 'GameInFront()' in show
-    assert 'Setting("sShow")' in show and 'Setting("fShowLinger")' in show
+    assert 'IniText("Hud", "sShow")' in show and 'IniText("Hud", "fShowLinger")' in show
     rules = dict(re.findall(r'\{"(part:\w+)", "([\w,]+)"\}', show))
     assert rules['part:CompassWidget_mc'] == 'moved,sneaking,peek' and 'combat' in rules['part:HPMeter_mc']
     assert all('peek' in rule for rule in rules.values())
@@ -258,7 +258,6 @@ def test_parts_and_widgets_show_on_conditions():
     hud = _source(HUD_CPP)
     assert 'RegisterHudShow(movie, plugin);' in hud
     assert hud.index('ReadShowSettings();') < hud.index('if (root.HasMember(HOOKED)) return;')
-    assert 'show.cpp' in _source(REPO / 'dll' / 'build.bat')
     layout = _source(REPO / 'dll' / 'framework' / 'layout.cpp')
     assert '(place.show.empty() ? "-" : place.show)' in layout and 'if (fields >> show && show != "-")' in layout
     assert '{"sHudPeek", "Y", "", \'Y\'}' in _source(REPO / 'dll' / 'framework' / 'keys.cpp')
@@ -295,8 +294,8 @@ def test_parts_show_while_aiming_or_sneaking():
     host's, the game's sneak meter on screen (it and every clip above it visible and not faded), which the engine
     shows only while sneaking and our mask doesn't change."""
     show = _source(REPO / 'dll' / 'framework' / 'show.cpp')
-    assert 'PlayerCamera::kCameraState_IronSights' in show and '"ScopeMenu"' in show
-    assert 'SetMember("aiming", &aiming);' in show
+    assert 'cameraStates[RE::CameraStates::kIronSights]' in show and 'MenuOpen("ScopeMenu")' in show
+    assert 'SetMember("aiming", Aiming());' in show
     rules = _source(MENU.sources / 'ShowRules.as')
     assert 'sneaking = watched != null && onScreen(watched[MOVED]);' in rules and 'word == "sneaking"' in rules
     on_screen = rules[rules.index('function onScreen('):rules.index('function textOf(')]
@@ -316,12 +315,13 @@ def test_the_edit_menu_sets_when_each_box_shows():
     listed = re.search(r'CONDITIONS:Array = \[([^\]]+)\]', rules).group(1)
     listed = set(re.findall(r'"(\w+)"', listed))
     show = _source(REPO / 'dll' / 'framework' / 'show.cpp')
-    state = set(re.findall(r'SetMember\("(\w+)", &\w+\);', show[show.index('class StateNative'):]))
+    state = set(re.findall(r'SetMember\("(\w+)", ', show[show.index('class StateNative'):]))
     host = _source(MENU.sources / 'ShowRules.as')
     assert listed == (state - {'linger', 'health', 'ap', 'rads', 'condition', 'weapon'}) | {
         word for word in ('changed', 'low', 'moved', 'sneaking') if f'word == "{word}"' in host}
     layout = _source(REPO / 'dll' / 'framework' / 'layout.cpp')
-    assert 'entry.SetMember("showOwn", &own);' in layout and 'g_places[Arg(args, 0)].show = rule;' in layout
+    assert 'entry.SetMember("showOwn", String(movie, place.show));' in layout
+    assert 'g_places[Arg(params, 0)].show = rule;' in layout
     assert '{"sHudShow", "V", "", \'V\'}' in _source(REPO / 'dll' / 'framework' / 'keys.cpp')
     hint = re.search(r'^\$CRUI_HUD_EDIT_HINT\t(.*)$', _source(REPO / 'translations' / 'CleanroomUI' / 'en.txt'), re.M)
     assert '{3}' in hint.group(1)
@@ -334,7 +334,7 @@ def test_other_mods_set_their_own_conditions_and_rules():
     show = _source(REPO / 'dll' / 'framework' / 'show.cpp')
     state = show[show.index('class StateNative'):]
     assert 'for (const auto &[name, condition] : g_conditions)' in state
-    assert 'condition.global->value != 0.0f' in state
+    assert 'condition.global->GetValue() != 0.0f' in state
     start = show.index('BUILT_IN[] = {')
     built_in = set(re.findall(r'"(\w+)"', show[start:show.index('};', start)]))
     rules = _source(menus.BY_NAME['hud_edit'].sources / 'RuleList.as')

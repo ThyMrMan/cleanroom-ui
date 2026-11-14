@@ -7,8 +7,6 @@
 // / 10, nothing at 0.5 or less, else at least 1 cap. Paying removes the caps with the engine's remove-from-stack.
 #include "condition.h"
 
-#include "f4se/GameObjects.h"
-
 #include <algorithm>
 #include <cmath>
 
@@ -16,7 +14,7 @@ namespace crui {
 
 namespace {
 
-const UInt32 CAPS = 0x0000000F;  // Fallout4.esm's Caps001
+const std::uint32_t CAPS = 0x0000000F;  // Fallout4.esm's Caps001
 float g_skillBase = 4.0f, g_skillMax = 10.0f, g_costMult = 2.0f;  // under g_lock
 bool g_vendor = false;
 std::string g_vendorName;
@@ -25,70 +23,62 @@ float g_vendorSkill = 0.0f;
 }  // namespace
 
 void SetServiceRules(float skillBase, float skillMax, float costMult) {
-    std::lock_guard<std::mutex> hold(g_lock);
+    std::lock_guard hold(g_lock);
     g_skillBase = skillBase, g_skillMax = skillMax, g_costMult = costMult;
 }
 
-void SetVendor(Actor *vendor) {
+void SetVendor(RE::Actor *vendor) {
     float skill = vendor ? RepairSkill(vendor) : 0.0f;
-    const char *name = vendor && vendor->baseForm ? vendor->baseForm->GetFullName() : nullptr;
-    std::lock_guard<std::mutex> hold(g_lock);
+    std::string name = vendor ? NameOf(vendor->GetObjectReference()) : "";
+    std::lock_guard hold(g_lock);
     if (!vendor && !g_vendor) return;
     g_vendor = vendor != nullptr;
-    g_vendorName = name ? name : "";
+    g_vendorName = name;
     g_vendorSkill = skill;
-    _VMESSAGE("repair vendor %s (Repair %.0f)", g_vendor ? g_vendorName.c_str() : "cleared", skill);
+    REX::DEBUG("repair vendor {} (Repair {:.0f})", g_vendor ? g_vendorName : "cleared", skill);
 }
 
 bool Vendor(std::string *name, float *skill) {
-    std::lock_guard<std::mutex> hold(g_lock);
+    std::lock_guard hold(g_lock);
     *name = g_vendorName;
     *skill = g_vendorSkill;
     return g_vendor;
 }
 
-Offer VendorOffer(float health, UInt32 value, float skill) {
-    std::lock_guard<std::mutex> hold(g_lock);
+Offer VendorOffer(float health, std::uint32_t value, float skill) {
+    std::lock_guard hold(g_lock);
     float cap = g_skillBase + (g_skillMax - g_skillBase) * skill / 100.0f;
     float cost = g_costMult * float(value) * (cap - health * 10.0f) / 10.0f;
     if (cost <= 0.5f) return {health, 0};
-    return {std::min(1.0f, cap / 10.0f), std::max<UInt32>(1, UInt32(std::lround(cost)))};
+    return {std::min(1.0f, cap / 10.0f), std::max<std::uint32_t>(1, std::uint32_t(std::lround(cost)))};
 }
 
-UInt32 ItemValue(TESForm *item) {
-    if (!item) return 0;
-    if (item->formType == kFormType_WEAP) return static_cast<TESObjectWEAP *>(item)->weapData.value;
-    if (item->formType == kFormType_ARMO) return static_cast<TESObjectARMO *>(item)->instanceData.value;
+std::uint32_t ItemValue(RE::TESForm *item) {
+    if (auto *weapon = item ? item->As<RE::TESObjectWEAP>() : nullptr) return weapon->weaponData.value;
+    if (auto *armor = item ? item->As<RE::TESObjectARMO>() : nullptr) return armor->armorData.value;
     return 0;
 }
 
-UInt32 Caps(Actor *holder) {
-    BGSInventoryList *list = holder ? holder->inventoryList : nullptr;
-    if (!list) return 0;
-    UInt32 total = 0;
-    list->inventoryLock.LockForRead();
-    for (UInt32 i = 0; i < list->items.count; i++) {
-        BGSInventoryItem entry;
-        list->items.GetNthItem(i, entry);
-        if (!entry.form || entry.form->formID != CAPS) continue;
-        for (BGSInventoryItem::Stack *s = entry.stack; s; s = s->next) total += s->count;
-    }
-    list->inventoryLock.UnlockRead();
+std::uint32_t Caps(RE::Actor *holder) {
+    std::uint32_t total = 0;
+    ForEachStack(holder, [&](RE::TESForm *form, Stack *s, std::int32_t) {
+        if (form && form->GetFormID() == CAPS) total += s->GetCount();
+    });
     return total;
 }
 
-float BuyRepair(Actor *holder, TESForm *item, SInt32 stack, UInt32 cost, float health) {
-    SInt32 at = -1;
+float BuyRepair(RE::Actor *holder, RE::TESForm *item, std::int32_t stack, std::uint32_t cost, float health) {
+    std::int32_t at = -1;
     if (!FindStack(holder, item, stack, &at) || at < 0) return -1.0f;
     if (Caps(holder) < cost) return -2.0f;
-    TESForm *caps = LookupFormByID(CAPS);
-    BGSInventoryList *list = holder->inventoryList;
-    list->inventoryLock.LockForWrite();
-    for (UInt32 paid = 0, removed = 1; paid < cost && removed;) {
-        removed = TakeFromStack(list, caps, 0, cost - paid);
-        paid += removed;
+    RE::TESForm *caps = FormOf(CAPS);
+    {
+        RE::BSAutoWriteLock hold(holder->inventoryList->rwLock);
+        for (std::uint32_t paid = 0, removed = 1; paid < cost && removed;) {
+            removed = TakeFromStack(holder->inventoryList, caps, 0, cost - paid);
+            paid += removed;
+        }
     }
-    list->inventoryLock.UnlockWrite();
     WriteHealth(holder, item, at, health);
     return health;
 }

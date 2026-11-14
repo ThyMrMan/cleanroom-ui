@@ -11,14 +11,9 @@
 // While its tab is current, a clip is shown, filled and given the keyboard focus.
 #include "condition.h"
 
-#include "f4se/GameMenus.h"
-#include "f4se/PapyrusArgs.h"
-#include "f4se/PapyrusNativeFunctions.h"
-#include "f4se/ScaleformCallbacks.h"
-
 #include <algorithm>
-#include <cctype>
 #include <atomic>
+#include <cctype>
 #include <cmath>
 #include <string>
 #include <vector>
@@ -29,8 +24,8 @@ namespace {
 
 struct Tab {
     std::string name;
-    SInt32 order;
-    std::vector<UInt32> rows, shown;
+    std::int32_t order;
+    std::vector<std::uint32_t> rows, shown;
     std::vector<std::string> values;
 };
 std::vector<Tab> g_tabs;  // by order, under g_lock
@@ -38,203 +33,198 @@ std::atomic<bool> g_dirty{false};
 
 // The STAT page given our tabs (identity only), the page's own tab count, and which of ours is shown (-1: none).
 const void *g_page = nullptr;
-UInt32 g_first = 0;
-SInt32 g_showing = -1;
+std::uint32_t g_first = 0;
+std::int32_t g_showing = -1;
 std::string g_description;
 const char *CLIP = "cruiTab", *SCRIPT = "CRUI_Pipboy";
 
-std::string ClipName(size_t i) {
+std::string ClipName(std::size_t i) {
     return std::string(CLIP) + std::to_string(i);
 }
 
 // A form's value on the player (an actor value's, with its base in `base`) or a global's; false otherwise.
-bool ValueOf(TESForm *form, float *value, float *base) {
-    if (!form) return false;
-    if (form->formType == kFormType_AVIF) {
-        Actor *player = *g_player;
+bool ValueOf(RE::TESForm *form, float *value, float *base) {
+    RE::PlayerCharacter *player = RE::PlayerCharacter::GetSingleton();
+    if (auto *av = form ? form->As<RE::ActorValueInfo>() : nullptr) {
         if (!player) return false;
-        auto *av = static_cast<ActorValueInfo *>(form);
-        *value = player->actorValueOwner.GetValue(av);
-        *base = player->actorValueOwner.GetBase(av);
+        *value = player->GetActorValue(*av);
+        *base = player->GetBaseActorValue(*av);
         return true;
     }
-    if (form->formType == kFormType_GLOB) {
-        *value = *base = static_cast<TESGlobal *>(form)->value;
+    if (auto *global = form ? form->As<RE::TESGlobal>() : nullptr) {
+        *value = *base = global->GetValue();
         return true;
     }
     return false;
 }
 
-std::string NameOf(TESForm *form) {
-    if (form->formType == kFormType_AVIF) {
-        const char *name = static_cast<ActorValueInfo *>(form)->fullName.name.c_str();
+// A row's name: an actor value's own, else a global's editor ID.
+std::string RowName(RE::TESForm *form) {
+    if (auto *av = form->As<RE::ActorValueInfo>()) {
+        const char *name = av->GetFullName();
         if (name && *name) return name;
     }
-    const char *edid = form->formType == kFormType_GLOB ? static_cast<TESGlobal *>(form)->editorID : nullptr;
+    auto *global = form->As<RE::TESGlobal>();
+    const char *edid = global ? global->formEditorID.c_str() : nullptr;
     return edid ? edid : "";
 }
 
-std::string DescriptionOf(TESForm *form) {
-    if (form->formType != kFormType_AVIF) return "";
-    auto *av = static_cast<ActorValueInfo *>(form);
-    BSString text;
-    CALL_MEMBER_FN(&av->description, Get)(&text, av);
-    const char *got = text.Get();
+std::string DescriptionOf(RE::TESForm *form) {
+    auto *av = form->As<RE::ActorValueInfo>();
+    if (!av) return "";
+    RE::BSString text;
+    av->GetDescription(text, av);
+    const char *got = text.c_str();
     return got ? got : "";
 }
 
 // Tab `tab`'s list entries: a row per shown form, its name, its value (a string of the tab's, or the number and
 // its modifier from its base) and description.
-void Entries(GFxMovieRoot *movie, const Tab &tab, GFxValue *out) {
+void Entries(Movie *movie, const Tab &tab, Value *out) {
     movie->CreateArray(out);
-    for (size_t i = 0; i < tab.rows.size(); i++) {
+    for (std::size_t i = 0; i < tab.rows.size(); i++) {
         float value = 0.0f, base = 0.0f, shown = 1.0f, unused = 0.0f;
-        TESForm *form = LookupFormByID(tab.rows[i]);
+        RE::TESForm *form = FormOf(tab.rows[i]);
         if (!ValueOf(form, &value, &base)) continue;
-        if (i < tab.shown.size() && (!ValueOf(LookupFormByID(tab.shown[i]), &shown, &unused) || shown < 1.0f))
-            continue;
-        GFxValue entry, text, shownValue, modifier, description;
+        if (i < tab.shown.size() && (!ValueOf(FormOf(tab.shown[i]), &shown, &unused) || shown < 1.0f)) continue;
+        auto index = std::int32_t(std::floor(value + 0.5f));
+        bool named = !tab.values.empty() && index >= 0 && index < std::int32_t(tab.values.size());
+        Value entry;
         movie->CreateObject(&entry);
-        movie->CreateString(&text, NameOf(form).c_str());
-        SInt32 index = SInt32(std::floor(value + 0.5f));
-        bool named = !tab.values.empty() && index >= 0 && index < SInt32(tab.values.size());
-        if (named) movie->CreateString(&shownValue, tab.values[index].c_str());
-        else shownValue.SetInt(index);
-        modifier.SetInt(named ? 0 : SInt32(std::floor(value - base + 0.5f)));
-        movie->CreateString(&description, DescriptionOf(form).c_str());
-        entry.SetMember("text", &text);
-        entry.SetMember("value", &shownValue);
-        entry.SetMember("modifier", &modifier);
-        entry.SetMember("description", &description);
-        out->PushBack(&entry);
+        entry.SetMember("text", String(movie, RowName(form)));
+        entry.SetMember("value", named ? String(movie, tab.values[index]) : Value(index));
+        entry.SetMember("modifier", named ? 0 : std::int32_t(std::floor(value - base + 0.5f)));
+        entry.SetMember("description", String(movie, DescriptionOf(form)));
+        out->PushBack(entry);
     }
 }
 
-// Give STAT page `page` a clip per tab (a SPECIAL tab copy's list and description) and the tabs' names.
-bool Install(GFxMovieRoot *movie, GFxValue &page, const std::vector<Tab> &tabs) {
-    GFxValue names, special, x, y;
-    if (!Get(page, "TabNames", &names) || !names.IsArray() || !Get(page, "SPECIALTab_mc", &special)) return false;
-    g_first = names.GetArraySize();
+// A clip for tab `tab` at the SPECIAL tab's place: a SPECIAL tab copy's list and description; false when the copy
+// could not be made.
+bool MakeClip(Movie *movie, const Tab &tab, std::size_t i, const Value &special, Value *clip) {
+    Value copy, list, description, x, y;
+    movie->CreateObject(&copy, "SPECIALTab");
+    movie->CreateObject(clip, "flash.display.MovieClip");
+    if (!copy.IsObject() || !clip->IsObject() || !Get(copy, "List_mc", &list)) {
+        REX::WARN("could not copy the Pip-Boy's SPECIAL tab for the {} tab", tab.name);
+        return false;
+    }
+    list.SetMember("numListItems", std::uint32_t(std::max<std::size_t>(tab.rows.size(), 7)));
+    clip->Invoke("addChild", nullptr, &list, 1);
+    if (Get(copy, "Description_tf", &description)) clip->Invoke("addChild", nullptr, &description, 1);
     Get(special, "x", &x);
     Get(special, "y", &y);
-    for (size_t i = 0; i < tabs.size(); i++) {
-        GFxValue copy, clip, args[1], name, hidden(false), count(UInt32(std::max<size_t>(tabs[i].rows.size(), 7)));
-        movie->CreateObject(&copy, "SPECIALTab");
-        movie->CreateObject(&clip, "flash.display.MovieClip");
-        if (!copy.IsObject() || !clip.IsObject() || !Get(copy, "List_mc", &args[0])) {
-            _WARNING("could not copy the Pip-Boy's SPECIAL tab for the %s tab", tabs[i].name.c_str());
-            return false;
-        }
-        args[0].SetMember("numListItems", &count);
-        clip.Invoke("addChild", nullptr, args, 1);
-        if (Get(copy, "Description_tf", &args[0])) clip.Invoke("addChild", nullptr, args, 1);
-        movie->CreateString(&name, ClipName(i).c_str());
-        clip.SetMember("name", &name);
-        clip.SetMember("x", &x);
-        clip.SetMember("y", &y);
-        clip.SetMember("visible", &hidden);
+    clip->SetMember("name", String(movie, ClipName(i)));
+    clip->SetMember("x", x);
+    clip->SetMember("y", y);
+    clip->SetMember("visible", false);
+    return true;
+}
+
+// Give STAT page `page` a clip per tab and the tabs' names.
+bool Install(Movie *movie, Value &page, const std::vector<Tab> &tabs) {
+    Value names, special;
+    if (!Get(page, "TabNames", &names) || !names.IsArray() || !Get(page, "SPECIALTab_mc", &special)) return false;
+    g_first = names.GetArraySize();
+    for (std::size_t i = 0; i < tabs.size(); i++) {
+        Value clip;
+        if (!MakeClip(movie, tabs[i], i, special, &clip)) return false;
         page.Invoke("addChild", nullptr, &clip, 1);
         std::string upper = tabs[i].name;  // Papyrus strings keep the case first stored ("skills")
-        std::transform(upper.begin(), upper.end(), upper.begin(), [](unsigned char c) { return char(toupper(c)); });
-        movie->CreateString(&name, upper.c_str());
-        names.PushBack(&name);
+        std::ranges::transform(upper, upper.begin(), [](unsigned char c) { return char(std::toupper(c)); });
+        names.PushBack(String(movie, upper));
     }
-    _VMESSAGE("added %u Pip-Boy STAT tabs after its %u", UInt32(tabs.size()), g_first);
+    REX::DEBUG("added {} Pip-Boy STAT tabs after its {}", tabs.size(), g_first);
     return true;
+}
+
+// Our tab `i`'s clip on `page` into `clip`; false when it is not there.
+bool ClipOf(Movie *movie, Value &page, std::size_t i, Value *clip) {
+    Value name = String(movie, ClipName(i));
+    return page.Invoke("getChildByName", clip, &name, 1) && clip->IsObject();
+}
+
+// Fill tab `tab`'s list in `clip` and give it the keyboard focus.
+void Fill(Movie *movie, const Tab &tab, Value &clip) {
+    Value list, entries, stage, selected;
+    if (!Get(clip, "List_mc", &list)) return;
+    Entries(movie, tab, &entries);
+    list.SetMember("entryList", entries);
+    list.Invoke("InvalidateData");
+    if (Get(list, "selectedIndex", &selected) && Num(selected) < 0) list.SetMember("selectedClipIndex", 0);
+    if (Get(list, "stage", &stage) && stage.IsObject()) stage.SetMember("focus", list);
 }
 
 // Show the clip of our tab `shown` (-1: none) on `page`; filling and focusing its list as it shows or when
 // the tabs change.
-void Show(GFxMovieRoot *movie, GFxValue &page, SInt32 shown, const std::vector<Tab> &tabs, bool refill) {
-    for (size_t i = 0; i < tabs.size(); i++) {
-        GFxValue clip, name, list, on(SInt32(i) == shown);
-        movie->CreateString(&name, ClipName(i).c_str());
-        if (!page.Invoke("getChildByName", &clip, &name, 1) || !clip.IsObject()) continue;
-        clip.SetMember("visible", &on);
-        if (SInt32(i) != shown || (shown == g_showing && !refill) || !Get(clip, "List_mc", &list)) continue;
-        GFxValue entries, stage, selected;
-        Entries(movie, tabs[i], &entries);
-        list.SetMember("entryList", &entries);
-        list.Invoke("InvalidateData", nullptr, nullptr, 0);
-        if (Get(list, "selectedIndex", &selected) && Num(selected) < 0) {
-            GFxValue first(SInt32(0));
-            list.SetMember("selectedClipIndex", &first);
-        }
-        if (Get(list, "stage", &stage) && stage.IsObject()) stage.SetMember("focus", &list);
+void Show(Movie *movie, Value &page, std::int32_t shown, const std::vector<Tab> &tabs, bool refill) {
+    for (std::size_t i = 0; i < tabs.size(); i++) {
+        Value clip;
+        if (!ClipOf(movie, page, i, &clip)) continue;
+        clip.SetMember("visible", std::int32_t(i) == shown);
+        if (std::int32_t(i) == shown && (shown != g_showing || refill)) Fill(movie, tabs[i], clip);
     }
     g_showing = shown;
 }
 
 // Keep the shown tab's description field at its highlighted row's description.
-void Describe(GFxMovieRoot *movie, GFxValue &page) {
-    GFxValue clip, name, list, entry, text, field;
-    movie->CreateString(&name, ClipName(size_t(g_showing)).c_str());
-    if (!page.Invoke("getChildByName", &clip, &name, 1) || !Get(clip, "List_mc", &list) ||
+void Describe(Movie *movie, Value &page) {
+    Value clip, list, entry, text, field;
+    if (!ClipOf(movie, page, std::size_t(g_showing), &clip) || !Get(clip, "List_mc", &list) ||
         !Get(list, "selectedEntry", &entry) || !Get(entry, "description", &text) || !text.IsString() ||
         g_description == text.GetString() || !Get(clip, "Description_tf", &field))
         return;
     g_description = text.GetString();
-    field.SetMember("text", &text);
+    field.SetMember("text", text);
 }
 
 // `list`'s FormIDs: its authored entries, then those scripts added (FormList.AddForm, a DLC's rows); none for None.
-std::vector<UInt32> ListIds(BGSListForm *list) {
-    std::vector<UInt32> ids;
-    for (UInt32 i = 0; list && i < list->forms.count; i++) {
-        TESForm *form = nullptr;
-        list->forms.GetNthItem(i, form);
-        ids.push_back(form ? form->formID : 0);
-    }
-    for (UInt32 i = 0; list && list->tempForms && i < list->tempForms->count; i++) {
-        UInt32 id = 0;
-        list->tempForms->GetNthItem(i, id);
-        ids.push_back(id);
-    }
+std::vector<std::uint32_t> ListIds(RE::BGSListForm *list) {
+    std::vector<std::uint32_t> ids;
+    if (!list) return ids;
+    for (RE::TESForm *form : list->arrayOfForms) ids.push_back(form ? form->GetFormID() : 0);
+    if (list->scriptAddedTempForms)
+        for (std::uint32_t id : *list->scriptAddedTempForms) ids.push_back(id);
     return ids;
 }
 
 // Papyrus: give the Pip-Boy's STAT page tab `name` (placed by `order` among ours): `rows`' values on the player
 // (actor values) or their own (globals), each picking from `values` (none: the number), shown while its global
 // in `shown` (None: always) is at least 1. Rows a script added to the lists (a DLC's) follow the authored ones.
-void SetTab(StaticFunctionTag *, BSFixedString name, SInt32 order, BGSListForm *rows, VMArray<BSFixedString> values,
-            BGSListForm *shown) {
-    Tab tab{name.c_str() ? name.c_str() : "", order, ListIds(rows), ListIds(shown), {}};
-    for (UInt32 i = 0; i < values.Length(); i++) {
-        BSFixedString value;
-        values.Get(&value, i);
-        tab.values.push_back(value.c_str() ? value.c_str() : "");
-    }
-    std::lock_guard<std::mutex> hold(g_lock);
-    auto at = std::find_if(g_tabs.begin(), g_tabs.end(), [&](const Tab &t) { return t.name == tab.name; });
+void SetTab(std::monostate, std::string name, std::int32_t order, RE::BGSListForm *rows,
+            std::vector<std::string> values, RE::BGSListForm *shown) {
+    Tab tab{name, order, ListIds(rows), ListIds(shown), values};
+    std::lock_guard hold(g_lock);
+    auto at = std::ranges::find_if(g_tabs, [&](const Tab &t) { return t.name == tab.name; });
     if (at != g_tabs.end()) *at = tab;
     else g_tabs.push_back(tab);
-    std::stable_sort(g_tabs.begin(), g_tabs.end(), [](const Tab &a, const Tab &b) { return a.order < b.order; });
+    std::ranges::stable_sort(g_tabs, {}, &Tab::order);
     g_dirty = true;
 }
 
 }  // namespace
 
-void UpdatePages(GFxMovieRoot *movie, const std::string &base) {
-    GFxValue page, tab;
+void UpdatePages(Movie *movie, const std::string &base) {
+    Value page, tab;
     if (!movie->GetVariable(&page, (base + ".CurrentPage").c_str()) || !page.IsObject() ||
         !page.HasMember("SPECIALTab_mc") || !movie->GetVariable(&tab, (base + ".DataObj.CurrentTab").c_str()))
         return;
     std::vector<Tab> tabs;
     {
-        std::lock_guard<std::mutex> hold(g_lock);
+        std::lock_guard hold(g_lock);
         tabs = g_tabs;
     }
     if (tabs.empty()) return;
-    if (page.data.obj != g_page) {
-        g_page = page.data.obj;
+    if (Identity(page) != g_page) {
+        g_page = Identity(page);
         g_showing = -1;
         g_description.clear();
         if (!Install(movie, page, tabs)) return;
-        GFxValue menu;
-        if (movie->GetVariable(&menu, base.c_str())) menu.Invoke("InvalidateData", nullptr, nullptr, 0);
+        Value menu;
+        if (movie->GetVariable(&menu, base.c_str())) menu.Invoke("InvalidateData");
     }
-    SInt32 current = SInt32(Num(tab)) - SInt32(g_first);
-    SInt32 shown = current >= 0 && current < SInt32(tabs.size()) ? current : -1;
+    std::int32_t current = std::int32_t(Num(tab)) - std::int32_t(g_first);
+    std::int32_t shown = current >= 0 && current < std::int32_t(tabs.size()) ? current : -1;
     Show(movie, page, shown, tabs, g_dirty.exchange(false));
     if (shown >= 0) Describe(movie, page);
 }
@@ -243,9 +233,8 @@ void ResetPages() {
     g_page = nullptr;
 }
 
-void RegisterPages(VirtualMachine *vm) {
-    vm->RegisterFunction(new NativeFunction5<StaticFunctionTag, void, BSFixedString, SInt32, BGSListForm *,
-                                             VMArray<BSFixedString>, BGSListForm *>("SetTab", SCRIPT, SetTab, vm));
+void RegisterPages(RE::BSScript::IVirtualMachine *vm) {
+    vm->BindNativeMethod(SCRIPT, "SetTab", SetTab);
 }
 
 }  // namespace crui
