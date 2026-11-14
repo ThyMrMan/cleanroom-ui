@@ -1812,12 +1812,14 @@ played, and the rest builds on it. In Cleanroom UI's own build
    [conditions](#hud-conditions).
 
 **Then build:**
-1. **The converter on Cleanroom UI**: its scripts on the `CRUI_` natives
-   (built, not played), its F3NV.dll cut to FNV's rules, shipping our two
-   DLLs, its dialogue links in `CleanroomDialogue\`
-   ([split](spin_offs.md#split-status)); then this repo as its submodule.
-2. **The shared base**: CommonLibF4, Address Library, xmake
-   ([runtime](spin_offs.md#runtime)).
+1. **This repo as the converter's submodule.** The converter already runs on
+   Cleanroom UI (built, not played): its scripts on the `CRUI_` natives, its
+   F3NV.dll cut to FNV's rules, shipping our two DLLs from a pinned commit,
+   its dialogue links in `CleanroomDialogue\` ([split](spin_offs.md#split-status)).
+2. **The shared base, CleanroomUI.dll's turn**: CleanroomDialogue.dll is on
+   CommonLibF4 (built 2026-11-13, not played); then CleanroomUI.dll, the
+   other game versions' layouts and old-gen IDs
+   ([port](spin_offs.md#port-status)).
 3. **The container and barter CND line** through an injected movie, as the
    Pip-Boy's, retiring that C++.
 4. **The [movie check](#testing)** in preflight.

@@ -62,9 +62,10 @@ In Cleanroom UI (`dll/`, `python -m crui dll`), from F3NV.dll's sources:
   `CRUI_ConditionRepair`, `CRUI_AmmoSwitch`; log `CleanroomUI.log`. It takes
   no trampoline and no longer sets the spawn condition or combat sprint.
 - **`CleanroomDialogue.dll`** (`dll/dialogue/`): the dialogue menu alone,
-  with its own branch pool; `f4se.plugins.CleanroomDialogue`; log
-  `CleanroomDialogue.log`.
-- **`dll/shared/`**, compiled into both: the Flash helpers and the natives
+  on CommonLibF4 since 2026-11-13 ([port](#port-status));
+  `f4se.plugins.CleanroomDialogue`; log `CleanroomDialogue.log`.
+- **`dll/shared/`** in CleanroomUI.dll and **`dll/base/`** in
+  CleanroomDialogue.dll: the Flash helpers and the natives
   every movie may call (`TextureExists`, `HudColor`). crui's `Bridge.shared()`
   asks `CleanroomUI`, then `CleanroomDialogue`, so the level-up menu and
   `Images` work with either installed.
@@ -72,16 +73,21 @@ In Cleanroom UI (`dll/`, `python -m crui dll`), from F3NV.dll's sources:
   spawn condition and combat sprint: the converter's F3NV.dll keeps them
   (its `tes_runtime/fo4_condition`).
 
+The converter on Cleanroom UI (its branch `fo4-2026-10-31`, checked
+2026-11-14, not played):
+- **Its F3NV.dll keeps only FNV's rules**: Damage Threshold, Hardcore, and
+  the Goodbye line ending the player's talk. Its converted scripts call the
+  `CRUI_` natives.
+- **It ships our two DLLs** from `tes_runtime/dist`, built from the commit
+  in `tes_runtime/dist/cleanroom_ui.txt` (`fo4_import/cleanroom.py`).
+- **Its dialogue links** go to `F4SE\Plugins\CleanroomDialogue\`; each
+  build deletes its own file from the old `F3NV_Menus\`.
+
 Not done yet:
-- **The converter** still builds its whole F3NV.dll and names
-  `F3NV_Condition` and the rest; installed beside `CleanroomUI.dll`, both
-  would hook the Pip-Boy. Its move: converted scripts call the `CRUI_`
-  natives (native scripts hold no saved state), its F3NV.dll keeps only
-  FNV's rules (with its own menu-open listener for the Hardcore HUD), and it
-  ships the two DLLs.
-- **The converter's dialogue links** still go to `F4SE\Plugins\F3NV_Menus\`;
-  they move to `F4SE\Plugins\CleanroomDialogue\` when it ships
-  `CleanroomDialogue.dll`.
+- **This repo as the converter's submodule** in `external/`, in place of
+  the copied DLLs and their pin.
+- **Dropping the `F3NV_Menus\` read** from `CleanroomDialogue.dll`, once
+  converter builds from before 2026-11-13 are gone.
 
 The dialogue release stands alone (built 2026-11-13, not played):
 - **Its words** are `$CRUI_LEAVE`, `$CRUI_HINT_SELECT` and `$CRUI_HINT_LEAVE`
@@ -93,8 +99,8 @@ The dialogue release stands alone (built 2026-11-13, not played):
   own `Translation::ParseTranslation`.
 - **Its links** are read from `Data\F4SE\Plugins\CleanroomDialogue\*.txt`,
   one file per plugin with options, in the same format. The converter's old
-  `F3NV_Menus\` folder is still read after it, logged `DEPRECATED`, until the
-  converter writes ours.
+  `F3NV_Menus\` folder is still read after it, logged `DEPRECATED`, for
+  converter builds from before it wrote ours.
 
 ### <a id="framework-rules"></a>Rules for the framework
 
@@ -424,7 +430,8 @@ Everything else needs F4SE and stays PC (and later VR).
    and each game update waits on its authors
    ([its plan](dialogue_menu_mod.md#xdi-today)).
 2. **Shared base**: CommonLibF4 (Dear-Modding), Address Library, xmake. The dialogue menu
-   is the first DLL on it.
+   is the first DLL on it (built 2026-11-13, not played); CleanroomUI.dll is next
+   ([port](#port-status)).
 3. **Framework**: carve out the condition, Pip-Boy and tabs APIs; F3NV.dll
    then requires it.
 4. **NV Weapon Condition & Repair**: the first content mod, also the

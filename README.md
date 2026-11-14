@@ -36,10 +36,13 @@ files never go in git.
 | `plugin`, `translations` | Python alone | |
 | `movies` | Java and the Apache Flex SDK 4.16.1 with playerglobal 11.2 ([setup](docs/swf_framework.md#mxmlc-setup)) | `CRUI_FLEX`, else `../tools_ext/FlexSDK` |
 | `scripts` | Fallout 4's Creation Kit (the Papyrus compiler and `Base.zip`) and F4SE's script sources | `CRUI_FALLOUT4`, else the registered install, else Steam's default; F4SE's in `CRUI_F4SE_SCRIPTS`, else `Data/Scripts/Source` |
-| `dll` | Visual Studio with the C++ x64 tools (found by vswhere); F4SE 0.7.9's source and ianpatt's `common`, built as static libraries | `TOOLS_EXT` (default `../tools_ext`), or `F4SE_ROOT` and `COMMON_ROOT` |
+| `dll`: CleanroomUI.dll (`dll/build.bat`) | Visual Studio with the C++ x64 tools (found by vswhere); F4SE 0.7.9's source and ianpatt's `common`, built as static libraries | `TOOLS_EXT` (default `../tools_ext`), or `F4SE_ROOT` and `COMMON_ROOT` |
+| `dll`: CleanroomDialogue.dll (`dll/xmake.lua`) | xmake 3.1 and Visual Studio; Dear-Modding's CommonLibF4 (from `commonlibf4-template`, submodules included), which `crui` patches from `dll/patches/` first | xmake: `CRUI_XMAKE`, else `PATH`, else `C:\Program Files\xmake`; CommonLibF4: `CRUI_COMMONLIBF4`, else `../tools_ext/commonlibf4-template/lib/commonlibf4` |
 
 The game's `Base.zip` is unpacked into `out/cache/` when the Creation Kit
-hasn't unpacked it yet.
+hasn't unpacked it yet. xmake keeps its downloaded libraries in
+`out/xmake/` unless `XMAKE_GLOBALDIR` is set
+([why](docs/spin_offs.md#port-status)).
 
 Every script, movie and DLL builds here alone. The level-up host's
 partner, `CRUI_LevelUpHolder`, keeps the tagged skills, is where `Get()`
@@ -61,7 +64,7 @@ mods reach the running one with that plugin as their only master
 | `menus/hud/` | The HUD host CleanroomUI.dll loads (`Interface/CRUI_Hud.swf`): mods' widget movies and the built-in stats line; the stats widget HUDFramework hosts when installed (`Interface/CRUI_HudStats.swf`); the edit menu for our host's widgets (`Interface/CRUI_HudEdit.swf`); and the layout of the game's own HUD parts from `DEF_HUD.xml` (`PartLayout.as`) |
 | `menus/dialogue/` | The dialogue menu (`Interface/DialogueMenu.swf`) |
 | `papyrus/` | The level-up host, its holder and its per-plugin tables (`CRUI_LevelUp`, `CRUI_LevelUpHolder`, `CRUI_LevelUpTable`), `CRUI_Array`, and the scripts declaring CleanroomUI.dll's natives (`CRUI_Condition`, `CRUI_Framework`, `CRUI_HudNative`, `CRUI_ItemCard`, `CRUI_LevelUpNative`, `CRUI_Pipboy`, `CRUI_PipboyAmmo`, `CRUI_Sex`), and `CRUI_Hud`, which puts widgets on HUDFramework when installed, else on our host |
-| `dll/` | `build.bat` (both DLLs); `framework/` (CleanroomUI.dll: condition API, Pip-Boy overlay, card lines, tabs, repair and ammo lists, transfer menus, `ChangeSex`, the game's perk points); `dialogue/` (CleanroomDialogue.dll); `shared/` (Flash helpers and the natives every movie may call, compiled into both) |
+| `dll/` | `build.bat` and `framework/` (CleanroomUI.dll, F4SE 0.7.9: condition API, Pip-Boy overlay, card lines, tabs, repair and ammo lists, transfer menus, `ChangeSex`, the game's perk points) with `shared/` (Flash helpers and the natives every movie may call); `xmake.lua` and `dialogue/` (CleanroomDialogue.dll, CommonLibF4) with `base/` (the same helpers and natives on CommonLibF4); `patches/` (ours to CommonLibF4) |
 | `docs/` | The framework, level-up and spin-off plans, as written for the converter |
 | `tests/` | Contract tests between movies, scripts and the DLL, and the reproducible builds |
 
@@ -73,7 +76,7 @@ weight, weapons' spawn condition, no combat sprint).
 
 ## Next
 
-Status as of 2026-11-13. The full list, in order:
+Status as of 2026-11-14. The full list, in order:
 [next](docs/swf_framework.md#next).
 
 1. **Play everything built since 2026-11-12.** None of it has been played
@@ -89,14 +92,15 @@ Status as of 2026-11-13. The full list, in order:
    low, the location moving, aiming, sneaking; `[Hud] sShow=Immersive`;
    each part's rule in the edit menu; other mods' conditions and rules
    through `CRUI_Hud.SetCondition` and `SetShowRule`).
-2. **The converter on Cleanroom UI** ([split](docs/spin_offs.md#split-status)):
-   its scripts on the `CRUI_` natives (built 2026-11-12, not played,
-   `fo3fnv-in-fo4` branch `claude/fo4-dialogue-own-movie`), its F3NV.dll cut
-   to FNV's rules, shipping our two DLLs, its dialogue links in
-   `CleanroomDialogue\`; then this repo as its pinned submodule in
-   `external/`.
-3. **The shared base**: CommonLibF4 (Dear-Modding), Address Library, xmake
-   ([runtime](docs/spin_offs.md#runtime)).
+2. **This repo as the converter's submodule** in `external/`. The converter
+   already runs on Cleanroom UI (on its `fo4-2026-10-31`, not played): its
+   scripts on the `CRUI_` natives, its F3NV.dll cut to FNV's rules, shipping
+   our two DLLs from a pinned commit, its dialogue links in
+   `CleanroomDialogue\` ([split](docs/spin_offs.md#split-status)).
+3. **The shared base, CleanroomUI.dll's turn**: CleanroomDialogue.dll is on
+   CommonLibF4 (built 2026-11-13, not played); then CleanroomUI.dll, the
+   other game versions' layouts and old-gen IDs
+   ([port](docs/spin_offs.md#port-status)).
 4. **The container and barter CND line** as a movie, retiring that C++, and
    the movie check in preflight.
 5. **The HUD's rest, as play asks**: fades, hiding a part's pieces
