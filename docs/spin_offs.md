@@ -209,10 +209,12 @@ Every DLL above needs both versions, so the port is done once:
   `XMAKE_GLOBALDIR` at `out/xmake` (unless it is already set) and
   reconfigures with `xmake f -c`. The first build downloads the packages
   there.
-- **Not done:** old-gen IDs (20 still to match) and the other game
-  versions' layouts.
+- **Old-gen IDs are in** for both DLLs (2026-11-14, [ids](#ids)), but
+  nothing runs there yet: the hooks wait for old-gen's struct layouts.
+- **Not done:** the other game versions' layouts, and seven of F3NV.dll's
+  old-gen IDs ([open](#og-match)).
 
-### <a id="ids"></a>Our addresses as Address Library IDs (2026-11-13)
+### <a id="ids"></a>Our addresses as Address Library IDs (2026-11-13, old-gen 2026-11-14)
 
 Every hard-coded 1.11.240 address in `CleanroomUI.dll`, `CleanroomDialogue.dll`
 and the converter's `F3NV.dll`, as its next-gen ID, read from the Address
@@ -226,62 +228,64 @@ inside it may not, so each of those is a byte-checked patch (step 5).
 - **Three start at 1.11.137:** the topic manager, the Pip-Boy data and the
   inventory interface globals (IDs 4796064, 4796372, 4796586). 1.10.980 and
   984 number those globals elsewhere; find them there by matching.
-- **Old-gen (1.10.163)** numbers its IDs apart and has no table from these;
-  each needs matching in the 1.10.163 exe, which is not on disk.
+- **Old-gen (1.10.163)** numbers its IDs apart. Every Cleanroom UI address
+  was matched in the 1.10.163 exe on 2026-11-14 ([how](#og-match)); seven
+  of F3NV.dll's are still open. `same` is a vtable, which keeps one ID; an
+  old-gen `+0x...` is that build's own offset.
 
-| DLL, file, name | 1.11.240 RVA | Next-gen ID | In next-gen |
-|---|---|---|---|
-| Dialogue `dialogue.cpp` AliasHandle | 0x671fa0 | 2207810 | all |
-| Dialogue `dialogue.cpp` CAMERA_TO_PLAYER | 0x83266c | 2214898+0xadc | all |
-| Dialogue `dialogue.cpp` EnableShadedBackground | 0x1b04350 | 2287022 | all |
-| Dialogue `dialogue.cpp` FIRST_PERSON_SHOULD | 0x10213e0 | 2248264 | all |
-| Dialogue `dialogue.cpp` FIRST_PERSON_VTABLE | 0x25aab08 | 246953 | all |
-| Dialogue `dialogue.cpp` HandleRef | 0x21e550 | 2188369 | all |
-| Dialogue `dialogue.cpp` MarkSaid | 0x69f8d0 | 2208467 | all |
-| Dialogue `dialogue.cpp` NPC_SLOT_CALL | 0x415a21 | 2196817+0x7a1 | all |
-| Dialogue `dialogue.cpp` OptionInfo | 0x416600 | 2196825 | all |
-| Dialogue `dialogue.cpp` PLAYER_DIALOGUE_VTABLE | 0x2488978 | 388825 | all |
-| Dialogue `dialogue.cpp` PLAYER_SLOT_CALL | 0x41568a | 2196817+0x40a | all |
-| Dialogue `dialogue.cpp` PLAYER_SPEAKS | 0x4158d2 | 2196817+0x652 | all |
-| Dialogue `dialogue.cpp` Passes | 0x69f490 | 2208464 | all |
-| Dialogue `dialogue.cpp` Pick | 0x698db0 | 2208361 | all |
-| Dialogue `dialogue.cpp` Prompt | 0x69e740 | 2208446 | all |
-| Dialogue `dialogue.cpp` RESPONSE_CALL | 0x413da8 | 2196800+0x388 | all |
-| Dialogue `dialogue.cpp` ResponseInfo | 0x414180 | 2196806 | all |
-| Dialogue `dialogue.cpp` SHADER_TARGET_VTABLE | 0x27236d0 | 298683 | all |
-| Dialogue `dialogue.cpp` SelectOption | 0xd76130 | 2233190 | all |
-| Dialogue `dialogue.cpp` StopScene | 0x638d60 | 2206866 | all |
-| Dialogue `dialogue.cpp` THIRD_PERSON_SHOULD | 0x102dfc0 | 2248466 | all |
-| Dialogue `dialogue.cpp` THIRD_PERSON_VTABLE | 0x2522a88 | 728085 | all |
-| Dialogue `dialogue.cpp` TintChallenge | 0x1043ef0 | 2248685 | all |
-| Dialogue `dialogue.cpp` ZoomInName | 0xb25620 | 2224896 | all |
-| Dialogue `dialogue.cpp` ZoomOutName | 0xa7a080 | 2223332 | all |
-| F3NV `damage.cpp` HitResist | 0xe38a00 | 2236862 | all |
-| F3NV `damage.cpp` HitTyped | 0xe387b0 | 2236861 | all |
-| F3NV `damage.cpp` PHYSICAL_CALL | 0xe38c3d | 2236862+0x23d | all |
-| F3NV `damage.cpp` ResistCurve | 0x6cb2e0 | 2209007 | all |
-| F3NV `damage.cpp` SHOT_RESIST_CALL | 0xe37472 | 2236846+0x252 | all |
-| F3NV `damage.cpp` SHOT_TYPED_CALL | 0xe373bf | 2236846+0x19f | all |
-| F3NV `damage.cpp` TYPED_CALL | 0xe3af4a | 2236870+0xca | all |
-| F3NV `hardcore.cpp` AMMO_DIFFICULTY_CALL | 0x3220e0 | 2193446+0x110 | all |
-| F3NV `hardcore.cpp` Difficulty | 0xd6d600 | 2233056 | all |
-| F3NV `plugin.cpp` COMBAT_PATH_SPRINTING | 0x2f38a98 | 2664479 | all |
-| F3NV `plugin.cpp` MaxHealth | 0x316940 | 2193227 | all |
-| F3NV `plugin.cpp` SPAWN_HEALTH_CALL | 0x271611 | 2190031+0xa1 | all |
-| F3NV `talk.cpp` EndTalkNative | 0xbb0720 | 2227155 | all |
-| F3NV `talk.cpp` HandleRef | 0x21e550 | 2188369 | all |
-| F3NV `talk.cpp` TopicManager | 0x30e6e50 | 4796064 | from 1.11.137 |
-| UI `perks.cpp` SetPlayerPerkCount | 0xd75ff0 | 2233187 | all |
-| UI `pipboy.cpp` g_inventoryDataVtable | 0x2544750 | 952887 | all |
-| UI `pipboy.cpp` g_pipboyData | 0x30e8af8 | 4796372 | from 1.11.137 |
-| UI `plugin.cpp` CHECK_STACK_ID_VTABLE | 0x247a038 | 168197 | all |
-| UI `plugin.cpp` FindAndWriteStackData | 0x502560 | 2200937 | all |
-| UI `plugin.cpp` SET_HEALTH_VTABLE | 0x252b680 | 606842 | all |
-| UI `repair.cpp` RemoveFromStack | 0x34e020 | 2194169 | all |
-| UI `transfer.cpp` BARTER_LINE_SLOT | 0x2534710 | 910737+0xe0 | all |
-| UI `transfer.cpp` CONTAINER_LINE_SLOT | 0x25ac7a8 | 1098621+0xe0 | all |
-| UI `transfer.cpp` ItemOf | 0x347c10 | 2194009 | all |
-| UI `transfer.cpp` g_inventoryInterface | 0x30ec470 | 4796586 | from 1.11.137 |
+| DLL, file, name | 1.11.240 RVA | Next-gen ID | In next-gen | Old-gen ID |
+|---|---|---|---|---|
+| Dialogue `dialogue.cpp` AliasHandle | 0x671fa0 | 2207810 | all | 688914 |
+| Dialogue `dialogue.cpp` CAMERA_TO_PLAYER | 0x83266c | 2214898+0xadc | all | 24497+0x940 |
+| Dialogue `dialogue.cpp` EnableShadedBackground | 0x1b04350 | 2287022 | all | 278402 |
+| Dialogue `dialogue.cpp` FIRST_PERSON_SHOULD | 0x10213e0 | 2248264 | all | 895531 |
+| Dialogue `dialogue.cpp` FIRST_PERSON_VTABLE | 0x25aab08 | 246953 | all | same |
+| Dialogue `dialogue.cpp` HandleRef | 0x21e550 | 2188369 | all | 967277 (see below) |
+| Dialogue `dialogue.cpp` MarkSaid | 0x69f8d0 | 2208467 | all | 1160364 |
+| Dialogue `dialogue.cpp` NPC_SLOT_CALL | 0x415a21 | 2196817+0x7a1 | all | 1439851+0x777 |
+| Dialogue `dialogue.cpp` OptionInfo | 0x416600 | 2196825 | all | 781358 |
+| Dialogue `dialogue.cpp` PLAYER_DIALOGUE_VTABLE | 0x2488978 | 388825 | all | same |
+| Dialogue `dialogue.cpp` PLAYER_SLOT_CALL | 0x41568a | 2196817+0x40a | all | 1439851+0x3e1 |
+| Dialogue `dialogue.cpp` PLAYER_SPEAKS | 0x4158d2 | 2196817+0x652 | all | 1439851+0x62e |
+| Dialogue `dialogue.cpp` Passes | 0x69f490 | 2208464 | all | 244581 |
+| Dialogue `dialogue.cpp` Pick | 0x698db0 | 2208361 | all | 433331 |
+| Dialogue `dialogue.cpp` Prompt | 0x69e740 | 2208446 | all | 1435199 |
+| Dialogue `dialogue.cpp` RESPONSE_CALL | 0x413da8 | 2196800+0x388 | all | 574707+0x388 |
+| Dialogue `dialogue.cpp` ResponseInfo | 0x414180 | 2196806 | all | 1369299 |
+| Dialogue `dialogue.cpp` SHADER_TARGET_VTABLE | 0x27236d0 | 298683 | all | same |
+| Dialogue `dialogue.cpp` SelectOption | 0xd76130 | 2233190 | all | 696117 |
+| Dialogue `dialogue.cpp` StopScene | 0x638d60 | 2206866 | all | 904456 |
+| Dialogue `dialogue.cpp` THIRD_PERSON_SHOULD | 0x102dfc0 | 2248466 | all | 908569 |
+| Dialogue `dialogue.cpp` THIRD_PERSON_VTABLE | 0x2522a88 | 728085 | all | same |
+| Dialogue `dialogue.cpp` TintChallenge | 0x1043ef0 | 2248685 | all | 1432530 |
+| Dialogue `dialogue.cpp` ZoomInName | 0xb25620 | 2224896 | all | 1282473 |
+| Dialogue `dialogue.cpp` ZoomOutName | 0xa7a080 | 2223332 | all | 750808 |
+| F3NV `damage.cpp` HitResist | 0xe38a00 | 2236862 | all | open |
+| F3NV `damage.cpp` HitTyped | 0xe387b0 | 2236861 | all | open |
+| F3NV `damage.cpp` PHYSICAL_CALL | 0xe38c3d | 2236862+0x23d | all | open |
+| F3NV `damage.cpp` ResistCurve | 0x6cb2e0 | 2209007 | all | open (see below) |
+| F3NV `damage.cpp` SHOT_RESIST_CALL | 0xe37472 | 2236846+0x252 | all | open |
+| F3NV `damage.cpp` SHOT_TYPED_CALL | 0xe373bf | 2236846+0x19f | all | open |
+| F3NV `damage.cpp` TYPED_CALL | 0xe3af4a | 2236870+0xca | all | 308245+? |
+| F3NV `hardcore.cpp` AMMO_DIFFICULTY_CALL | 0x3220e0 | 2193446+0x110 | all | 1321341+? |
+| F3NV `hardcore.cpp` Difficulty | 0xd6d600 | 2233056 | all | 922962 (CommonLibF4, unchecked) |
+| F3NV `plugin.cpp` COMBAT_PATH_SPRINTING | 0x2f38a98 | 2664479 | all | open |
+| F3NV `plugin.cpp` MaxHealth | 0x316940 | 2193227 | all | 1515099 |
+| F3NV `plugin.cpp` SPAWN_HEALTH_CALL | 0x271611 | 2190031+0xa1 | all | 250701+? |
+| F3NV `talk.cpp` EndTalkNative | 0xbb0720 | 2227155 | all | 674395 |
+| F3NV `talk.cpp` HandleRef | 0x21e550 | 2188369 | all | 967277 (see below) |
+| F3NV `talk.cpp` TopicManager | 0x30e6e50 | 4796064 | from 1.11.137 | 1391114 (CommonLibF4) |
+| UI `perks.cpp` SetPlayerPerkCount | 0xd75ff0 | 2233187 | all | 616372 |
+| UI `pipboy.cpp` g_inventoryDataVtable | 0x2544750 | 952887 | all | same |
+| UI `pipboy.cpp` g_pipboyData | 0x30e8af8 | 4796372 | from 1.11.137 | 1178971 |
+| UI `plugin.cpp` CHECK_STACK_ID_VTABLE | 0x247a038 | 168197 | all | same |
+| UI `plugin.cpp` FindAndWriteStackData | 0x502560 | 2200937 | all | 1304040 |
+| UI `plugin.cpp` SET_HEALTH_VTABLE | 0x252b680 | 606842 | all | same |
+| UI `repair.cpp` RemoveFromStack | 0x34e020 | 2194169 | all | 400062 |
+| UI `transfer.cpp` BARTER_LINE_SLOT | 0x2534710 | 910737+0xe0 | all | same+0xe0 |
+| UI `transfer.cpp` CONTAINER_LINE_SLOT | 0x25ac7a8 | 1098621+0xe0 | all | same+0xe0 |
+| UI `transfer.cpp` ItemOf | 0x347c10 | 2194009 | all | 1200959 |
+| UI `transfer.cpp` g_inventoryInterface | 0x30ec470 | 4796586 | from 1.11.137 | 501899 |
 
 **What CommonLibF4 already names** (`include/RE/IDs.h`, `IDs_VTABLE.h`,
 read 2026-11-13 at the template's pin `a312a9f`): 26 of our 46
@@ -299,8 +303,8 @@ have their 1.10.98x IDs there too. Vtable IDs are one set across builds.
 | 2194169 | `BGSInventoryList::RemoveItem1` | 400062 |
 | 2196800 | `BGSSceneActionNPCResponseDialogue::UpdateAction2` | 574707 |
 | 2196817 | `BGSSceneActionNPCResponseDialogue::UpdateAction1` | 1439851 |
-| 2196825 | `BGSSceneActionNPCResponseDialogue::GetCurrentTopicInfo` | 1369299 |
-| 2207810 | `TESQuest::GetAliasedRef` | 847223 |
+| 2196825 | `BGSSceneActionNPCResponseDialogue::GetCurrentTopicInfo` | 1369299: wrong, it is 781358 ([why](#og-match)) |
+| 2207810 | `TESQuest::GetAliasedRef` | 847223: wrong, it is 688914 ([why](#og-match)) |
 | 2209007 | `CombatFormulas::CalcResistedPercentage` | 420470 |
 | 2214898 | `DialogueCameraState::UpdateActorsAndAction` | 24497 |
 | 2233056 | `PlayerCharacter::GetDifficultyLevel` | 922962 |
@@ -318,8 +322,46 @@ have their 1.10.98x IDs there too. Vtable IDs are one set across builds.
 | 910737 | vtable `BarterMenu` | same ID |
 | 952887 | vtable `PipboyInventoryData` | same ID |
 
-**Still to match in the 1.10.163 exe** (20, and each one we name
-goes upstream): 2188369, 2190031, 2196806, 2200937, 2206866, 2208361, 2208446, 2208464, 2208467, 2223332, 2224896, 2227155, 2236846, 2236861, 2236862, 2236870, 2248264, 2248466, 2248685, 2664479.
+### <a id="og-match"></a>How the old-gen IDs were matched (2026-11-14)
+
+The 1.10.163 exe (Steam depot 377162, manifest 5847529232406005096) is
+SteamStub-encrypted: its code section was decrypted from the stub's own
+header (variant 3.1: AES-256-CBC, the key, IV and 16 stolen bytes in the
+header 0xF0 bytes before the entry point). Each next-gen function was then
+found there by its call graph: callers and callees CommonLibF4 already
+pairs (846 functions and vtable slots), a caller's call list aligned
+against its old-gen twin's, the neighbors a source file keeps together, a
+vtable's same slot, and the code itself compared instruction by
+instruction. Every match above was read side by side in both builds. The
+scripts are kept outside the repo (`fo3fnv-in-fo4`'s `temp/og_ids/`).
+
+What the old-gen code does differently:
+- **The player-speaks patch:** old-gen orders that block otherwise, so its
+  `mov rcx, rax` is at +0x62e and the jump past the call is `EB 14 90`, not
+  `EB 1E 90` (`SILENT_OG` in `dialogue.cpp`).
+- **A handle's reference:** next-gen's `2188369` takes (out, handle);
+  old-gen has no such function and calls `967277`, CommonLibF4's
+  `GetSmartPointer` (handle, out). `dialogue.cpp` now calls CommonLibF4's,
+  paired in both builds (next-gen `2188681`), so `2188369` is no longer used.
+- **ZoomIn:** old-gen's third-person test reads the static name inline, but
+  the same name's getter exists (`1282473`, the same static string).
+
+**CommonLibF4's wrong pairs** (include/RE/IDs.h at `a312a9f`), to send upstream:
+- `TESQuest::GetAliasedRef {847223, 2207810}`: next-gen `2207810` is the
+  locking wrapper, identical to old-gen `688914`; `847223` is the inner
+  function the wrapper calls (next-gen `2207980`).
+- `BGSSceneActionNPCResponseDialogue::GetCurrentTopicInfo {1369299,
+  2196825}`: old-gen `1369299` is next-gen `2196806` (the same code, called
+  from the same two functions); `2196825` is the player dialogue's
+  (`{781358, 2196825}`, also in the file, is right).
+- `CombatFormulas::CalcResistedPercentage {420470, 2209007}` (F3NV.dll's
+  ResistCurve): old-gen `420470` is a short function that calls `1096523`,
+  whose call list is next-gen `2209007`'s; not settled.
+
+**Still open** (F3NV.dll only, which is on raw addresses until it moves to
+CommonLibF4): `2236846`, `2236861`, `2236862` (the damage calls), the
+`bCombatPathSprinting` setting `2664479`, `2209007` above, and the call-site
+offsets inside `308245`, `1321341` and `250701`.
 
 ## <a id="platforms"></a>Platforms: PC versions, VR, consoles
 

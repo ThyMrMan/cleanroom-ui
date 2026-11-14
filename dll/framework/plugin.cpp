@@ -62,7 +62,7 @@ using FindAndWrite = void (*)(RE::TESObjectREFR *, RE::TESBoundObject *,
                               RE::BGSInventoryItem::StackDataCompareFunctor &,
                               RE::BGSInventoryItem::StackDataWriteFunctor &,
                               bool (*)(RE::TESBoundObject *, RE::TESBoundObject *), bool);
-const Ids FIND_AND_WRITE_STACK_DATA{0, 2200937, 2200937};  // 1.11.240 RVA 0x502560
+const Ids FIND_AND_WRITE_STACK_DATA = Both(1304040, 2200937);  // 1.11.240 RVA 0x502560
 
 // The engine's remove-from-stack, BGSInventoryList::RemoveItem1 (object, stack index, count, more stacks follow):
 // the count removed (CommonLibF4 declares it void). It sends the inventory event, marks the list's weight dirty and

@@ -120,10 +120,11 @@ def test_both_dlls_log_at_the_ini_level():
 
 
 def test_the_dialogue_dll_hooks_only_where_its_layouts_were_read():
-    """Every address in dialogue.cpp is a next-gen Address Library ID (its 1.11.240 RVA beside it), resolved without
-    ending the game when a database lacks it; the hooks wait for the checked runtime."""
+    """Every address in dialogue.cpp is an old-gen and a next-gen Address Library ID (its 1.11.240 RVA beside it),
+    resolved without ending the game when a database lacks it; the hooks wait for the checked runtime."""
     dialogue = (DIALOGUE / 'dialogue.cpp').read_text(encoding='utf-8')
-    assert 'RelocAddr' not in dialogue and len(re.findall(r'= Next\(\d+(, 0x[0-9A-F]+)?\);\s+// 0x', dialogue)) == 25
+    ids = re.findall(r'= Both\(\d+, \d+(, 0x[0-9A-F]+){0,2}\);\s+// 0x', dialogue)
+    assert 'RelocAddr' not in dialogue and 'Next(' not in dialogue and len(ids) == 24
     assert 'if (!CheckedRuntime())' in dialogue and 'if (!ResolveEngine())' in dialogue
     base = (DLL / 'base' / 'base.cpp').read_text(encoding='utf-8')
     assert 'if (!id || !db->has(id)) return 0;' in base

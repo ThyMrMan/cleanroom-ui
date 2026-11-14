@@ -98,7 +98,7 @@ Status as of 2026-11-14. The full list, in order:
    `CleanroomDialogue\` ([split](docs/spin_offs.md#split-status)).
 3. **The shared base, other game versions**: both DLLs are on CommonLibF4
    (built 2026-11-14, not played) and run on 1.11.240 only; next, the
-   other game versions' layouts and old-gen IDs
+   other game versions' layouts (old-gen IDs matched 2026-11-14)
    ([port](docs/spin_offs.md#port-status)).
 4. **The container and barter CND line** as a movie, retiring that C++, and
    the movie check in preflight.

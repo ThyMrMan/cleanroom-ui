@@ -16,16 +16,21 @@ using Scaleform::GFx::Movie;
 using Scaleform::GFx::Value;
 
 // A game address as Address Library IDs per runtime (old-gen 1.10.163, next-gen 1.10.980/984, 1.11.x) plus an
-// offset inside it (a call site, a vtable slot). An ID of 0 is one not known for that runtime.
+// offset inside it (a call site, a vtable slot), old-gen's own: code moves inside a function between the
+// generations. An ID of 0 is one not known for that runtime. Vtables keep one ID in every database.
 struct Ids {
     std::uint64_t og = 0, ng = 0, ae = 0;
-    std::uintptr_t offset = 0;
+    std::uintptr_t offset = 0, ogOffset = 0;
 };
 
-// A next-gen ID (also 1.11's), with `offset` into it; no old-gen ID until each is matched there.
-constexpr Ids Next(std::uint64_t id, std::uintptr_t offset = 0) {
-    return {0, id, id, offset};
+// An old-gen ID and a next-gen ID (also 1.11's), with `offset` into the next-gen one and `ogOffset` into the
+// old-gen one (`offset` when not given). Old-gen IDs were matched in the 1.10.163 exe (docs/spin_offs.md#ids).
+constexpr Ids Both(std::uint64_t og, std::uint64_t ng, std::uintptr_t offset = 0, std::uintptr_t ogOffset = ~0ull) {
+    return {og, ng, ng, offset, ogOffset == ~0ull ? offset : ogOffset};
 }
+
+// Whether the game is old-gen (1.10.163), where a few patches write other bytes.
+bool OldGen();
 
 // The running game's address of `ids`; 0 when its runtime's ID is unknown or its database lacks it (CommonLibF4's
 // own lookup ends the game instead).

@@ -104,7 +104,12 @@ std::uintptr_t Address(const Ids &ids) {
                                                                : ids.ae;
     auto *db = REL::IDDB::GetSingleton();
     if (!id || !db->has(id)) return 0;
-    return REX::FModule::GetExecutingModule().GetBaseAddress() + db->offset(id) + ids.offset;
+    std::uintptr_t offset = runtime == REX::FModule::Runtime::kOG ? ids.ogOffset : ids.offset;
+    return REX::FModule::GetExecutingModule().GetBaseAddress() + db->offset(id) + offset;
+}
+
+bool OldGen() {
+    return REX::FModule::GetRuntimeIndex() == REX::FModule::Runtime::kOG;
 }
 
 std::string RuntimeName() {

@@ -18,8 +18,8 @@ namespace crui {
 namespace {
 
 using LineFn = void (*)(void *, std::uint32_t *, std::uint8_t *, Value *);
-const Ids CONTAINER_LINE_SLOT = Next(1098621, 0xE0);  // ContainerMenu's vtable, 1.11.240 RVA 0x25AC7A8
-const Ids BARTER_LINE_SLOT = Next(910737, 0xE0);      // BarterMenu's vtable, 1.11.240 RVA 0x2534710
+const Ids CONTAINER_LINE_SLOT = Both(1098621, 1098621, 0xE0);  // ContainerMenu's vtable, 1.11.240 RVA 0x25AC7A8
+const Ids BARTER_LINE_SLOT = Both(910737, 910737, 0xE0);      // BarterMenu's vtable, 1.11.240 RVA 0x2534710
 const std::size_t RECORD_COUNT = 0x8, RECORD_STACKS = 0x10;
 LineFn g_containerLine = nullptr, g_barterLine = nullptr;
 const char *STAMP = "cruiCND", *HOOKED = "cruiHooked";

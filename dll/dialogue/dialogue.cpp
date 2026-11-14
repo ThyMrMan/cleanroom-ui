@@ -47,9 +47,8 @@ using PassesFn = bool (*)(TESForm *info, bool *flag, TESObjectREFR *speaker, TES
 using PromptFn = const char *(*)(TESForm *info);
 // Mark an INFO said (its said byte, its change flag for the save, its reset timer), as speaking it does.
 using SaidFn = void (*)(TESForm *info);
-// A quest alias's reference handle, and a handle's reference (the engine's own pair in the option functions).
+// A quest alias's reference handle (the option functions then look its reference up, as ActionActor does).
 using AliasFn = std::uint32_t *(*)(TESForm *quest, std::uint32_t *handle, std::uint32_t alias);
-using HandleFn = RE::NiPointer<TESObjectREFR> *(*)(RE::NiPointer<TESObjectREFR> *out, std::uint32_t *handle);
 // Pick dialogue option `option` (4: none) for the player.
 using SelectFn = void (*)(RE::PlayerCharacter *player, std::uint32_t option);
 // A Player Dialogue action's run function (its vtable slot 21; both option calls are in it).
@@ -68,39 +67,38 @@ using ShadeFn = void (*)(void *target, std::uint32_t type, float brightness);
 // DialogueMenu's holder color (0x1043EF0): 0 the HUD color, 1-7 the speech-challenge tints (iDialogueSC_*_Tint).
 using TintFn = void (*)(void *menu, void *target, std::uint32_t type, bool dim);
 
-const Ids OPTION_INFO = Next(2196825);                      // 0x416600
-const Ids RESPONSE_INFO = Next(2196806);                    // 0x414180
-const Ids PICK = Next(2208361);                             // 0x698DB0
-const Ids PASSES = Next(2208464);                           // 0x69F490
-const Ids PROMPT = Next(2208446);                           // 0x69E740
-const Ids MARK_SAID = Next(2208467);                        // 0x69F8D0
-const Ids ALIAS_HANDLE = Next(2207810);                     // 0x671FA0
-const Ids HANDLE_REF = Next(2188369);                       // 0x21E550
-const Ids SELECT_OPTION = Next(2233190);                    // 0xD76130
-const Ids STOP_SCENE = Next(2206866);                       // 0x638D60
+const Ids OPTION_INFO = Both(781358, 2196825);              // 0x416600
+const Ids RESPONSE_INFO = Both(1369299, 2196806);           // 0x414180
+const Ids PICK = Both(433331, 2208361);                     // 0x698DB0
+const Ids PASSES = Both(244581, 2208464);                   // 0x69F490
+const Ids PROMPT = Both(1435199, 2208446);                  // 0x69E740
+const Ids MARK_SAID = Both(1160364, 2208467);               // 0x69F8D0
+const Ids ALIAS_HANDLE = Both(688914, 2207810);             // 0x671FA0
+const Ids SELECT_OPTION = Both(696117, 2233190);            // 0xD76130
+const Ids STOP_SCENE = Both(904456, 2206866);               // 0x638D60
 // The player-slot and NPC-slot calls to OptionInfo (in 0x415280), and the NPC Response call to ResponseInfo.
-const Ids PLAYER_SLOT_CALL = Next(2196817, 0x40A);          // 0x41568A
-const Ids NPC_SLOT_CALL = Next(2196817, 0x7A1);             // 0x415A21
-const Ids RESPONSE_CALL = Next(2196800, 0x388);             // 0x413DA8
-const Ids PLAYER_DIALOGUE_VTABLE = Next(388825);            // 0x2488978
+const Ids PLAYER_SLOT_CALL = Both(1439851, 2196817, 0x40A, 0x3E1); // 0x41568A
+const Ids NPC_SLOT_CALL = Both(1439851, 2196817, 0x7A1, 0x777); // 0x415A21
+const Ids RESPONSE_CALL = Both(574707, 2196800, 0x388);     // 0x413DA8
+const Ids PLAYER_DIALOGUE_VTABLE = Both(388825, 388825);    // 0x2488978
 const std::size_t RUN_SLOT = 21;
 // The player starting to say the picked option (`mov rcx, rax` before the call at 0x4158E9); `jmp 0x4158F2` takes
-// the said path without saying it. The camera's switch to the player (its 1 at 0x832665 + 7; 2 keeps it on the NPC).
-const Ids PLAYER_SPEAKS = Next(2196817, 0x652);             // 0x4158D2
-const Ids CAMERA_TO_PLAYER = Next(2214898, 0xADC);          // 0x83266C
+// the said path without saying it (old-gen orders that block otherwise: its jump is 0x14 bytes, not 0x1E). The camera's switch to the player (its 1 at 0x832665 + 7; 2 keeps it on the NPC).
+const Ids PLAYER_SPEAKS = Both(1439851, 2196817, 0x652, 0x62E); // 0x4158D2
+const Ids CAMERA_TO_PLAYER = Both(24497, 2214898, 0xADC, 0x940); // 0x83266C
 // The camera states that take the mouse wheel (first person: ZoomOut to third; third person: both), their vtables
 // and "should handle" tests; the ZoomIn and ZoomOut name getters those tests call.
-const Ids FIRST_PERSON_VTABLE = Next(246953);               // 0x25AAB08
-const Ids FIRST_PERSON_SHOULD = Next(2248264);              // 0x10213E0
-const Ids THIRD_PERSON_VTABLE = Next(728085);               // 0x2522A88
-const Ids THIRD_PERSON_SHOULD = Next(2248466);              // 0x102DFC0
-const Ids ZOOM_IN_NAME = Next(2224896);                     // 0xB25620
-const Ids ZOOM_OUT_NAME = Next(2223332);                    // 0xA7A080
+const Ids FIRST_PERSON_VTABLE = Both(246953, 246953);       // 0x25AAB08
+const Ids FIRST_PERSON_SHOULD = Both(895531, 2248264);      // 0x10213E0
+const Ids THIRD_PERSON_VTABLE = Both(728085, 728085);       // 0x2522A88
+const Ids THIRD_PERSON_SHOULD = Both(908569, 2248466);      // 0x102DFC0
+const Ids ZOOM_IN_NAME = Both(1282473, 2224896);            // 0xB25620
+const Ids ZOOM_OUT_NAME = Both(750808, 2223332);            // 0xA7A080
 // The shaded background, and a plain BSGFxShaderFXTarget's vtable (what DialogueMenu registers its holders as).
-const Ids ENABLE_SHADED_BACKGROUND = Next(2287022);         // 0x1B04350
-const Ids SHADER_TARGET_VTABLE = Next(298683);              // 0x27236D0
-const Ids TINT_CHALLENGE = Next(2248685);                   // 0x1043EF0
-const std::uint8_t SPEAKS[] = {0x48, 0x8B, 0xC8}, SILENT[] = {0xEB, 0x1E, 0x90};
+const Ids ENABLE_SHADED_BACKGROUND = Both(278402, 2287022); // 0x1B04350
+const Ids SHADER_TARGET_VTABLE = Both(298683, 298683);      // 0x27236D0
+const Ids TINT_CHALLENGE = Both(1432530, 2248685);          // 0x1043EF0
+const std::uint8_t SPEAKS[] = {0x48, 0x8B, 0xC8}, SILENT[] = {0xEB, 0x1E, 0x90}, SILENT_OG[] = {0xEB, 0x14, 0x90};
 const std::uint8_t CAMERA_PLAYER = 1, CAMERA_SPEAKER = 2;
 
 // ---- Engine layouts (1.11.240) ----
@@ -145,7 +143,6 @@ struct Engine {
     PromptFn prompt = nullptr;
     SaidFn markSaid = nullptr;
     AliasFn aliasHandle = nullptr;
-    HandleFn handleRef = nullptr;
     SelectFn selectOption = nullptr;
     StopFn stopScene = nullptr;
     StaticNameFn zoomInName = nullptr, zoomOutName = nullptr;
@@ -306,8 +303,9 @@ RE::NiPointer<TESObjectREFR> ActionActor(void *action, void *scene) {
     if (!quest) return ref;
     std::uint32_t handle = 0;
     std::uint32_t *at = g_engine.aliasHandle(quest, &handle, Field<std::uint32_t>(action, ACTION_ALIAS));
-    g_engine.handleRef(&ref, at ? at : &handle);
-    return ref;
+    static_assert(sizeof(RE::ObjectRefHandle) == sizeof(handle));
+    return RE::BSPointerHandleManagerInterface<TESObjectREFR>::GetSmartPointer(
+        *reinterpret_cast<const RE::ObjectRefHandle *>(at ? at : &handle));
 }
 
 // `prompt` with its build-time tag "[Speech 25] " written as FNV writes it (FalloutNV.exe's "[%s", "%s %d/%d",
@@ -459,7 +457,7 @@ bool HookWheel() {
 // Let the player say the picked option (vanilla) or not (ours: the NPC answers at once, as in FNV).
 void PlayerSpeaks(bool on) {
     if (!g_speechPatch || g_playerSpeaks == on) return;
-    REL::WriteSafe(Address(PLAYER_SPEAKS), on ? SPEAKS : SILENT, sizeof(SPEAKS));
+    REL::WriteSafe(Address(PLAYER_SPEAKS), on ? SPEAKS : OldGen() ? SILENT_OG : SILENT, sizeof(SPEAKS));
     std::uint8_t camera = on ? CAMERA_PLAYER : CAMERA_SPEAKER;
     REL::WriteSafe(Address(CAMERA_TO_PLAYER), &camera, sizeof(camera));
     g_playerSpeaks = on;
@@ -596,12 +594,12 @@ Fn Target(std::uintptr_t site, std::uintptr_t vanilla) {
 // Every engine function into g_engine; false when the runtime's database lacks one.
 bool ResolveEngine() {
     g_engine = {At<OptionInfoFn>(OPTION_INFO), At<ResponseFn>(RESPONSE_INFO), At<PickFn>(PICK), At<PassesFn>(PASSES),
-                At<PromptFn>(PROMPT), At<SaidFn>(MARK_SAID), At<AliasFn>(ALIAS_HANDLE), At<HandleFn>(HANDLE_REF),
+                At<PromptFn>(PROMPT), At<SaidFn>(MARK_SAID), At<AliasFn>(ALIAS_HANDLE),
                 At<SelectFn>(SELECT_OPTION), At<StopFn>(STOP_SCENE), At<StaticNameFn>(ZOOM_IN_NAME),
                 At<StaticNameFn>(ZOOM_OUT_NAME), At<ShadeFn>(ENABLE_SHADED_BACKGROUND), At<TintFn>(TINT_CHALLENGE),
                 Address(SHADER_TARGET_VTABLE)};
     return g_engine.optionInfo && g_engine.responseInfo && g_engine.pick && g_engine.passes && g_engine.prompt &&
-           g_engine.markSaid && g_engine.aliasHandle && g_engine.handleRef && g_engine.selectOption &&
+           g_engine.markSaid && g_engine.aliasHandle && g_engine.selectOption &&
            g_engine.stopScene;
 }
 

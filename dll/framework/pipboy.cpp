@@ -37,7 +37,7 @@ std::string g_base = "root";  // The path of the PipboyMenu instance (root, or r
 
 // The game's Pip-Boy inventory lines (docs/fork/fo4_condition.md#pipboy-lines): PipboyDataManager's
 // PipboyInventoryData (checked by its vtable) and that one's map of form ID -> its lines, at +0xF8 in it.
-const Ids INVENTORY_DATA_VTABLE = Next(952887);  // 1.11.240 RVA 0x2544750
+const Ids INVENTORY_DATA_VTABLE = Both(952887, 952887);  // 1.11.240 RVA 0x2544750
 const std::size_t FORM_LINES = 0xF8;
 
 // A node of a form's line list (circular, with a sentinel): its record starts with the line's PipboyObject.

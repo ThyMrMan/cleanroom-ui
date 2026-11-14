@@ -1818,7 +1818,7 @@ played, and the rest builds on it. In Cleanroom UI's own build
    its dialogue links in `CleanroomDialogue\` ([split](spin_offs.md#split-status)).
 2. **The shared base, other game versions**: both DLLs are on CommonLibF4
    (built 2026-11-14, not played) and run on 1.11.240 only; next, the
-   other game versions' layouts and old-gen IDs
+   other game versions' layouts (old-gen IDs matched 2026-11-14)
    ([port](spin_offs.md#port-status)).
 3. **The container and barter CND line** through an injected movie, as the
    Pip-Boy's, retiring that C++.

@@ -36,14 +36,14 @@ def test_backdrop_is_the_games_shaded_background():
     """The backdrop is the engine's shaded background, never a fill."""
     source = DIALOGUE_CPP.read_text(encoding='utf-8')
     assert 'dll.ShadeList(on)' in MENU_AS.read_text(encoding='utf-8')
-    assert 'ENABLE_SHADED_BACKGROUND = Next(2287022);' in source and 'MENU_QUESTION_TARGET = 0xF8' in source
+    assert 'ENABLE_SHADED_BACKGROUND = Both(278402, 2287022);' in source and 'MENU_QUESTION_TARGET = 0xF8' in source
 
 
 def test_failed_skill_checks_show_fnv_tags_in_the_hard_tint():
     """FNV's tags ([Speech 25] / [Sneak 17/25], two spaces after), failed rows in the Negative holder's Hard tint."""
     source, menu = DIALOGUE_CPP.read_text(encoding='utf-8'), MENU_AS.read_text(encoding='utf-8')
     assert '"[{} {}/{}]  "' in source and '"[{} {}]  "' in source
-    assert 'TINT_CHALLENGE = Next(2248685);' in source and 'CHALLENGE_HARD = 3' in source
+    assert 'TINT_CHALLENGE = Both(1432530, 2248685);' in source and 'CHALLENGE_HARD = 3' in source
     assert 'MENU_NEGATIVE_TARGET = 0xE8' in source
     assert 'FadeHolder_mc.Negative.addChild(this.failedRows)' in menu and 'dll.TintFailed()' in menu
 
