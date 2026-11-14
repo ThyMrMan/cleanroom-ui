@@ -32,18 +32,18 @@ licensed way to build menus without starting from decompiled Bethesda files.
 |---|---|---|
 | Casino (`fo4_import/casino/`) | Our own AS3 on the `f3ui` library, compiled by `mxmlc` (since 2026-11-11, [spike 1](#spikes)). Opened as an F4SE custom menu from Papyrus (`F3NV_Casino.psc`) | FFDec build played (slots in the HUD color). `mxmlc` build played: slots and roulette work |
 | Dialogue menu (`fo4_import/dialogue_menu/`) | Our own AS3 only (since 2026-11-11, [spike 3](#spikes)). Since 2026-11-12 on `f3ui` (`Bridge`, `Text`), compiled by `mxmlc` like the casino's. Nothing read from the game | The patched-movie version played; our own movie (FFDec build) played 2026-11-12, looks the same. `mxmlc` build not played |
-| Pip-Boy, container, barter, HUD (`tes_runtime/fo4_condition/`) | The Pip-Boy's CND line, repair and ammo lists, and other mods' item-card lines are drawn by our injected movie from the DLL's data ([framework](#pipboy)). The rest is drawn by the DLL into the open vanilla menus from C++: REPAIR and AMMO hints, STAT tabs, the container and barter CND line, HUD needs | CND, repair and tabs played from C++; the movie's versions built, not played. Ammo list and HUD needs built, not played |
+| Pip-Boy, container, barter, HUD (`tes_runtime/fo4_condition/`) | The Pip-Boy's CND line, repair and ammo lists, and other mods' item-card lines are drawn by our injected movie from the DLL's data ([framework](#pipboy)). The rest is drawn by the DLL into the open vanilla menus from C++: REPAIR and AMMO hints, STAT tabs, HUD needs. The container and barter CND line is drawn by our [transfer movie](#transfer) from the DLL's stamp on each line | CND, repair and tabs played from C++; the movies' versions built, not played. Ammo list and HUD needs built, not played |
 | Level-up (`fo4_import/level_up/`, `fo4_import/spike/level_up*.py`, `F3NV_LevelUp.psc`) | Our own menu on f3ui ([level-up](#level-up)), opened by the character rules in place of `LevelUpMenu`, with skill, perk and taken pages, and as the tag-skill and trait menus, every DLC's perks and traits included; PRKF.dll's points, tags, perk list and requirement rows rebuilt in Papyrus | Built 2026-11-12, none played |
 
 ### <a id="where"></a>Where each piece stands (2026-11-13)
 
 | Piece | Done | Not done |
 |---|---|---|
-| **Toolchain** | `mxmlc` builds, byte-stable, every movie we ship; FFDec route deleted | The [movie check](#testing) in preflight (sources only, no Bethesda tags, mapped fonts) |
+| **Toolchain** | `mxmlc` builds, byte-stable, every movie we ship; FFDec route deleted; the [movie check](#testing) (`python -m crui check`) | Running the check in CI |
 | **AS3 library** ([design](#design)) | `Bridge`, `Theme`, `Host`, `Text` (with `Text.show` for `$KEY`s and slots), `Draw`; `Input` and `HintBar` ([input](#input)), `ScrollList` ([scroll list](#scroll-list)) and `Modal` ([modal](#modal)), with the dialogue list and the Pip-Boy's list panel on them; `Images` ([images](#images)) with the casino on it (all built, not played) | Every planned class is built; next, playing them |
 | **Own menu** | Casino (Papyrus `UI.RegisterCustomMenu`), HUD color by the menu itself (spike 2b, played) | Registering from the DLL: not needed for color; only if a later menu needs it |
 | **Replace a vanilla movie** | Dialogue menu on our own movie (spike 3, played); its `mxmlc` build. Level-up: our own registered menu opened in place of `LevelUpMenu` from Papyrus, no vanilla file shipped ([open](fo4_level_up_plan.md#open), built) | Both played; if the moment of `LevelUpMenu` first shows, F3NV.dll swapping its constructor |
-| **Inject into a vanilla menu** | Pip-Boy (spike 4, played under vanilla); CND, lists and item-card API built | Any of it played; FallUI played; container and barter (still C++) |
+| **Inject into a vanilla menu** | Pip-Boy (spike 4, played under vanilla); CND, lists and item-card API built | Any of it played; FallUI played; the container and barter [movie](#transfer) (built, not played) |
 | **HUD widget** | `CRUI_Hud`: HUDFramework hosts the widgets when installed, else our host movie loaded into any HUD by `CleanroomUI.dll`; widget movies with HUDFramework's `processMessage`; the built-in stats line ([host](#hud-built)); our host's saved places and edit menu, with a gamepad too ([edit](#hud-edit)); DEF_HUD.xml layouts of the game's parts ([layouts](#hud-layout)), moved and scaled in the edit menu too; the [FNV preset](#fnv-preset) with its [CND bar](#fnv-widgets); [hiding and recoloring](#hud-look) in the edit menu; parts shown on [conditions](#hud-conditions), all five steps (combat, weapon drawn, V.A.T.S., a show key, a value changing or low, the location moving, aiming, sneaking; the Immersive preset; each box's rule in the edit menu; other mods' conditions and rules); all built 2026-11-12 to 13, none played | Played; then, if play asks: fades, `flags`, rotating and opacity in the edit menu, a key to open it without an MCM, the power armor HUD, `color2`, `SafeX`/`SafeY`, `globalscale`, FNV's CND arrows and ammo type, aiming in third person, a pad button for the show key; the converter's Hardcore needs on it (still C++) |
 | **DLL side** | GFx helpers (`gfx.cpp`), Pip-Boy injection (`LoadOverlay`), natives the movies call (`HudColor`, `Log`, `PipboyCardLines`, `PipboyList`, `TextureExists`) | Injection by menu URL for other menus, settings INI to the movie, GFx log routing |
 | **Translations** ([translations](#translations)) | Files named after `FalloutHelpers.esl`, every language with English fallback, our fixed words as `$F3NV_` keys, the key check in preflight (spike 5, played) | The keys played; Papyrus key check; slot and per-language counts; a test language |
@@ -455,6 +455,24 @@ Phases:
    - The REPAIR and AMMO hints stay in C++ (`MakeHint`), which works in play.
 3. **The item-card line API for other mods** (built 2026-11-12, not
    played): [below](#card-lines).
+
+### <a id="transfer"></a>The container and barter CND line
+
+Built 2026-11-14, not played; the C++ version it replaces was played.
+- **The DLL tags each line.** Its hook on slot 28 of `ContainerMenu`'s and
+  `BarterMenu`'s vtables (`transfer.cpp`) still builds each list line and
+  gives a line of an item that wears `cruiCND`, its own stack's condition
+  (0 to 1). That needs the engine's inventory, so it stays C++.
+- **Our movie draws it.** As either menu opens, the DLL loads
+  `CRUI_Transfer.swf` into the menu instance that holds `ItemCard_mc`, as
+  it loads the Pip-Boy's. Each frame the movie finds the selected entry of
+  `ContainerList_mc` or `PlayerInventory_mc.PlayerList_mc` whose
+  `ItemCardInfoList` is the card's `InfoObj`, and keeps a `$CRUI_CND` line
+  at its `cruiCND` (as a percent) there, calling `onDataChange` only when
+  it adds the line or the value changes. It needs no native.
+- **Gone from C++:** the native `enterFrame` listener and `ShowLine`.
+- A menu without either list, or a mod's menu that renames them, gets no
+  line and logs it once ("no ContainerList_mc: ...").
 
 ### <a id="card-lines"></a>Item-card lines for other mods
 
@@ -1580,9 +1598,18 @@ through the framework) can't each have a button on a pad. Design:
 - No headless Flash player runs our movies. Keep logic in plain classes
   that Python reference models can mirror (as the casino does), and keep
   the movies thin.
-- A **movie check** in preflight: every class we ship comes from our
-  source; no tag imports assets from a Bethesda movie; font names are ones
-  `FontConfig.txt` maps; the build is byte-stable.
+- The **movie check**, `python -m crui check --game <Fallout 4>/Data`
+  (`crui/check.py`, built 2026-11-14): it builds each movie twice and
+  reports
+  - a class whose name isn't a source in its folder or our library (read
+    from the movie's ActionScript bytecode);
+  - an ImportAssets tag (57 or 71), which would pull art from another movie;
+  - a `$` name (the part before a tab) that is neither our `$CRUI_` key nor
+    a font the game's `FontConfig.txt` maps, read from
+    `Fallout4 - Interface.ba2`; without `--game` this one is skipped;
+  - two builds that differ.
+
+  Every movie passes (2026-11-14).
 - One in-game test scene per mode: own menu, replaced movie, injected
   overlay, each with a self-test log line.
 
@@ -1845,23 +1872,24 @@ played, and the rest builds on it. In Cleanroom UI's own build
    ([port](spin_offs.md#port-status)). Upstream to CommonLibF4: our two
    patches (the version check, `IDDB::has`) and its two wrong old-gen IDs
    ([which](spin_offs.md#og-match)).
-3. **The container and barter CND line** through an injected movie, as the
-   Pip-Boy's, retiring that C++.
-4. **The [movie check](#testing)** in preflight.
-5. **The HUD's rest**, as play asks: fades, `flags` (a part's pieces),
+3. **The container and barter CND line** through an injected movie
+   ([built](#transfer) 2026-11-14, not played), and the
+   [movie check](#testing) (built, every movie passes); next, playing the
+   line in both menus.
+4. **The HUD's rest**, as play asks: fades, `flags` (a part's pieces),
    rotating and opacity in the edit menu, a key to open it without an MCM,
    the power armor HUD, `color2`, `SafeX`/`SafeY`, `globalscale`, FNV's CND
    arrows and ammo type label, aiming in third person, a pad button for the
    show key; the converter's Hardcore needs as an `AddStats` widget.
-6. **The level-up rest**: other mods' skills, an MCM page for the host's
+5. **The level-up rest**: other mods' skills, an MCM page for the host's
    own options ([order](fo4_level_up_plan.md#order)).
-7. **The DLL side**: injection by menu URL for other menus, a settings INI
+6. **The DLL side**: injection by menu URL for other menus, a settings INI
    to the movies, GFx log routing.
-8. **Translations**: the Papyrus key check, slot and per-language counts, a
+7. **Translations**: the Papyrus key check, slot and per-language counts, a
    test language.
-9. **Controller**: the Pip-Boy "more" button, roulette's board on a pad
+8. **Controller**: the Pip-Boy "more" button, roulette's board on a pad
    (the casino stays in the converter).
-10. **The [release](#release)**: an example menu, the API in the README,
+9. **The [release](#release)**: an example menu, the API in the README,
     CI that fetches the Flex SDK, release assets, Nexus; and the
     [open decisions](#decisions).
 

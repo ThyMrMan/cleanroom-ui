@@ -3,6 +3,7 @@
 
     python -m crui all --out dist/CleanroomUI
     python -m crui scripts --imports <folder>    # extra Papyrus import folders, searched before the game's
+    python -m crui check --game <Fallout 4>/Data   # the movie check (not a build step)
 """
 
 import argparse
@@ -12,7 +13,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from crui import POPEN_FLAGS, REPO, menus, mxmlc, papyrus, plugin, translations
+from crui import POPEN_FLAGS, REPO, check, menus, mxmlc, papyrus, plugin, translations
 
 STEPS = ('plugin', 'translations', 'movies', 'scripts', 'dll')
 DEFAULT_OUT = REPO / 'dist' / 'CleanroomUI'
@@ -113,14 +114,15 @@ def build_dll(out: Path) -> bool:
 def main(argv=None) -> int:
     """Run the steps named (or all); 0 when every one succeeded."""
     parser = argparse.ArgumentParser(prog='python -m crui', description=__doc__.splitlines()[0])
-    parser.add_argument('steps', nargs='*', choices=(*STEPS, 'all'), default=['all'])
+    parser.add_argument('steps', nargs='*', choices=(*STEPS, 'all', 'check'), default=['all'])
     parser.add_argument('--out', type=Path, default=DEFAULT_OUT, help='the mod folder to write')
     parser.add_argument('--imports', type=Path, action='append', default=[], help='extra Papyrus import folder')
+    parser.add_argument('--game', type=Path, help="the game's Data folder, for the movie check's font names")
     args = parser.parse_args(argv)
     steps = STEPS if 'all' in args.steps else args.steps
     ok = {'plugin': lambda: build_plugin(args.out), 'translations': lambda: build_translations(args.out),
           'movies': lambda: build_movies(args.out), 'scripts': lambda: build_scripts(args.out, args.imports),
-          'dll': lambda: build_dll(args.out)}
+          'dll': lambda: build_dll(args.out), 'check': lambda: check.check(args.game)}
     results = [ok[step]() for step in steps]
     return 0 if all(results) else 1
 

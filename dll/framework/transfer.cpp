@@ -6,9 +6,9 @@
 // the owner's reference handle, the game's line record (an InventoryInterface handle, then the line's stack
 // indices: count at +8, inline at +0x10 when the count is negative, else a pointer there) and the Flash line.
 // Both slots are replaced: the original builds the line, then the line's item (BGSInventoryInterface's
-// RequestInventoryItem) and first stack give it cruiCND, its condition. While a menu is open, a native enterFrame
-// listener keeps a CND line at the highlighted line's cruiCND on the item card (whose InfoObj is that line's
-// ItemCardInfoList).
+// RequestInventoryItem) and first stack give it cruiCND, its condition. As a menu opens, our movie
+// (CRUI_Transfer.swf) is loaded into it; it keeps a CND line at the highlighted line's cruiCND on the item card
+// (docs/swf_framework.md#transfer).
 #include "condition.h"
 
 #include <string>
@@ -22,8 +22,7 @@ const Ids CONTAINER_LINE_SLOT = Both(1098621, 1098621, 0xE0);  // ContainerMenu'
 const Ids BARTER_LINE_SLOT = Both(910737, 910737, 0xE0);      // BarterMenu's vtable, 1.11.240 RVA 0x2534710
 const std::size_t RECORD_COUNT = 0x8, RECORD_STACKS = 0x10;
 LineFn g_containerLine = nullptr, g_barterLine = nullptr;
-const char *STAMP = "cruiCND", *HOOKED = "cruiHooked";
-const char *LISTS[] = {"ContainerList_mc", "PlayerInventory_mc.PlayerList_mc"};
+const char *STAMP = "cruiCND", *HOOKED = "cruiHooked", *OVERLAY = "CRUI_Transfer.swf";
 
 // The health (0 to 1) of game line record `entry`'s first stack, when its item wears; -1 otherwise.
 float LineHealth(std::uint8_t *entry) {
@@ -61,29 +60,6 @@ void BarterLine(void *menu, std::uint32_t *owner, std::uint8_t *entry, Value *li
     Stamp(entry, line);
 }
 
-std::string g_base;  // the path of the open transfer menu's instance (UI thread only)
-
-// One transfer menu frame: the highlighted line whose ItemCardInfoList the card shows gets its CND line.
-void Update(Movie *movie) {
-    Value card, info;
-    if (!movie->GetVariable(&card, (g_base + ".ItemCard_mc").c_str()) || !Get(card, "InfoObj", &info) ||
-        !info.IsArray())
-        return;
-    for (const char *path : LISTS) {
-        Value entry, list, stamp;
-        if (!movie->GetVariable(&entry, (g_base + "." + path + ".selectedEntry").c_str()) || !entry.IsObject() ||
-            !Get(entry, "ItemCardInfoList", &list) || Identity(list) != Identity(info) || !Get(entry, STAMP, &stamp))
-            continue;
-        ShowLine(movie, card, float(Num(stamp)), false);
-        return;
-    }
-}
-
-class FrameHandler : public FunctionHandler {
-public:
-    void Call(const Params &params) override { Update(params.movie); }
-};
-
 // Replace the line builder in vtable slot `ids` with `hook`, keeping the original in `original`; false when the
 // slot's address is unknown.
 bool HookSlot(const Ids &ids, LineFn hook, LineFn *original) {
@@ -106,17 +82,17 @@ void HookTransferMenu(const char *name) {
     Movie *movie = MenuMovie(name);
     if (!movie) return;
     Value code, root;
+    std::string base;
     // The transfer menu's root holds only FilterHolder_mc (played: its members were f4se and FilterHolder_mc).
     if (!FindMenu(movie, {"root.FilterHolder_mc.Menu_mc", "root.FilterHolder_mc", "root.Menu_mc", "root"},
-                  "ItemCard_mc", &g_base, &root, &code)) {
+                  "ItemCard_mc", &base, &root, &code)) {
         REX::WARN("{} opened, but no known path has its item card; root.FilterHolder_mc's members:", name);
         if (movie->GetVariable(&root, "root.FilterHolder_mc")) LogMembers(root);
         return;
     }
     if (code.HasMember(HOOKED)) return;
-    Listen<FrameHandler>(movie, root, "enterFrame");
     code.SetMember(HOOKED, true);
-    REX::DEBUG("hooked {} at {}", name, g_base);
+    REX::DEBUG("{}: {} {} at {}", name, OVERLAY, LoadChild(movie, root, OVERLAY) ? "loading" : "not loaded", base);
 }
 
 }  // namespace crui

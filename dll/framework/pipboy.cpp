@@ -591,31 +591,4 @@ void RegisterPipboyMenu(Movie *movie, Value *plugin) {
     RegisterFunction<ListNative>(plugin, movie, "PipboyList");
 }
 
-void ShowLine(Movie *movie, Value &card, float health, bool force) {
-    Value info, value;
-    if (!Get(card, "InfoObj", &info) || !info.IsArray()) return;
-    double percent = std::floor(health * 100.0 + 0.5);
-    std::int32_t at = -1;
-    for (std::uint32_t i = 0, n = info.GetArraySize(); i < n && at < 0; i++) {
-        Value item, label;
-        if (info.GetElement(i, &item) && Get(item, "text", &label) && label.IsString() &&
-            !std::strcmp(label.GetString(), LINE))
-            at = std::int32_t(i);
-    }
-    Value line;
-    if (at >= 0 && info.GetElement(std::uint32_t(at), &line)) {
-        if (Get(line, "value", &value) && Num(value) == percent && !force) return;
-    } else {
-        movie->CreateObject(&line);
-        line.SetMember("text", String(movie, LINE));
-        line.SetMember("showAsPercent", true);
-        info.PushBack(line);
-        static bool logged = false;
-        if (!logged) REX::INFO("added the {} line to an item card", LINE);
-        logged = true;
-    }
-    line.SetMember("value", percent);
-    card.Invoke("onDataChange");
-}
-
 }  // namespace crui

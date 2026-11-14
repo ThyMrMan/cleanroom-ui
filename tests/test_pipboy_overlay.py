@@ -10,7 +10,7 @@ import pytest
 from crui import REPO, menus, mxmlc
 from crui.swf import Swf
 
-MENU = menus.BY_NAME['pipboy']
+MENU, TRANSFER = menus.BY_NAME['pipboy'], menus.BY_NAME['transfer']
 RUNTIME = REPO / 'dll' / 'framework'
 PIPBOY_CPP = RUNTIME / 'pipboy.cpp'
 
@@ -39,6 +39,19 @@ def test_the_item_card_api_script_declares_the_native_card_cpp_registers():
     script = (REPO / 'papyrus' / f'{name}.psc').read_text(encoding='utf-8')
     assert 'BindNativeMethod(SCRIPT, "SetLine", SetLine);' in card
     assert 'Function SetLine(Form akItem, String asLabel, String asValue) Global Native' in script
+
+
+def test_the_transfer_menus_load_the_movie_that_draws_their_line():
+    """transfer.cpp loads CRUI_Transfer.swf (the name the build installs) and no longer draws on the card; the movie
+    reads the DLL's stamp and writes the Pip-Boy's CND line text."""
+    transfer = (RUNTIME / 'transfer.cpp').read_text(encoding='utf-8')
+    movie = (TRANSFER.sources / f'{TRANSFER.document}.as').read_text(encoding='utf-8')
+    assert 'Interface/' + re.search(r'OVERLAY = "([^"]+)"', transfer).group(1) == TRANSFER.movie
+    assert 'LoadChild(movie, root, OVERLAY)' in transfer and 'enterFrame' not in transfer
+    assert 'ShowLine' not in transfer + PIPBOY_CPP.read_text(encoding='utf-8')
+    stamp = re.search(r'STAMP = "(\w+)"', transfer).group(1)
+    line = re.search(r'LINE = "([^"]+)"', PIPBOY_CPP.read_text(encoding='utf-8')).group(1)
+    assert f'STAMP:String = "{stamp}"' in movie and f'LINE:String = "{line}"' in movie
 
 
 @pytest.mark.skipif(not mxmlc.available(), reason='the Flex SDK is not installed')

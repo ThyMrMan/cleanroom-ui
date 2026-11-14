@@ -25,11 +25,12 @@ class Menu:
         return MENUS_DIR / (self.folder or self.name) / 'as3'
 
 
-#: The level-up, tag and trait menu (CRUI_LevelUp.psc opens it); the Pip-Boy overlay (pipboy.cpp loads it); the HUD
-#: host (hud.cpp loads it), the stats widget HUDFramework hosts (CRUI_Hud.psc registers it) and the host's edit menu
-#: (CRUI_Hud.EditLayout opens it), from one folder; the dialogue menu (dialogue.cpp drives it).
+#: The level-up, tag and trait menu (CRUI_LevelUp.psc opens it); the Pip-Boy and transfer overlays (pipboy.cpp and
+#: transfer.cpp load them); the HUD host (hud.cpp loads it), the stats widget HUDFramework hosts (CRUI_Hud.psc
+#: registers it) and the host's edit menu (CRUI_Hud.EditLayout opens it), from one folder; the dialogue menu.
 MENUS = (Menu('level_up', 'CRUI_LevelUp', 'Interface/CRUI_LevelUp.swf'),
          Menu('pipboy', 'CRUI_Pipboy', 'Interface/CRUI_Pipboy.swf'),
+         Menu('transfer', 'CRUI_Transfer', 'Interface/CRUI_Transfer.swf'),
          Menu('hud', 'CRUI_Hud', 'Interface/CRUI_Hud.swf'),
          Menu('hud_stats', 'CRUI_HudStats', 'Interface/CRUI_HudStats.swf', 'hud'),
          Menu('hud_edit', 'CRUI_HudEdit', 'Interface/CRUI_HudEdit.swf', 'hud'),

@@ -149,13 +149,11 @@ bool TakePipboyRepair(Repair *out);
 
 // ---- Flash menus ----
 
-// Keep a CND line at `health` in item card `card`'s InfoObj, redrawing the card when it is added or changes.
-void ShowLine(Movie *movie, Value &card, float health, bool force);
-
-// Hook the transfer and barter menus (transfer.cpp): each line's condition, shown on the item card.
+// Hook the transfer and barter menus (transfer.cpp): each line of an item that wears gets its condition.
 void InstallTransfer();
 
-// Listen for the transfer or barter menu `name` opening's frames (transfer.cpp), on the UI thread.
+// Load our transfer movie (CRUI_Transfer.swf, which shows that condition on the item card) into the transfer or
+// barter menu `name` as it opens (transfer.cpp), on the UI thread.
 void HookTransferMenu(const char *name);
 
 // Listen for the Pip-Boy opening (pipboy.cpp); once the game has loaded.

@@ -21,6 +21,7 @@ package, `CRUI_*` scripts and movies, `$CRUI_*` keys). The two DLLs are
 
 ```
 python -m crui all --out dist/CleanroomUI
+python -m crui check --game "<Fallout 4>/Data"
 python -m pytest
 ```
 
@@ -55,7 +56,7 @@ mods reach the running one with that plugin as their only master
 
 | Folder | Holds |
 |---|---|
-| `crui/` | The build: `plugin.py` (`CleanroomUI.esl`), `mxmlc.py` (byte-stable movies), `swf.py` (SWF reader and writer), `papyrus.py`, `menus.py` (every movie), the `python -m crui` command |
+| `crui/` | The build: `plugin.py` (`CleanroomUI.esl`), `mxmlc.py` (byte-stable movies), `swf.py` (SWF reader and writer), `check.py` (the movie check), `papyrus.py`, `menus.py` (every movie), the `python -m crui` command |
 | `as3/crui/` | The AS3 library: `Host`, `Bridge`, `Theme`, `Draw`, `Text`, `ScrollList`, `Modal`, `Images`, `Input`, `HintBar` |
 | `translations/` | Our words, `$CRUI_KEY<tab>text` per line: a folder per release (`CleanroomUI/`, `CleanroomDialogue/`), one UTF-8 file per language (`en.txt` holds every key) |
 | `menus/level_up/` | The level-up, tag-skill and trait menu (`Interface/CRUI_LevelUp.swf`) |
@@ -109,8 +110,11 @@ Status as of 2026-11-14. The full list, in order:
    ([port](docs/spin_offs.md#port-status)). Upstream to CommonLibF4: our
    two patches (the version check, `IDDB::has`) and its two wrong old-gen
    IDs ([which](docs/spin_offs.md#og-match)).
-4. **The container and barter CND line** as a movie, retiring that C++, and
-   the movie check in preflight.
+4. **The container and barter CND line** as a movie, its C++ drawing
+   retired, and the movie check (`python -m crui check`): both built
+   2026-11-14, the line not played, every movie passing the check
+   ([transfer](docs/swf_framework.md#transfer),
+   [check](docs/swf_framework.md#testing)).
 5. **The HUD's rest, as play asks**: fades, hiding a part's pieces
    (`flags`), rotating and opacity in the edit menu, a key to open it
    without an MCM, the power armor HUD, `color2`, `SafeX`/`SafeY`,
