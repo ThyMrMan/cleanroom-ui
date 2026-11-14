@@ -15,9 +15,9 @@ namespace crui {
 
 namespace {
 
-// The runtimes every layout and call site here was read in: 1.11.240, and old-gen 1.10.163, where each one used is
-// the same (docs/spin_offs.md#og-layouts).
-const REL::Version CHECKED[] = {{1, 11, 240, 0}, {1, 10, 163, 0}};
+// The runtimes every layout and call site here was read in: 1.11.240, and old-gen 1.10.163 and next-gen 1.10.984,
+// where each one used is the same (docs/spin_offs.md#og-layouts, #ng-layouts).
+const REL::Version CHECKED[] = {{1, 11, 240, 0}, {1, 10, 163, 0}, {1, 10, 984, 0}};
 
 // `path` lowercased with backslashes, as a BA2's name table holds it.
 std::string Key(std::string path) {

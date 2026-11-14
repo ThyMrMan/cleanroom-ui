@@ -8,8 +8,8 @@
 // below 5 go to the engine's functions as before.
 //
 // Read in Fallout4.exe 1.11.240 (its RVAs in the comments); each address is its old-gen and next-gen Address Library
-// ID (docs/spin_offs.md#ids). The engine layouts below were read there and are the same in old-gen 1.10.163
-// (docs/spin_offs.md#og-layouts); the hooks stay off on other runtimes.
+// ID (docs/spin_offs.md#ids). The engine layouts below were read there and are the same in old-gen 1.10.163 and
+// next-gen 1.10.984 (docs/spin_offs.md#og-layouts, #ng-layouts); the hooks stay off on other runtimes.
 #include "dialogue.h"
 
 #include <atomic>
@@ -103,7 +103,7 @@ const Ids TINT_CHALLENGE = Both(1432530, 2248685);          // 0x1043EF0
 const std::uint8_t SPEAKS[] = {0x48, 0x8B, 0xC8}, SILENT[] = {0xEB, 0x1E, 0x90}, SILENT_OG[] = {0xEB, 0x14, 0x90};
 const std::uint8_t CAMERA_PLAYER = 1, CAMERA_SPEAKER = 2;
 
-// ---- Engine layouts (1.11.240; the same in 1.10.163) ----
+// ---- Engine layouts (1.11.240; the same in 1.10.163 and 1.10.984) ----
 // BGSScene: its quest. Scene action: its alias, its four player topics, its chosen option (4: none).
 const std::size_t SCENE_QUEST = 0xA8, ACTION_ALIAS = 0x08, ACTION_TOPICS = 0x20, ACTION_OPTION = 0xE0;
 // TESTopic: its INFOs, their order (u16 head at +2, next of INFO i at 4 * i + 4), their count. TESTopicInfo: said.
@@ -738,8 +738,8 @@ bool HookDialogue() {
         return false;
     }
     if (!CheckedRuntime()) {
-        REX::WARN("dialogue menu: not hooked on {}: its engine layouts are read in 1.11.240 and 1.10.163 only",
-                  RuntimeName());
+        REX::WARN("dialogue menu: not hooked on {}: its engine layouts are read in 1.11.240, 1.10.163 and "
+                  "1.10.984 only", RuntimeName());
         return false;
     }
     if (!ResolveEngine()) {

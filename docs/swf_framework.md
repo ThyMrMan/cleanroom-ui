@@ -1828,8 +1828,9 @@ played, and the rest builds on it. In Cleanroom UI's own build
      console (`cgf "CRUI_Hud.EditLayout"`; no key or MCM page yet).
    - **Nothing else changes:** no Pip-Boy line, tab, transfer CND line or
      level-up menu appears until a mod asks; the log names no missing ID.
-   - **Old-gen 1.10.163:** the same checks there, where both DLLs now run.
-   - **Another game version** (1.10.984): the game runs, and both logs say
+   - **Old-gen 1.10.163 and next-gen 1.10.984:** the same checks there,
+     where both DLLs now run.
+   - **Another game version** (1.11.191): the game runs, and both logs say
      the DLLs stay off.
 
 **Then build:**
@@ -1838,8 +1839,8 @@ played, and the rest builds on it. In Cleanroom UI's own build
    F3NV.dll cut to FNV's rules, shipping our two DLLs from a pinned commit,
    its dialogue links in `CleanroomDialogue\` ([split](spin_offs.md#split-status)).
 2. **The shared base, other game versions**: both DLLs are on CommonLibF4
-   (built 2026-11-14, not played) and run on 1.11.240 and old-gen
-   1.10.163 (its IDs and layouts read 2026-11-14); next, 1.10.984's and
+   (built 2026-11-14, not played) and run on 1.11.240, old-gen
+   1.10.163 and next-gen 1.10.984 (their layouts read 2026-11-14); next,
    the other 1.11 builds' layouts
    ([port](spin_offs.md#port-status)). Upstream to CommonLibF4: our two
    patches (the version check, `IDDB::has`) and its two wrong old-gen IDs

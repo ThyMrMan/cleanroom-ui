@@ -196,8 +196,9 @@ Every DLL above needs both versions, so the port is done once:
 - **Its 25 addresses are next-gen IDs** (each with its 1.11.240 RVA beside
   it). An ID a database lacks resolves to 0, and the hooks stay off, in
   place of CommonLibF4 ending the game.
-- **The hooks run only on 1.11.240 and 1.10.163** (`CheckedRuntime`), the
-  builds whose struct layouts were read ([old-gen](#og-layouts)). They also stay off when XDI.dll is loaded or a
+- **The hooks run only on 1.11.240, 1.10.163 and 1.10.984**
+  (`CheckedRuntime`), the builds whose struct layouts were read
+  ([old-gen](#og-layouts), [next-gen](#ng-layouts)). They also stay off when XDI.dll is loaded or a
   call site doesn't call what we expect (step 5). CleanroomUI.dll goes
   further: on any other build it registers no natives and installs no menu
   hook at all, and logs that it is off.
@@ -211,9 +212,10 @@ Every DLL above needs both versions, so the port is done once:
   there.
 - **Old-gen runs** (2026-11-14, not played): its IDs ([ids](#ids)) and
   its struct layouts, every one the same ([layouts](#og-layouts)).
-- **Not done:** next-gen 1.10.984 and the other 1.11 builds' layouts
-  (their IDs are in), and seven of F3NV.dll's old-gen IDs
-  ([open](#og-match)).
+- **Next-gen 1.10.984 runs** (2026-11-14, not played): its layouts are
+  1.11.240's ([layouts](#ng-layouts)).
+- **Not done:** 1.10.980's and the other 1.11 builds' layouts (their IDs
+  are in), and seven of F3NV.dll's old-gen IDs ([open](#og-match)).
 
 ### <a id="ids"></a>Our addresses as Address Library IDs (2026-11-13, old-gen 2026-11-14)
 
@@ -358,6 +360,24 @@ builds' code reads, in order (scripts in `fo3fnv-in-fo4`'s `temp/og_ids/`:
 Not read: the Scaleform `Value` layout `Identity` uses (the same GFx SDK in
 both builds) and the hash map inside the line map (the engine's own
 template).
+
+### <a id="ng-layouts"></a>Next-gen 1.10.984's layouts (read 2026-11-14)
+
+Next-gen builds share ID numbers, so each function pairs with 1.11.240's
+by ID alone (`fo3fnv-in-fo4`'s `temp/og_ids/ng984.py`, the exe from Steam
+depot 377162, manifest 5698952341602575696, decrypted as old-gen's was):
+- **Every ID** both DLLs use is in 1.10.984's database (33 of 33).
+- **The same functions** as for old-gen read the same offsets in both
+  builds, apart from jump-table addresses; the same vtables have as many
+  slots and read the same offsets; every field above (+0x10A, +0x358,
+  +0x2A4, +0x298, +0x130, +0x134, +0xFC0, +0x370, +0xF8, +0x440, +0xD3C)
+  is where 1.11.240 has it, over 25 function pairs each.
+- **The call sites** keep their offsets: both option calls (+0x40A,
+  +0x7A1) and the response call (+0x388) call what they should, and the
+  player-speaks and camera bytes are 1.11.240's (the skip stays `EB 1E 90`).
+
+So `CheckedRuntime` takes 1.10.984 too. 1.10.980 (replaced by 984 within
+days) and 1.11.137 to 1.11.221 are not read; they stay off.
 
 ### <a id="og-match"></a>How the old-gen IDs were matched (2026-11-14)
 
