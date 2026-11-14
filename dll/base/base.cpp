@@ -15,9 +15,10 @@ namespace crui {
 
 namespace {
 
-// The runtimes every layout and call site here was read in: 1.11.240, and old-gen 1.10.163 and next-gen 1.10.984,
-// where each one used is the same (docs/spin_offs.md#og-layouts, #ng-layouts).
-const REL::Version CHECKED[] = {{1, 11, 240, 0}, {1, 10, 163, 0}, {1, 10, 984, 0}};
+// The Steam runtimes every layout and call site here was read in: 1.11.240, old-gen 1.10.163 and next-gen 1.10.984
+// to 1.11.221, where each one used is the same (docs/spin_offs.md#og-layouts, #ng-layouts).
+const REL::Version CHECKED[] = {{1, 11, 240, 0}, {1, 10, 163, 0}, {1, 10, 984, 0}, {1, 11, 137, 0},
+                                {1, 11, 159, 0}, {1, 11, 169, 0}, {1, 11, 191, 0}, {1, 11, 221, 0}};
 
 // `path` lowercased with backslashes, as a BA2's name table holds it.
 std::string Key(std::string path) {
@@ -121,7 +122,8 @@ std::string RuntimeName() {
 }
 
 bool CheckedRuntime() {
-    return std::ranges::contains(CHECKED, REX::FModule::GetExecutingModule().GetFileVersion());
+    return std::ranges::contains(CHECKED, REX::FModule::GetExecutingModule().GetFileVersion()) &&
+           REX::W32::GetModuleHandleW(L"steam_api64.dll");
 }
 
 REX::ELogLevel LogLevel(const char *name) {

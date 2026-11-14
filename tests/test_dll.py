@@ -128,7 +128,11 @@ def test_the_dialogue_dll_hooks_only_where_its_layouts_were_read():
     assert 'if (!CheckedRuntime())' in dialogue and 'if (!ResolveEngine())' in dialogue
     base = (DLL / 'base' / 'base.cpp').read_text(encoding='utf-8')
     assert 'if (!id || !db->has(id)) return 0;' in base
-    assert 'CHECKED[] = {{1, 11, 240, 0}, {1, 10, 163, 0}, {1, 10, 984, 0}};' in base
+    checked = re.search(r'CHECKED\[\] = \{(.+?)\};', base, re.S).group(1)
+    assert set(re.findall(r'\{1, (\d+), (\d+), 0\}', checked)) == {
+        ('11', '240'), ('10', '163'), ('10', '984'), ('11', '137'), ('11', '159'), ('11', '169'), ('11', '191'),
+        ('11', '221')}
+    assert 'GetModuleHandleW(L"steam_api64.dll")' in _body(base, 'bool CheckedRuntime(')
     assert 'bool has(std::uint64_t a_id) const noexcept;' in (DLL / 'patches' / 'commonlib-shared.patch').read_text(
         encoding='utf-8')
 

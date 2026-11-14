@@ -51,8 +51,9 @@ T &Field(void *base, std::size_t offset) {
 // The runtime the game is ("1.11.240 (AE)"), for the log.
 std::string RuntimeName();
 
-// Whether this runtime is one every engine layout and call site here was read in (Fallout4.exe 1.11.240, 1.10.163
-// and 1.10.984); the hooks stay off on any other until they are checked there.
+// Whether this runtime is a Steam Fallout4.exe every engine layout and call site here was read in (1.11.240,
+// 1.10.163, 1.10.984, and 1.11.137 to 1.11.221); the hooks stay off on any other, GOG's included (its code differs
+// under the same version numbers), until they are checked there.
 bool CheckedRuntime();
 
 // The log level Data\F4SE\Plugins\<name>.ini gives ([Log] iLevel: 0 errors, 1 warnings, 2 messages (the default),

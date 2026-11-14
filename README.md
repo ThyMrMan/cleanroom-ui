@@ -103,9 +103,9 @@ Status as of 2026-11-14. The full list, in order:
    our two DLLs from a pinned commit, its dialogue links in
    `CleanroomDialogue\` ([split](docs/spin_offs.md#split-status)).
 3. **The shared base, other game versions**: both DLLs are on CommonLibF4
-   (built 2026-11-14, not played) and run on 1.11.240, old-gen
-   1.10.163 and next-gen 1.10.984 (their layouts read 2026-11-14); next,
-   the other 1.11 builds' layouts
+   (built 2026-11-14, not played) and run on Steam 1.11.240, old-gen
+   1.10.163 and next-gen 1.10.984 to 1.11.221 (their layouts read
+   2026-11-14); GOG waits for an Address Library database
    ([port](docs/spin_offs.md#port-status)). Upstream to CommonLibF4: our
    two patches (the version check, `IDDB::has`) and its two wrong old-gen
    IDs ([which](docs/spin_offs.md#og-match)).
