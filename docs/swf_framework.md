@@ -1816,6 +1816,20 @@ played, and the rest builds on it. In Cleanroom UI's own build
    `ChangeSex`, the perk points), all played before only in the F4SE 0.7.9
    build, and the dialogue menu's reference lookup (CommonLibF4's
    `GetSmartPointer`).
+7. <a id="stock-check"></a>**Cleanroom UI alone on a stock Fallout 4**
+   (1.11.240, F4SE, no converter, nothing else installed): every play so
+   far was in the converter's mod list. Check:
+   - **Vanilla conversations.** Our `DialogueMenu.swf` replaces the game's
+     for every conversation; with no links files it must show the game's
+     own four options, their `[Leave]` once, and the speech challenges
+     (played only on converted FNV dialogue so far).
+   - **The HUD alone:** the host in every HUD, `DEF_HUD.xml` layouts,
+     `[Hud] sPreset` and `sShow=Immersive`, and the edit menu from the
+     console (`cgf "CRUI_Hud.EditLayout"`; no key or MCM page yet).
+   - **Nothing else changes:** no Pip-Boy line, tab, transfer CND line or
+     level-up menu appears until a mod asks; the log names no missing ID.
+   - **Another game version** (1.10.984): the game runs, and both logs say
+     the DLLs stay off.
 
 **Then build:**
 1. **This repo as the converter's submodule.** The converter already runs on

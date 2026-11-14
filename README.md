@@ -95,7 +95,8 @@ Status as of 2026-11-14. The full list, in order:
    CleanroomUI.dll (item condition, repair and vendor repair, the
    transfer and barter CND lines, the Pip-Boy lines, `ChangeSex`, the
    perk points) and the dialogue menu's reference lookup
-   ([port](docs/spin_offs.md#port-status)).
+   ([port](docs/spin_offs.md#port-status)). Then Cleanroom UI alone on a
+   stock Fallout 4, no converter ([stock check](docs/swf_framework.md#stock-check)).
 2. **This repo as the converter's submodule** in `external/`. The converter
    already runs on Cleanroom UI (on its `fo4-2026-10-31`, not played): its
    scripts on the `CRUI_` natives, its F3NV.dll cut to FNV's rules, shipping
