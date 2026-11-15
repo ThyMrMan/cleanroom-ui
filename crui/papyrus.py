@@ -32,7 +32,7 @@ def _registry_dir() -> 'Path | None':
 
 
 def fallout4_dir() -> Path:
-    """The game folder: CRUI_FALLOUT4, else the registered install, else Steam's default."""
+    """The game: CRUI_FALLOUT4, else the registered install, else Steam's default."""
     named = os.environ.get('CRUI_FALLOUT4')
     return Path(named) if named else (_registry_dir() or STEAM_DEFAULT)
 
@@ -79,6 +79,7 @@ def available() -> bool:
 def compile_folder(folder: Path, out_dir: Path, imports=()) -> str:
     """Compile every .psc in `folder` into `out_dir`, importing `folder`, `imports`, then header_dirs(); the
     compiler's combined output."""
+    out_dir = Path(out_dir).resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
     path = ';'.join(str(p) for p in (folder, *imports, *header_dirs()))
     result = subprocess.run([str(compiler()), str(folder), '-all', '-q', f'-i={path}', f'-o={out_dir}', f'-f={FLAGS}'],

@@ -56,7 +56,8 @@ mods reach the running one with that plugin as their only master
 
 | Folder | Holds |
 |---|---|
-| `crui/` | The build: `plugin.py` (`CleanroomUI.esl`), `mxmlc.py` (byte-stable movies), `swf.py` (SWF reader and writer), `check.py` (the movie check), `papyrus.py`, `menus.py` (every movie), the `python -m crui` command |
+| `crui/` | The build: `plugin.py` (`CleanroomUI.esl`), `mxmlc.py` (byte-stable movies), `swf.py` (SWF reader and writer), `check.py` (the movie check), `papyrus.py`, `menus.py` (every movie), `mcm.py` (the level-up host's MCM page for a mod's own quest), the `python -m crui` command |
+| `mcm/level_up/` | That page's templates (`config.json`, `keybinds.json`) |
 | `as3/crui/` | The AS3 library: `Host`, `Bridge`, `Theme`, `Draw`, `Text`, `ScrollList`, `Modal`, `Images`, `Input`, `HintBar` |
 | `translations/` | Our words, `$CRUI_KEY<tab>text` per line: a folder per release (`CleanroomUI/`, `CleanroomDialogue/`), one UTF-8 file per language (`en.txt` holds every key) |
 | `menus/level_up/` | The level-up, tag-skill and trait menu (`Interface/CRUI_LevelUp.swf`) |
@@ -120,8 +121,10 @@ Status as of 2026-11-14. The full list, in order:
    without an MCM, the power armor HUD, `color2`, `SafeX`/`SafeY`,
    `globalscale`, FNV's CND arrows and ammo type label, aiming in third
    person, a pad button for the show key.
-6. **The level-up rest**: skills of other mods; an MCM page for the host's
-   own options (`SkillCap`, `ShowAllPerks`).
+6. **The level-up rest**: skills of other mods (`AddSkill`) and an MCM
+   page for the host's own options that each mod writes for its own quest
+   (`crui.mcm`), both built 2026-11-15, not played; LevelUpMenuEx's INI
+   format, an open decision.
 7. **The DLL side, translations, controller**: injection by menu URL,
    a settings INI to the movies, GFx log routing; the Papyrus key check
    and a test language; the Pip-Boy "more" button on a pad.

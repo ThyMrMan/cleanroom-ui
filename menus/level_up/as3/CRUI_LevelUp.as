@@ -510,7 +510,7 @@ package
          }
          if (tags)
          {
-            send("CRUI_LevelUpTags", Character.mask(who.skills, "tagged"));
+            send("CRUI_LevelUpTags", Character.mask(who.skills, "tagged"), Character.mask(who.skills, "tagged", 31));
          }
          else
          {

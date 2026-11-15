@@ -140,13 +140,14 @@ package crui.levelup
          return true;
       }
 
-      // `items`' entries with `key` set, as one int, bit i for entry i (the tag and trait menus' answer).
-      public static function mask(items:Array, key:String) : int
+      // `items`' entries `from` to `from` + 30 with `key` set, as one int, bit i for entry `from` + i (the tag and
+      // trait menus' answer).
+      public static function mask(items:Array, key:String, from:int = 0) : int
       {
          var out:int = 0;
-         for (var i:int = 0; i < items.length && i < 31; i++)
+         for (var i:int = from; i < items.length && i < from + 31; i++)
          {
-            out |= items[i][key] ? 1 << i : 0;
+            out |= items[i][key] ? 1 << (i - from) : 0;
          }
          return out;
       }

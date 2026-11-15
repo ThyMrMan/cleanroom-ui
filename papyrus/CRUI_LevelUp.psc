@@ -66,6 +66,11 @@ Int traitTotal
 Int tablePerks
 Int tableRows
 Perk[] Added
+ActorValue[] AddedSkills
+String[] AddedSkillImages
+ActorValue[] moreSkills
+String[] moreParts
+Int listedSkills
 Perk[] extra
 String[] extraParts
 String unlisted
@@ -129,6 +134,32 @@ Bool Function RemovePerk(Perk akPerk)
     Return False
   EndIf
   Added.Remove(Added.Find(akPerk))
+  Return True
+EndFunction
+
+Bool Function AddSkill(ActorValue akSkill, String asImage = "")
+  {List skill akSkill after the build's (Skills) in the level-up and tag menus, kept by the save; False when already
+  added. Its name and description are read from it as the menu opens; asImage is its image, as SkillImages' are. The
+  tag menu tags the first 62 skills only. A skill Skills lists already is shown once.}
+  If !akSkill || (AddedSkills && AddedSkills.Find(akSkill) >= 0)
+    Return False
+  ElseIf !AddedSkills
+    AddedSkills = new ActorValue[0]
+    AddedSkillImages = new String[0]
+  EndIf
+  AddedSkills.Add(akSkill)
+  AddedSkillImages.Add(asImage)
+  Return True
+EndFunction
+
+Bool Function RemoveSkill(ActorValue akSkill)
+  {Take skill akSkill, added by AddSkill, out of the menus; False when it was not added.}
+  If !AddedSkills || AddedSkills.Find(akSkill) < 0
+    Return False
+  EndIf
+  Int at = AddedSkills.Find(akSkill)
+  AddedSkills.Remove(at)
+  AddedSkillImages.Remove(at)
   Return True
 EndFunction
 
@@ -421,7 +452,7 @@ Var[] Function Built()
   Collect()
   Float collected = Utility.GetCurrentRealTime()
   Int specialCount = Specials.GetSize()
-  Gather(specialCount, Skills.GetSize())
+  Gather(specialCount, SkillCount())
   Float gathered = Utility.GetCurrentRealTime()
   Var[] args = new Var[35]
   args[0] = PerkPoints
@@ -435,9 +466,9 @@ Var[] Function Built()
   args[8] = Merged(3, perkCounts)
   args[9] = Merged(4, perkCounts)
   args[10] = JoinedParts(heldParts)
-  args[11] = SkillNames
-  args[12] = SkillDescriptions
-  args[13] = SkillImages
+  args[11] = SkillTexts(SkillNames, 0)
+  args[12] = SkillTexts(SkillDescriptions, 1)
+  args[13] = SkillTexts(SkillImages, 2)
   args[14] = JoinedParts(valueParts)
   args[15] = JoinedParts(tagParts)
   args[16] = specialCount
@@ -524,6 +555,56 @@ Function Collect()
     DescribeAdded()
   EndIf
   perkTotal = tablePerks + extra.Length
+  DescribeSkills()
+EndFunction
+
+Function DescribeSkills()
+  {Into moreSkills and moreParts (names, descriptions, images): the skills AddSkill listed that Skills does not, each
+  read from the skill; listedSkills is Skills' count.}
+  listedSkills = Skills.GetSize()
+  moreSkills = new ActorValue[0]
+  moreParts = new String[3]
+  Int i = 0
+  While AddedSkills && i < AddedSkills.Length
+    ActorValue skill = AddedSkills[i]
+    If skill && Skills.Find(skill) < 0 && moreSkills.Find(skill) < 0
+      Int n = moreSkills.Length
+      moreParts[0] = CRUI_LevelUpTable.Joined(moreParts[0], skill.GetName(), n)
+      moreParts[1] = CRUI_LevelUpTable.Joined(moreParts[1], skill.GetDescription(), n)
+      moreParts[2] = CRUI_LevelUpTable.Joined(moreParts[2], AddedSkillImages[i], n)
+      moreSkills.Add(skill)
+    EndIf
+    i += 1
+  EndWhile
+EndFunction
+
+String Function SkillTexts(String asTable, Int aiWhich)
+  {asTable (SkillNames, SkillDescriptions or SkillImages, one entry per Skills entry, or "" for none) with the added
+  skills' text aiWhich (moreParts) after Skills' entries.}
+  If moreSkills.Length == 0
+    Return asTable
+  EndIf
+  String out = asTable
+  Bool empty = asTable == ""
+  Int i = 1
+  While empty && i < listedSkills
+    out += "\t"
+    i += 1
+  EndWhile
+  Return CRUI_LevelUpTable.Joined(out, moreParts[aiWhich], listedSkills)
+EndFunction
+
+Int Function SkillCount()
+  {How many skills the menu shows: Skills', then the added ones (DescribeSkills).}
+  Return listedSkills + moreSkills.Length
+EndFunction
+
+ActorValue Function SkillAt(Int aiIndex)
+  {The menu's skill aiIndex: Skills' entry, else the added one (moreSkills).}
+  If aiIndex < listedSkills
+    Return Skills.GetAt(aiIndex) as ActorValue
+  EndIf
+  Return moreSkills[aiIndex - listedSkills]
 EndFunction
 
 Function DescribeAdded()
@@ -646,7 +727,7 @@ Function ScanChunk(Int aiChunk, Int aiFirst, Int aiEnd, Int aiSpecials, Int aiSk
     If i - perkTotal < aiSpecials
       value = Specials.GetAt(i - perkTotal) as ActorValue
     Else
-      value = Skills.GetAt(i - perkTotal - aiSpecials) as ActorValue
+      value = SkillAt(i - perkTotal - aiSpecials)
     EndIf
     Int n = i - Most(aiFirst, perkTotal)
     values = CRUI_LevelUpTable.Joined(values, "" + player.GetBaseValue(value), n)
@@ -781,9 +862,9 @@ Function OnMenuTake(Int aiIndex)
 EndFunction
 
 Function OnMenuRaise(Int aiSkill, Int aiPoints)
-  {The menu's aiPoints into skill aiSkill (of Skills): raise it (RaiseSkill), then tell the menu the points spent,
+  {The menu's aiPoints into its skill aiSkill (SkillAt): raise it (RaiseSkill), then tell the menu the points spent,
   the skill's base and the skill points left (root1.Raised).}
-  ActorValue skill = Skills.GetAt(aiSkill) as ActorValue
+  ActorValue skill = SkillAt(aiSkill)
   Int spent = RaiseSkill(skill, aiPoints)
   Var[] args = new Var[4]
   args[0] = aiSkill
@@ -793,13 +874,17 @@ Function OnMenuRaise(Int aiSkill, Int aiPoints)
   UI.Invoke(MenuName, "root1.Raised", args)
 EndFunction
 
-Function OnMenuTags(Int aiMask)
-  {The tag menu's picks, bit i for Skills' entry i: each tagged or untagged, the suggestions done with, TagsChosen
-  sent (the rules give the bonus), then the menu closed.}
+Function OnMenuTags(Int aiMask, Int aiMore)
+  {The tag menu's picks, bit i of aiMask for the menu's skill i (SkillAt), bit i of aiMore for skill 31 + i: each
+  tagged or untagged, the suggestions done with, TagsChosen sent (the rules give the bonus), then the menu closed.}
   Int i = 0
-  While i < Skills.GetSize()
-    ActorValue skill = Skills.GetAt(i) as ActorValue
-    If Math.LogicalAnd(aiMask, Math.LeftShift(1, i)) != 0
+  While i < SkillCount() && i < 62
+    ActorValue skill = SkillAt(i)
+    Int mask = aiMask
+    If i >= 31
+      mask = aiMore
+    EndIf
+    If Math.LogicalAnd(mask, Math.LeftShift(1, i % 31)) != 0
       Tag(skill)
     Else
       Untag(skill)

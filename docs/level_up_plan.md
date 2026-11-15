@@ -110,6 +110,29 @@ and `scriptName` (read 2026-11-12); whether `CallFunction` honors
 off-by-default features above (choose later, half level-ups, random
 draft, respec, delay until sleep).
 
+### <a id="host-mcm"></a>The host's own page, for any mod (built 2026-11-15, not played)
+
+The page above is the converter's. Cleanroom UI ships one for the host's
+own options that any mod running the host writes against its own quest:
+`crui.mcm.install(data_dir, mod, title, form, script="CRUI_LevelUp")`
+writes `MCM/Config/<mod>/` from `mcm/level_up/` (`config.json`,
+`keybinds.json`). It holds the skill cap (`SkillCap`, 50 to 250 by 5),
+show every perk at first (`ShowAllPerks`) and a hotkey that calls
+`OpenLevelUpMenu`, which goes through the mod's holder. `form` is the
+host's quest as MCM names forms (`MyMod.esp|800`), and `script` is
+`CRUI_LevelUp` or the mod's script extending it. A mod that doesn't build
+with Python copies the two templates and replaces `{mod}`, `{title}`,
+`{form}`, `{script}` and `{hotkey}` (`<mod>_open_level_up`) by hand.
+
+- **Each mod's own page, not one in `CleanroomUI.esl`** (decided
+  2026-11-15): the settings are each host's properties, kept by the save,
+  so two mods' hosts keep their own caps.
+- **Its words** are `$CRUI_MCM_` keys in CleanroomUI's translations, which
+  load with `CleanroomUI.esl`, the one master such a mod already has. The
+  translation test counts the templates as code that shows keys.
+- **The converter** keeps its own page (its rates beside these two, its
+  `$F3NV_MCM_` words) until it moves to this one.
+
 ## <a id="prkf"></a>PRKF.dll's work, in Papyrus (built 2026-11-12, used by our menu)
 
 PRKF.dll keeps perk and skill points, the tagged skills and the perk list,
@@ -483,10 +506,22 @@ host's `SkillTagged`, beside `F3NV_CharacterEvents`' own.
   of its next rank (`IsEligible`), shown as "Its own requirements"
   (`$CRUI_LU_OWN_TEST`); taking it is `TakePerk` as for any other.
 
-**Not yet:** skills of other mods (the menu's skills are FNV_Skills, and a
-skill's tag rides a 31-bit mask), and LevelUpMenuEx's INI format (the open
-decision above). A tab in an added perk's name or description would split
-its entry: Papyrus has no string search to strip it.
+- **Skills of other mods** (built 2026-11-15, not played):
+  `AddSkill(akSkill, asImage = "")` and `RemoveSkill`, kept by the save. An
+  added skill that `Skills` doesn't list comes after its entries in the
+  level-up and tag menus. Its name and description are read from the actor
+  value as the menu opens (`DescribeSkills`: F4SE's `GetName` and
+  `GetDescription`), and its image is the one given. Every skill index the
+  menu sends goes through `SkillAt`, so raising and tagging an added skill
+  work as for a listed one. The tag menu answers with two 31-bit masks,
+  since F4SE's `SendExternalEvent` passes no arrays to Papyrus
+  (`PapyrusScaleformAdapter.cpp`, `ConvertScaleformValue`), so the first 62
+  skills can be tagged. No table's requirement row tests an added skill;
+  an added perk's own test (kind 4) can.
+
+**Not yet:** LevelUpMenuEx's INI format (the open decision above). A tab in
+an added perk's or skill's name or description would split its entry:
+Papyrus has no string search to strip it.
 
 ## <a id="dropped"></a>LevelUpMenuEx dropped (2026-11-12, not played)
 
@@ -544,7 +579,8 @@ Nothing of ours needs LevelUpMenuEx any more:
    show-all filter and the hotkey built 2026-11-12, not played; the level
    cap, perk sound and the off-by-default features left. Then the **API**
    ([api](#api)): `Get`, the menu openers, `AddPerk` and the events built
-   2026-11-12, not played; other mods' skills and the INI format left. Then
+   2026-11-12, not played; other mods' skills built 2026-11-15, not played;
+   the INI format left. Then
    dropping LevelUpMenuEx from the requirements ([dropped](#dropped)):
    done 2026-11-12, not played.
 

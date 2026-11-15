@@ -1,0 +1,42 @@
+{
+  "modName": "{mod}",
+  "displayName": "{title}",
+  "minMcmVersion": 1,
+  "content": [
+    {
+      "text": "$CRUI_MCM_LEVEL_UP",
+      "type": "section"
+    },
+    {
+      "text": "$CRUI_MCM_SKILL_CAP",
+      "type": "slider",
+      "help": "$CRUI_MCM_SKILL_CAP_HELP",
+      "valueOptions": {
+        "min": 50,
+        "max": 250,
+        "step": 5,
+        "sourceType": "PropertyValueInt",
+        "sourceForm": "{form}",
+        "scriptName": "{script}",
+        "propertyName": "SkillCap"
+      }
+    },
+    {
+      "text": "$CRUI_MCM_SHOW_ALL",
+      "type": "switcher",
+      "help": "$CRUI_MCM_SHOW_ALL_HELP",
+      "valueOptions": {
+        "sourceType": "PropertyValueBool",
+        "sourceForm": "{form}",
+        "scriptName": "{script}",
+        "propertyName": "ShowAllPerks"
+      }
+    },
+    {
+      "id": "{hotkey}",
+      "text": "$CRUI_MCM_OPEN",
+      "type": "hotkey",
+      "help": "$CRUI_MCM_OPEN_HELP"
+    }
+  ]
+}

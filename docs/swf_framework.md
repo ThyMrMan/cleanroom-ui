@@ -1881,8 +1881,11 @@ played, and the rest builds on it. In Cleanroom UI's own build
    the power armor HUD, `color2`, `SafeX`/`SafeY`, `globalscale`, FNV's CND
    arrows and ammo type label, aiming in third person, a pad button for the
    show key; the converter's Hardcore needs as an `AddStats` widget.
-5. **The level-up rest**: other mods' skills, an MCM page for the host's
-   own options ([order](fo4_level_up_plan.md#order)).
+5. **The level-up rest**: other mods' skills ([built](level_up_plan.md#holder-converter)
+   2026-11-15, not played); an MCM page for the host's own options, which
+   each mod writes against its own quest ([built](level_up_plan.md#host-mcm)
+   2026-11-15, not played). Left: LevelUpMenuEx's INI format, an open
+   decision ([order](level_up_plan.md#order)).
 6. **The DLL side**: injection by menu URL for other menus, a settings INI
    to the movies, GFx log routing.
 7. **Translations**: the Papyrus key check, slot and per-language counts, a

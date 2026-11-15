@@ -1,0 +1,15 @@
+{
+  "modName": "{mod}",
+  "keybinds": [
+    {
+      "id": "{hotkey}",
+      "desc": "Open the level-up menu",
+      "action": {
+        "type": "CallFunction",
+        "form": "{form}",
+        "scriptName": "{script}",
+        "function": "OpenLevelUpMenu"
+      }
+    }
+  ]
+}

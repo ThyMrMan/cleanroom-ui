@@ -38,7 +38,10 @@ def test_the_script_and_movie_agree_on_events_and_calls():
                                   'CRUI_LevelUpTags', 'CRUI_LevelUpTraits'}
     for call in re.findall(r'"root1\.(\w+)"', SCRIPT):
         assert re.search(rf'public function {call}\(', MOVIE), call
-    assert 'Function OnMenuTags(Int aiMask)' in SCRIPT and 'Function OnMenuTraits(Int aiMask, Int aiShown)' in SCRIPT
+    assert 'Function OnMenuTags(Int aiMask, Int aiMore)' in SCRIPT
+    assert 'Function OnMenuTraits(Int aiMask, Int aiShown)' in SCRIPT
+    assert 'send("CRUI_LevelUpTags", Character.mask(who.skills, "tagged"), Character.mask(who.skills, "tagged", 31))' \
+        in MOVIE
     assert 'send("CRUI_LevelUpTraits", Character.mask(who.traits, "picked"), who.traits.length)' in MOVIE
 
 
@@ -100,6 +103,22 @@ def test_an_added_perk_is_described_and_tested_by_the_game():
     assert 'public static const GAME:int = 4;' in CHARACTER and '"$CRUI_LU_OWN_TEST"' in CHARACTER
 
 
+def test_an_added_skill_follows_the_builds_everywhere_the_menu_reads_skills():
+    """AddSkill's skills come after Skills in the texts Built hands over, the values gathered, raising and tagging:
+    every skill index goes through SkillAt, and only DescribeSkills and SkillAt read Skills itself."""
+    built = _function(SCRIPT, 'Built')
+    for arg, table, which in ((11, 'SkillNames', 0), (12, 'SkillDescriptions', 1), (13, 'SkillImages', 2)):
+        assert f'args[{arg}] = SkillTexts({table}, {which})' in built
+    assert 'Gather(specialCount, SkillCount())' in built and 'DescribeSkills()' in _function(SCRIPT, 'Collect')
+    for name in ('ScanChunk', 'OnMenuRaise', 'OnMenuTags'):
+        assert 'SkillAt(' in _function(SCRIPT, name) and 'Skills.GetAt' not in _function(SCRIPT, name), name
+    readers = {name for name in re.findall(r'^\S*\s*Function (\w+)\(', SCRIPT, re.M)
+               if re.search(r'\bSkills\.', _function(SCRIPT, name))}
+    assert readers == {'DescribeSkills', 'SkillAt'}
+    assert 'Skills.Find(skill) < 0' in _function(SCRIPT, 'DescribeSkills')
+    assert 'public static function mask(items:Array, key:String, from:int = 0) : int' in CHARACTER
+
+
 HOLDER = (PAPYRUS / 'CRUI_LevelUpHolder.psc').read_text(encoding='utf-8')
 
 
@@ -134,7 +153,7 @@ def test_tags_go_through_the_holder_and_send_the_hosts_events():
 
 
 def test_show_gathers_while_menus_close_then_opens():
-    """Show prepares first, waits out every menu (ours, the Pip-Boy) without a settle, then opens."""
+    """Show prepares, waits out every menu (ours, the Pip-Boy) unsettled, then opens."""
     show = _function(SCRIPT, 'Show')
     assert show.index('Prepare(') < show.index('While Utility.IsInMenuMode()') < show.index('Open(aiMode')
     assert 'Utility.Wait(' not in show

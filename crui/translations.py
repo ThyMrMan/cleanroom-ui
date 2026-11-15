@@ -29,8 +29,8 @@ LIBRARY = REPO / 'as3'
 LINE_LIMIT = 511
 #: Fallout 4's sLanguage values (its own Interface/translate_<language>.txt files).
 LANGUAGES = ('cn', 'de', 'en', 'es', 'esmx', 'fr', 'it', 'ja', 'pl', 'ptbr', 'ru')
-#: The code that shows our keys: the AS3 library, every menu and our DLLs.
-CODE = ((LIBRARY, '**/*.as'), (REPO / 'menus', '**/*.as'), (REPO / 'dll', '**/*.cpp'))
+#: The code that shows our keys: the AS3 library, every menu, our DLLs and the MCM page templates.
+CODE = ((LIBRARY, '**/*.as'), (REPO / 'menus', '**/*.as'), (REPO / 'dll', '**/*.cpp'), (REPO / 'mcm', '**/*.json'))
 #: A `"$CRUI_KEY"` string literal, or a template's `"$CRUI_KEY\t`.
 KEY_LITERAL = re.compile(r'"(\$CRUI_[A-Z0-9_]+)(?=["\\])')
 
@@ -68,8 +68,7 @@ def install(data_dir: Path, sources: Path = SOURCES) -> int:
 
 
 def releases_of(path: Path) -> tuple:
-    """The releases that ship code file `path`: the dialogue release its own, CleanroomUI the rest, both the
-    library."""
+    """Releases shipping `path`: dialogue its own, CleanroomUI the rest, both as3/."""
     if Path(path).is_relative_to(LIBRARY):
         return RELEASES
     return (DIALOGUE,) if any(Path(path).is_relative_to(folder) for folder in DIALOGUE_CODE) else (PLUGIN,)
