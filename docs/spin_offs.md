@@ -208,6 +208,20 @@ Every DLL above needs both versions, so the port is done once:
 - **Our two patches to commonlib-shared** are in `dll/patches/`, applied by
   `crui` before each build: the version check (step 2) and `IDDB::has`.
   Both are meant for upstream.
+- **Our two patches to CommonLibF4 itself** (`dll/patches/commonlibf4.patch`,
+  2026-11-16, also for upstream), found by a crash on a new game and six
+  Papyrus errors in the converter's FO3 build:
+  - **A `None` array argument crashed.** `UnpackVariable` for an array read
+    the array's elements without checking for `None`, so any native taking
+    an array crashed when a script passed one (`CRUI_Pipboy.SetTab`, from a
+    tab with no value strings; CleanroomUI.dll+0x26280, `mov rdi,
+    [rbx+0x18]` with rbx 0). It now unpacks as an empty array.
+  - **`RE::Actor` had no `TYPE_ID`** of its own and took
+    `TESObjectREFR`'s, so every native with an `Actor` parameter
+    registered it as `ObjectReference`. The VM then refused the six
+    (`CRUI_Sex.ChangeSex`; `CRUI_Condition.GetEquippedWeaponHealth`,
+    `RepairWith`, `SpareCount`, `PipboyRepair`, `SetVendor`): "does not
+    match existing signature on linked type". It now has `kActor`.
 - **xmake under the `py` launcher:** `py` is a packaged Windows app, and its
   children can't see `%LOCALAPPDATA%\.xmake`. So `crui` points
   `XMAKE_GLOBALDIR` at `out/xmake` (unless it is already set) and

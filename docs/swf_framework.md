@@ -2207,7 +2207,8 @@ played, and the rest builds on it. In Cleanroom UI's own build
    1.10.163 and next-gen 1.10.984 to 1.11.221 (their layouts read
    2026-11-14); GOG waits for an Address Library database
    ([port](spin_offs.md#port-status)). Upstream to CommonLibF4: our two
-   patches (the version check, `IDDB::has`) and its two wrong old-gen IDs
+   patches (the version check, `IDDB::has`), our two CommonLibF4 fixes
+   (a `None` array, `Actor`'s type; [which](spin_offs.md#port-status)) and its two wrong old-gen IDs
    ([which](spin_offs.md#og-match)).
 3. **The container and barter CND line** through an injected movie
    ([built](#transfer) 2026-11-14, not played), and the

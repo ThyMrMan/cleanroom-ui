@@ -19,6 +19,16 @@ def _scaleform_name(entry):
     return name.strip('"') if name.startswith('"') else re.search(rf'{name} = "(\w+)"', source).group(1)
 
 
+def test_commonlibf4_takes_none_arrays_and_names_actor_parameters():
+    """Our CommonLibF4 patch: a None array unpacks empty (it crashed SetTab on a new game) and RE::Actor has
+    Actor's script type (its natives bound as ObjectReference); applied to CommonLibF4 itself (docs/spin_offs.md)."""
+    patch = (DLL / 'patches' / 'commonlibf4.patch').read_text(encoding='utf-8')
+    assert '+++ b/include/RE/B/BSScriptUtil.h' in patch and '+\t\tif (!in) {' in patch
+    assert '+++ b/include/RE/A/Actor.h' in patch and '+\t\tstatic constexpr auto TYPE_ID{ BSScript::kActor };' in patch
+    build = (REPO / 'crui' / '__main__.py').read_text(encoding='utf-8')
+    assert "if patch.stem == 'commonlib-shared' else COMMONLIB" in build
+
+
 def test_each_dll_is_built_and_named_as_its_movies_ask():
     """xmake.lua builds CleanroomUI.dll and CleanroomDialogue.dll (CommonLibF4), each under the F4SE plugin name it
     gives and the Scaleform name its movie asks for; the F4SE 0.7.9 build is gone."""

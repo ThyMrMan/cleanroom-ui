@@ -21,7 +21,7 @@ from crui import POPEN_FLAGS, REPO, api, check, mcm, menus, mxmlc, papyrus, plug
 STEPS = ('plugin', 'translations', 'movies', 'scripts', 'dll', 'mcm')
 DEFAULT_OUT = REPO / 'dist' / 'CleanroomUI'
 EXAMPLE_OUT = REPO / 'dist' / 'ExampleMenu'
-#: CommonLibF4 (CRUI_COMMONLIBF4, else the template's beside this repo) and our patches to its commonlib-shared.
+#: CommonLibF4 (CRUI_COMMONLIBF4, else the template's beside this repo) and our patches, each named for its checkout.
 COMMONLIB = Path(os.environ.get('CRUI_COMMONLIBF4')
                  or REPO.parent / 'tools_ext' / 'commonlibf4-template' / 'lib' / 'commonlibf4')
 PATCHES = REPO / 'dll' / 'patches'
@@ -118,14 +118,14 @@ def _run(command: list, cwd: Path = REPO, env: 'dict | None' = None) -> bool:
 
 
 def patch_commonlib() -> bool:
-    """Our patches (dll/patches) applied to COMMONLIB's commonlib-shared, each once; False when one applies to
-    neither the patched nor the unpatched sources."""
-    shared = COMMONLIB / 'lib' / 'commonlib-shared'
+    """Our patches (dll/patches) applied once each: commonlib-shared.patch to COMMONLIB's commonlib-shared,
+    commonlibf4.patch to COMMONLIB itself; False when one applies to neither the patched nor the unpatched sources."""
     for patch in sorted(PATCHES.glob('*.patch')):
-        done = subprocess.run(['git', '-C', str(shared), 'apply', '--reverse', '--check', str(patch)],
+        root = COMMONLIB / 'lib' / 'commonlib-shared' if patch.stem == 'commonlib-shared' else COMMONLIB
+        done = subprocess.run(['git', '-C', str(root), 'apply', '--reverse', '--check', str(patch)],
                               capture_output=True, **POPEN_FLAGS).returncode == 0
-        if not done and not _run(['git', '-C', str(shared), 'apply', str(patch)]):
-            print(f'[dll] {patch.name} does not apply to {shared}')
+        if not done and not _run(['git', '-C', str(root), 'apply', str(patch)]):
+            print(f'[dll] {patch.name} does not apply to {root}')
             return False
     return True
 

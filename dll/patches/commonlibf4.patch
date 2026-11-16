@@ -1,0 +1,26 @@
+diff --git a/include/RE/A/Actor.h b/include/RE/A/Actor.h
+index cb22f41..ea65ba7 100644
+--- a/include/RE/A/Actor.h
++++ b/include/RE/A/Actor.h
+@@ -90,6 +90,7 @@ namespace RE
+ 		static constexpr auto RTTI{ RTTI::Actor };
+ 		static constexpr auto VTABLE{ VTABLE::Actor };
+ 		static constexpr auto FORM_ID{ ENUM_FORM_ID::kACHR };
++		static constexpr auto TYPE_ID{ BSScript::kActor };
+ 
+ 		enum class BOOL_FLAGS
+ 		{
+diff --git a/include/RE/B/BSScriptUtil.h b/include/RE/B/BSScriptUtil.h
+index 4b5f255..6714523 100644
+--- a/include/RE/B/BSScriptUtil.h
++++ b/include/RE/B/BSScriptUtil.h
+@@ -1078,6 +1078,9 @@ namespace RE::BSScript
+ 
+ 		T          out;
+ 		const auto in = get<Array>(a_var);
++		if (!in) {
++			return out;
++		}
+ 		for (const auto& var : in->elements) {
+ 			out.push_back(detail::UnpackVariable<value_type>(var));
+ 		}
