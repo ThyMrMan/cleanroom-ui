@@ -32,24 +32,24 @@ licensed way to build menus without starting from decompiled Bethesda files.
 | Menu | How it's made | State |
 |---|---|---|
 | Casino (`fo4_import/casino/`) | Our own AS3 on the `f3ui` library, compiled by `mxmlc` (since 2026-11-11, [spike 1](#spikes)). Opened as an F4SE custom menu from Papyrus (`F3NV_Casino.psc`) | FFDec build played (slots in the HUD color). `mxmlc` build played: slots and roulette work |
-| Dialogue menu (`fo4_import/dialogue_menu/`) | Our own AS3 only (since 2026-11-11, [spike 3](#spikes)). Since 2026-11-12 on `f3ui` (`Bridge`, `Text`), compiled by `mxmlc` like the casino's. Nothing read from the game | The patched-movie version played; our own movie (FFDec build) played 2026-11-12, looks the same. `mxmlc` build not played |
-| Pip-Boy, container, barter, HUD (`tes_runtime/fo4_condition/`) | The Pip-Boy's CND line, repair and ammo lists, and other mods' item-card lines are drawn by our injected movie from the DLL's data ([framework](#pipboy)). The rest is drawn by the DLL into the open vanilla menus from C++: REPAIR and AMMO hints, STAT tabs, HUD needs. The container and barter CND line is drawn by our [transfer movie](#transfer) from the DLL's stamp on each line | CND, repair and tabs played from C++; the movies' versions built, not played. Ammo list and HUD needs built, not played |
-| Level-up (`fo4_import/level_up/`, `fo4_import/spike/level_up*.py`, `F3NV_LevelUp.psc`) | Our own menu on f3ui ([level-up](#level-up)), opened by the character rules in place of `LevelUpMenu`, with skill, perk and taken pages, and as the tag-skill and trait menus, every DLC's perks and traits included; PRKF.dll's points, tags, perk list and requirement rows rebuilt in Papyrus | Built 2026-11-12, none played |
+| Dialogue menu (`fo4_import/dialogue_menu/`) | Our own AS3 only (since 2026-11-11, [spike 3](#spikes)). Since 2026-11-12 on `f3ui` (`Bridge`, `Text`), compiled by `mxmlc` like the casino's. Nothing read from the game | The patched-movie version played; our own movie (FFDec build) played 2026-11-12, looks the same. `mxmlc` build played 2026-11-16, with its colors and dimming |
+| Pip-Boy, container, barter, HUD (`tes_runtime/fo4_condition/`) | The Pip-Boy's CND line, repair and ammo lists, and other mods' item-card lines are drawn by our injected movie from the DLL's data ([framework](#pipboy)). The rest is drawn by the DLL into the open vanilla menus from C++: REPAIR and AMMO hints, STAT tabs, HUD needs. The container and barter CND line is drawn by our [transfer movie](#transfer) from the DLL's stamp on each line | CND, repair and tabs played from C++; the movies' versions (CND line, repair and ammo lists) played under the vanilla Pip-Boy 2026-11-16. The transfer movie and HUD needs built, not played |
+| Level-up (`fo4_import/level_up/`, `fo4_import/spike/level_up*.py`, `F3NV_LevelUp.psc`) | Our own menu on f3ui ([level-up](#level-up)), opened by the character rules in place of `LevelUpMenu`, with skill, perk and taken pages, and as the tag-skill and trait menus, every DLC's perks and traits included; PRKF.dll's points, tags, perk list and requirement rows rebuilt in Papyrus | Built 2026-11-12; the FO3/FNV menu played 2026-11-16 |
 
 ### <a id="where"></a>Where each piece stands (2026-11-16)
 
 | Piece | Done | Not done |
 |---|---|---|
 | **Toolchain** | `mxmlc` builds, byte-stable, every movie we ship; FFDec route deleted; the [movie check](#testing) (`python -m crui check`) | Done: CI runs it on every push, passing on GitHub since 2026-11-15 |
-| **AS3 library** ([design](#design)) | `Bridge`, `Theme`, `Host`, `Text` (with `Text.show` for `$KEY`s and slots), `Draw`; `Input` and `HintBar` ([input](#input)), `ScrollList` ([scroll list](#scroll-list)) and `Modal` ([modal](#modal)), with the dialogue list and the Pip-Boy's list panel on them; `Images` ([images](#images)) with the casino on it (all built, not played) | Every planned class is built; next, playing them |
+| **AS3 library** ([design](#design)) | `Bridge`, `Theme`, `Host`, `Text` (with `Text.show` for `$KEY`s and slots), `Draw`; `Input` and `HintBar` ([input](#input)), `ScrollList` ([scroll list](#scroll-list)) and `Modal` ([modal](#modal)), with the dialogue list and the Pip-Boy's list panel on them; `Images` ([images](#images)) with the casino on it; all played 2026-11-16 through the menus on them | Playing them with a pad |
 | **Own menu** | Casino (Papyrus `UI.RegisterCustomMenu`), HUD color by the menu itself (spike 2b, played) | Registering from the DLL: not needed for color; only if a later menu needs it |
-| **Replace a vanilla movie** | Dialogue menu on our own movie (spike 3, played); its `mxmlc` build. Level-up: our own registered menu opened in place of `LevelUpMenu` from Papyrus, no vanilla file shipped ([open](fo4_level_up_plan.md#open), built) | Both played; if the moment of `LevelUpMenu` first shows, F3NV.dll swapping its constructor |
-| **Inject into a vanilla menu** | Pip-Boy (spike 4, played under vanilla); CND, lists and item-card API built | Any of it played; FallUI played; the container and barter [movie](#transfer) (built, not played) |
-| **HUD widget** | `CRUI_Hud`: our host movie loaded into any HUD by `CleanroomUI.dll` (nothing of HUDFramework's since 2026-11-15, [why](#hud)); widget movies with a `processMessage` method; the built-in stats line ([host](#hud-built)); our host's saved places and edit menu, with a gamepad too ([edit](#hud-edit)); DEF_HUD.xml layouts of the game's parts ([layouts](#hud-layout)), moved and scaled in the edit menu too; the [FNV preset](#fnv-preset) with its [CND bar](#fnv-widgets); [hiding and recoloring](#hud-look) in the edit menu; parts shown on [conditions](#hud-conditions), all five steps (combat, weapon drawn, V.A.T.S., a show key, a value changing or low, the location moving, aiming, sneaking; the Immersive preset; each box's rule in the edit menu; other mods' conditions and rules); built 2026-11-12 to 13. Since: layouts kept per save with a backup, our [MCM page](#mcm-page) (button and hotkey), the [play-test fixes](#hud-edit-fixes), a [clock and power armor](#hud-extras) (`powerarmor`, the game's meters kept in power armor). Played on a stock game 2026-11-15 and 16: the host and the edit menu with the mouse (two rounds of fixes) and the MCM page | The rest played (the second round's fixes, pad, DEF layouts, the FNV preset, Immersive and the conditions, the clock, power armor); then, if play asks: fades, `flags`, rotating and opacity in the edit menu, a key to open it without MCM installed, parts placed for power armor, `color2`, `SafeX`/`SafeY`, `globalscale`, FNV's CND arrows and ammo type, aiming in third person, a pad button for the show key; the converter's Hardcore needs on it (still C++) |
+| **Replace a vanilla movie** | Dialogue menu on our own movie (spike 3, played); its `mxmlc` build. Level-up: our own registered menu opened in place of `LevelUpMenu` from Papyrus, no vanilla file shipped ([open](fo4_level_up_plan.md#open)); both played 2026-11-16 | If the moment of `LevelUpMenu` first shows, F3NV.dll swapping its constructor |
+| **Inject into a vanilla menu** | Pip-Boy (spike 4, played under vanilla); CND and lists played under vanilla 2026-11-16; item-card API built | Under FallUI; the container and barter [movie](#transfer) (built, not played) |
+| **HUD widget** | `CRUI_Hud`: our host movie loaded into any HUD by `CleanroomUI.dll` (nothing of HUDFramework's since 2026-11-15, [why](#hud)); widget movies with a `processMessage` method; the built-in stats line ([host](#hud-built)); our host's saved places and edit menu, with a gamepad too ([edit](#hud-edit)); DEF_HUD.xml layouts of the game's parts ([layouts](#hud-layout)), moved and scaled in the edit menu too; the [FNV preset](#fnv-preset) with its [CND bar](#fnv-widgets); [hiding and recoloring](#hud-look) in the edit menu; parts shown on [conditions](#hud-conditions), all five steps (combat, weapon drawn, V.A.T.S., a show key, a value changing or low, the location moving, aiming, sneaking; the Immersive preset; each box's rule in the edit menu; other mods' conditions and rules); built 2026-11-12 to 13. Since: layouts kept per save with a backup, our [MCM page](#mcm-page) (button and hotkey), the [play-test fixes](#hud-edit-fixes), a [clock and power armor](#hud-extras) (`powerarmor`, the game's meters kept in power armor). Played on a stock game 2026-11-15 and 16: the host and the edit menu with the mouse (two rounds of fixes) and the MCM page; 2026-11-16 the layouts, hiding parts and recoloring | The rest played (pad, Immersive and the conditions, the clock, power armor); then, if play asks: fades, `flags`, rotating and opacity in the edit menu, a key to open it without MCM installed, parts placed for power armor, `color2`, `SafeX`/`SafeY`, `globalscale`, FNV's CND arrows and ammo type, aiming in third person, a pad button for the show key; the converter's Hardcore needs on it (still C++) |
 | **DLL side** | GFx helpers (`base.cpp`), Pip-Boy injection (`LoadOverlay`), natives the movies call (`HudColor`, `Log`, `PipboyCardLines`, `PipboyList`, `TextureExists`); other mods' movies in any menu by name or movie file ([inject](#inject)) and a mod's INI to its movie (`Settings`, [settings](#settings)), both built 2026-11-15, not played; GFx logging is F4SE's own ([log](#gfx-log)) | Playing them |
 | **Translations** ([translations](#translations)) | Files named after `FalloutHelpers.esl`, every language with English fallback, our fixed words as `$F3NV_` keys, the key check in preflight (spike 5, played) | The keys played; the Papyrus key check, slot check, per-language counts and test language are [built](#translation-checks) (2026-11-15), the test language not yet looked at in game |
 | **Controller** ([controller](#controller)) | The casino and dialogue menu on `Input` and `HintBar`; the HUD edit menu's [gamepad](#hud-edit) (built, not played) | Playing them with a pad; the Pip-Boy's [action menu](#pipboy-pad) on View (built 2026-11-15, not played); roulette's board on a pad (the converter's) |
-| **Release** ([release](#release)) | Its own repo, Cleanroom UI (GPL-3.0 with the modding exception, private), builds every movie, script, the plugin and both DLLs on its own (`python -m crui`) | Release assets, the converter on it as a submodule, Nexus; done 2026-11-15: the example menu, [the API page](api.md), CI; 2026-11-16: the README's [compatibility](../README.md#compatibility) notes |
+| **Release** ([release](#release)) | Its own repo, Cleanroom UI (GPL-3.0 with the modding exception, private), builds every movie, script, the plugin and both DLLs on its own (`python -m crui`) | Release assets, the converter on it as a submodule, Nexus; done 2026-11-15: the example menu, [the API page](api.md), CI; 2026-11-16: the README's [compatibility](../README.md#compatibility) notes. Played only on the installed game (Steam 1.11.240), no old-gen or other builds; little played beside other mods (ECC so far fine) |
 
 Shared already:
 - `fo4_import/base/as3/f3ui/`: the AS3 library's first five classes,
@@ -281,7 +281,7 @@ exception ([license](spin_offs.md#license)), no Bethesda classes:
 Each menu is then a thin document class on top: `CasinoMenu`,
 `DialogueMenu`, and the Pip-Boy overlay.
 
-### <a id="scroll-list"></a>`ScrollList` (built 2026-11-12, not played)
+### <a id="scroll-list"></a>`ScrollList` (built 2026-11-12, played 2026-11-16)
 
 `fo4_import/base/as3/f3ui/ScrollList.as`: the selectable, scrolling list.
 Items are `{text, value, dim}`. It shows a window of rows over them, marks
@@ -320,7 +320,7 @@ Flash Player 11's and Scaleform may lack it. Our AS3 now empties a
 container a child at a time, and `tests/test_fo4_f3ui_input.py` keeps it
 out.
 
-### <a id="modal"></a>`Modal` (built 2026-11-12, not played)
+### <a id="modal"></a>`Modal` (built 2026-11-12, played 2026-11-16)
 
 `Modal.as`: a pop-up over a menu. It is a panel outlined in `Theme.color`
 and filled black (`Draw.box`, shared with `Draw.panel`) round its content,
@@ -336,7 +336,7 @@ Back aren't used there, since the DLL owns the keys.
   checks are tinted, the mouse and number keys pick, and the backdrop fits.
 - **Pip-Boy:** the repair and ammo lists draw as before.
 
-### <a id="images"></a>`Images` (built 2026-11-12, not played)
+### <a id="images"></a>`Images` (built 2026-11-12, played 2026-11-16)
 
 `Images.as`: textures shown in a menu through `f4se.MountImage`.
 - **The path rule:** `texturePath` puts any form of a texture's path the
@@ -464,7 +464,7 @@ lines. Key handling moves into the movie, which already gets keys when
 Papyrus doesn't.
 
 Phases:
-1. **The CND line** (built 2026-11-12, not played). F3NV.dll still resolves
+1. **The CND line** (built 2026-11-12, played 2026-11-16 under vanilla). F3NV.dll still resolves
    the highlighted stack and its health each frame, but no longer touches
    the card. Its native `PipboyCardLines()` gives the lines to show
    (`[{text, value, showAsPercent}]`, the CND line of an item that wears;
@@ -491,7 +491,7 @@ Phases:
      - FallUI has its own item-card add-on framework (SWFs in
        `Interface\UI-Framework\ItemCard`). Ours stays independent so it
        works under vanilla too; under FallUI both sets of lines show.
-2. **The repair and ammo lists** (built 2026-11-12, not played). The DLL
+2. **The repair and ammo lists** (built 2026-11-12, played 2026-11-16 under vanilla). The DLL
    keeps each list's state, its keys (the native `keyUp` listener, which
    already works) and the repair, but no longer writes the list over the
    card's `InfoObj` or lifts the card. Its native `PipboyList()` gives the
@@ -955,7 +955,7 @@ Asked for after the first stock play-test: the edit menu and our settings from M
 - `settings.ini` holds the DLL's own defaults (a test keeps them equal); its words are `$CRUI_MCM_` keys in
   `CleanroomUI_<language>.txt`.
 
-### <a id="hud-layout"></a>HUD layouts (what DEF_HUD did; reading built 2026-11-13, not played)
+### <a id="hud-layout"></a>HUD layouts (what DEF_HUD did; reading built 2026-11-13, played 2026-11-16)
 
 DEF_HUD lets players move, rotate, resize, recolor and hide every part of
 the HUD, but it does so by replacing `HUDMenu.swf` (one copy per screen
@@ -1077,7 +1077,7 @@ and power armor with the right meters; a melee weapon (no ammo count)
 still shows it; the value after a repair, a swap and with an untracked
 weapon (hidden).
 
-### <a id="hud-look"></a>Hiding and recoloring in game (built 2026-11-13, not played)
+### <a id="hud-look"></a>Hiding and recoloring in game (built 2026-11-13, played 2026-11-16)
 
 Every box in the [edit menu](#hud-edit), our widgets and the game's own
 parts alike, can be hidden and recolored (`menus/hud/as3/Look.as`,

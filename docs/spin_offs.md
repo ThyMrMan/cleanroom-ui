@@ -51,7 +51,7 @@ Not released on their own:
 - **Damage Threshold.** Zoltanite's mod (Nexus 109168) already does this, and ours follows its approach. Keep the credit in the code.
 - **Ammo weight and combat sprint.** These are FNV rules, not general features.
 
-### <a id="split-status"></a>Where the split stands (built 2026-11-12, not played)
+### <a id="split-status"></a>Where the split stands (built 2026-11-12, played 2026-11-16)
 
 In Cleanroom UI (`dll/`, `python -m crui dll`), from F3NV.dll's sources:
 - **`CleanroomUI.dll`** (`dll/framework/`): condition API, Pip-Boy overlay,
@@ -75,7 +75,7 @@ In Cleanroom UI (`dll/`, `python -m crui dll`), from F3NV.dll's sources:
   (its `tes_runtime/fo4_condition`).
 
 The converter on Cleanroom UI (its branch `fo4-2026-10-31`, checked
-2026-11-14, not played):
+2026-11-14, played 2026-11-16):
 - **Its F3NV.dll keeps only FNV's rules**: Damage Threshold, Hardcore, and
   the Goodbye line ending the player's talk. Its converted scripts call the
   `CRUI_` natives.
@@ -90,7 +90,7 @@ Not done yet:
 - **Dropping the `F3NV_Menus\` read** from `CleanroomDialogue.dll`, once
   converter builds from before 2026-11-13 are gone.
 
-The dialogue release stands alone (built 2026-11-13, not played):
+The dialogue release stands alone (built 2026-11-13, played 2026-11-16 with the converter):
 - **Its words** are `$CRUI_LEAVE`, `$CRUI_HINT_SELECT` and `$CRUI_HINT_LEAVE`
   in `CleanroomDialogue_<language>.txt` (`translations/CleanroomDialogue/`),
   every game language written. F4SE reads one translation file per active
@@ -105,7 +105,7 @@ The dialogue release stands alone (built 2026-11-13, not played):
 
 ### <a id="framework-rules"></a>Rules for the framework
 
-Built 2026-11-13, not played (`CleanroomUI.dll` version 2):
+Built 2026-11-13, played 2026-11-16 with the converter; several mods at once not yet played (`CleanroomUI.dll` version 2):
 - **Changes nothing on load.** A hook changes game behavior only after a mod
   asks for it through a Papyrus call. Combat sprinting and the spawn-health
   redirect moved to F3NV.dll. The REPAIR hint and G key appear only once a
@@ -183,7 +183,7 @@ Every DLL above needs both versions, so the port is done once:
    we expect, log it and leave that feature off. The game should keep
    running.
 
-### <a id="port-status"></a>Where the port stands (2026-11-14, not played)
+### <a id="port-status"></a>Where the port stands (2026-11-14; played 2026-11-16 on Steam 1.11.240 only)
 
 - **Both DLLs are on CommonLibF4**, built by `dll/xmake.lua` through
   `python -m crui dll`: CleanroomDialogue.dll since 2026-11-13,
