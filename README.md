@@ -35,7 +35,7 @@ Mod Organizer 2, Vortex and other mod managers. It needs only
 |Option|What's in it|Pick it if|
 |-|-|-|
 |**Cleanroom UI** (always installed)|`CleanroomUI.dll`, `CleanroomUI.esl`, its movies and scripts|Always. On its own it changes nothing until you use it.|
-|**Dialogue menu**|`CleanroomDialogue.dll` and its dialogue menu|You want every dialogue option listed instead of the four-button wheel. The installer suggests leaving it off if XDI is installed.|
+|**Dialogue menu**|`CleanroomDialogue.dll` and its dialogue menu|You want every dialogue option listed instead of the four-button wheel. The installer leaves it unticked if XDI is active.|
 
 ## Features
 

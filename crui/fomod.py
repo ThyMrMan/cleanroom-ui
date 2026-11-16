@@ -1,5 +1,5 @@
 """Cleanroom UI's one download: a built mod folder split into the installer's parts (the framework, always installed;
-the dialogue menu, an option ticked unless XDI is installed), the FOMOD's two files, and the zip.
+the dialogue menu, an option ticked unless XDI.esm is active), the FOMOD's two files, and the zip.
 
     python -m crui all fomod     # builds dist/CleanroomUI, then dist/CleanroomUI-<version>.zip
 
@@ -28,8 +28,8 @@ DIALOGUE_FILES = ('F4SE/Plugins/CleanroomDialogue.dll', 'Interface/DialogueMenu.
 REQUIRED = ('CleanroomUI.esl', 'F4SE/Plugins/CleanroomUI.dll', 'F4SE/Plugins/CleanroomDialogue.dll',
             'Interface/CRUI_Hud.swf', 'Interface/DialogueMenu.swf', 'Scripts/CRUI_Hud.pex',
             'MCM/Config/CleanroomUI/config.json')
-#: XDI's DLL: when it is installed, the dialogue menu is offered unticked (the DLL stands down under it anyway).
-XDI = 'F4SE\\Plugins\\XDI.dll'
+#: XDI's plugin: while it is active the dialogue menu is offered unticked. MO2 tests only plugins, not its DLL.
+XDI = 'XDI.esm'
 #: One fixed date for every zip entry, so the same files give the same zip.
 ZIP_DATE = (2026, 1, 1, 0, 0, 0)
 

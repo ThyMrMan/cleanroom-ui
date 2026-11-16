@@ -44,8 +44,8 @@ def test_the_same_files_give_the_same_zip(tmp_path):
     assert fomod.write(built, tmp_path / 'stage', tmp_path / 'two').read_bytes() == first
 
 
-def test_the_installer_offers_the_dialogue_menu_unless_xdi_is_installed():
-    """The core folder is required; the dialogue folder is one plugin, Recommended, and Optional with XDI's DLL."""
+def test_the_installer_offers_the_dialogue_menu_unless_xdi_is_active():
+    """The core folder is required; the dialogue folder is one plugin, Recommended, and Optional with XDI.esm."""
     config = ET.fromstring(fomod.module_config())
     assert config.find('requiredInstallFiles/folder').get('source') == fomod.CORE
     [plugin] = config.iter('plugin')
