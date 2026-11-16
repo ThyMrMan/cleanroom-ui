@@ -220,18 +220,21 @@ rules, such as Damage Threshold and Hardcore, stayed in the converter.
 The detailed list is in [the framework plan](docs/swf_framework.md#next).
 In short:
 
-1. **Play-test everything.** Almost everything built since 2026-11-12,
-   including both DLLs on CommonLibF4, needs a check in game, then a check
-   of Cleanroom UI alone on an unmodded Fallout 4.
+1. **Play-test everything.** Cleanroom UI alone on an unmodded Fallout 4
+   is under way: the dialogue menu on vanilla conversations, the HUD edit
+   menu and the MCM page have been played and fixed twice. Left: the rest
+   of the HUD (layouts, presets, show conditions, a gamepad, the clock and
+   power armor), the Pip-Boy, the level-up menu, and other game versions.
 2. **The converter on Cleanroom UI as a submodule.** It already runs on
    our DLLs from a pinned commit.
 3. **More game versions.** Both DLLs support Steam 1.11.240, old-gen
    1.10.163 and next-gen 1.10.984 to 1.11.221. GOG waits for an Address
    Library database.
 4. **What play-testing asks for**: the rest of the HUD options (fades,
-   rotation), and the level-up menu's last open decision.
+   rotation, parts placed for power armor), and the level-up menu's last
+   open decision.
 5. **Release**: release downloads and the Nexus page. The example menu,
-   API guide and CI are done.
+   API guide, CI and the [compatibility](#compatibility) notes are done.
 6. **Moving HUDFramework mods onto our HUD**, later: a guide for authors
    and a tool players run on their installed mods
    ([plan](docs/swf_framework.md#hud-migrate)). It uses nothing of
@@ -240,6 +243,10 @@ In short:
    need their authors, a clock and the power armor meters we now offer
    ourselves, and the biggest gap is custom messages
    ([survey](docs/swf_framework.md#hud-survey)).
+7. **Other mods' menus in the edit menu**, later: moving mods that draw in
+   their own menu (Condition Boy, Equipment Condition Classic's bar), and
+   the APIs condition mods would use
+   ([survey](docs/swf_framework.md#condition-survey)).
 
 ## License
 

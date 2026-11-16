@@ -2,7 +2,8 @@
 
 A plan to release parts of the converter's runtime as Fallout 4 mods that
 anyone can use, with or without the FNV conversion. Status lives in the
-[roadmap](ROADMAP.md#parked). The dialogue menu has its own plan:
+README's [roadmap](../README.md#roadmap) and the framework plan's
+[Next](swf_framework.md#next). The dialogue menu has its own plan:
 [dialogue menu mod](dialogue_menu_mod.md).
 
 ## <a id="why"></a>Why

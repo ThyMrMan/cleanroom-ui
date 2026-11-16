@@ -4,7 +4,8 @@ A plan for one shared Scaleform (Flash) toolkit, containing nothing of
 Bethesda's, used by three things: the
 [dialogue menu](dialogue_menu_mod.md), the [casino](fo4_casino_plan.md)
 menus and a Pip-Boy framework. Part of the [spin-off plan](spin_offs.md).
-Status lives in the [roadmap](ROADMAP.md).
+Status lives in [Next](#next) below and, in short, the README's
+[roadmap](../README.md#roadmap).
 **V** = read in source or code, **P** = played in game, **S** = from search
 results only.
 
@@ -35,20 +36,20 @@ licensed way to build menus without starting from decompiled Bethesda files.
 | Pip-Boy, container, barter, HUD (`tes_runtime/fo4_condition/`) | The Pip-Boy's CND line, repair and ammo lists, and other mods' item-card lines are drawn by our injected movie from the DLL's data ([framework](#pipboy)). The rest is drawn by the DLL into the open vanilla menus from C++: REPAIR and AMMO hints, STAT tabs, HUD needs. The container and barter CND line is drawn by our [transfer movie](#transfer) from the DLL's stamp on each line | CND, repair and tabs played from C++; the movies' versions built, not played. Ammo list and HUD needs built, not played |
 | Level-up (`fo4_import/level_up/`, `fo4_import/spike/level_up*.py`, `F3NV_LevelUp.psc`) | Our own menu on f3ui ([level-up](#level-up)), opened by the character rules in place of `LevelUpMenu`, with skill, perk and taken pages, and as the tag-skill and trait menus, every DLC's perks and traits included; PRKF.dll's points, tags, perk list and requirement rows rebuilt in Papyrus | Built 2026-11-12, none played |
 
-### <a id="where"></a>Where each piece stands (2026-11-13)
+### <a id="where"></a>Where each piece stands (2026-11-16)
 
 | Piece | Done | Not done |
 |---|---|---|
-| **Toolchain** | `mxmlc` builds, byte-stable, every movie we ship; FFDec route deleted; the [movie check](#testing) (`python -m crui check`) | CI runs it on every push (built 2026-11-15, not yet run on GitHub) |
+| **Toolchain** | `mxmlc` builds, byte-stable, every movie we ship; FFDec route deleted; the [movie check](#testing) (`python -m crui check`) | Done: CI runs it on every push, passing on GitHub since 2026-11-15 |
 | **AS3 library** ([design](#design)) | `Bridge`, `Theme`, `Host`, `Text` (with `Text.show` for `$KEY`s and slots), `Draw`; `Input` and `HintBar` ([input](#input)), `ScrollList` ([scroll list](#scroll-list)) and `Modal` ([modal](#modal)), with the dialogue list and the Pip-Boy's list panel on them; `Images` ([images](#images)) with the casino on it (all built, not played) | Every planned class is built; next, playing them |
 | **Own menu** | Casino (Papyrus `UI.RegisterCustomMenu`), HUD color by the menu itself (spike 2b, played) | Registering from the DLL: not needed for color; only if a later menu needs it |
 | **Replace a vanilla movie** | Dialogue menu on our own movie (spike 3, played); its `mxmlc` build. Level-up: our own registered menu opened in place of `LevelUpMenu` from Papyrus, no vanilla file shipped ([open](fo4_level_up_plan.md#open), built) | Both played; if the moment of `LevelUpMenu` first shows, F3NV.dll swapping its constructor |
 | **Inject into a vanilla menu** | Pip-Boy (spike 4, played under vanilla); CND, lists and item-card API built | Any of it played; FallUI played; the container and barter [movie](#transfer) (built, not played) |
-| **HUD widget** | `CRUI_Hud`: our host movie loaded into any HUD by `CleanroomUI.dll` (nothing of HUDFramework's since 2026-11-15, [why](#hud)); widget movies with a `processMessage` method; the built-in stats line ([host](#hud-built)); our host's saved places and edit menu, with a gamepad too ([edit](#hud-edit)); DEF_HUD.xml layouts of the game's parts ([layouts](#hud-layout)), moved and scaled in the edit menu too; the [FNV preset](#fnv-preset) with its [CND bar](#fnv-widgets); [hiding and recoloring](#hud-look) in the edit menu; parts shown on [conditions](#hud-conditions), all five steps (combat, weapon drawn, V.A.T.S., a show key, a value changing or low, the location moving, aiming, sneaking; the Immersive preset; each box's rule in the edit menu; other mods' conditions and rules); all built 2026-11-12 to 13, none played | Played; then, if play asks: fades, `flags`, rotating and opacity in the edit menu, a key to open it without an MCM, the power armor HUD, `color2`, `SafeX`/`SafeY`, `globalscale`, FNV's CND arrows and ammo type, aiming in third person, a pad button for the show key; the converter's Hardcore needs on it (still C++) |
+| **HUD widget** | `CRUI_Hud`: our host movie loaded into any HUD by `CleanroomUI.dll` (nothing of HUDFramework's since 2026-11-15, [why](#hud)); widget movies with a `processMessage` method; the built-in stats line ([host](#hud-built)); our host's saved places and edit menu, with a gamepad too ([edit](#hud-edit)); DEF_HUD.xml layouts of the game's parts ([layouts](#hud-layout)), moved and scaled in the edit menu too; the [FNV preset](#fnv-preset) with its [CND bar](#fnv-widgets); [hiding and recoloring](#hud-look) in the edit menu; parts shown on [conditions](#hud-conditions), all five steps (combat, weapon drawn, V.A.T.S., a show key, a value changing or low, the location moving, aiming, sneaking; the Immersive preset; each box's rule in the edit menu; other mods' conditions and rules); built 2026-11-12 to 13. Since: layouts kept per save with a backup, our [MCM page](#mcm-page) (button and hotkey), the [play-test fixes](#hud-edit-fixes), a [clock and power armor](#hud-extras) (`powerarmor`, the game's meters kept in power armor). Played on a stock game 2026-11-15 and 16: the host and the edit menu with the mouse (two rounds of fixes) and the MCM page | The rest played (the second round's fixes, pad, DEF layouts, the FNV preset, Immersive and the conditions, the clock, power armor); then, if play asks: fades, `flags`, rotating and opacity in the edit menu, a key to open it without MCM installed, parts placed for power armor, `color2`, `SafeX`/`SafeY`, `globalscale`, FNV's CND arrows and ammo type, aiming in third person, a pad button for the show key; the converter's Hardcore needs on it (still C++) |
 | **DLL side** | GFx helpers (`base.cpp`), Pip-Boy injection (`LoadOverlay`), natives the movies call (`HudColor`, `Log`, `PipboyCardLines`, `PipboyList`, `TextureExists`); other mods' movies in any menu by name or movie file ([inject](#inject)) and a mod's INI to its movie (`Settings`, [settings](#settings)), both built 2026-11-15, not played; GFx logging is F4SE's own ([log](#gfx-log)) | Playing them |
 | **Translations** ([translations](#translations)) | Files named after `FalloutHelpers.esl`, every language with English fallback, our fixed words as `$F3NV_` keys, the key check in preflight (spike 5, played) | The keys played; the Papyrus key check, slot check, per-language counts and test language are [built](#translation-checks) (2026-11-15), the test language not yet looked at in game |
 | **Controller** ([controller](#controller)) | The casino and dialogue menu on `Input` and `HintBar`; the HUD edit menu's [gamepad](#hud-edit) (built, not played) | Playing them with a pad; the Pip-Boy's [action menu](#pipboy-pad) on View (built 2026-11-15, not played); roulette's board on a pad (the converter's) |
-| **Release** ([release](#release)) | Its own repo, Cleanroom UI (GPL-3.0 with the modding exception, private), builds every movie, script, the plugin and both DLLs on its own (`python -m crui`) | Release assets, the converter on it as a submodule, Nexus; done 2026-11-15: the example menu, [the API page](api.md), CI |
+| **Release** ([release](#release)) | Its own repo, Cleanroom UI (GPL-3.0 with the modding exception, private), builds every movie, script, the plugin and both DLLs on its own (`python -m crui`) | Release assets, the converter on it as a submodule, Nexus; done 2026-11-15: the example menu, [the API page](api.md), CI; 2026-11-16: the README's [compatibility](../README.md#compatibility) notes |
 
 Shared already:
 - `fo4_import/base/as3/f3ui/`: the AS3 library's first five classes,
@@ -764,7 +765,7 @@ game's own per-stack health.
    clip-ammo native (no HUD text scraping), condition events (changed,
    broken, repaired), and a hook to refuse equipping or hotkeying an item.
 
-### <a id="hud-built"></a>The host (built 2026-11-13, not played)
+### <a id="hud-built"></a>The host (built 2026-11-13, played 2026-11-15)
 
 `CleanroomUI.dll` (`dll/framework/hud.cpp`, natives on `CRUI_HudNative`,
 framework version 4) keeps the widget list; `CRUI_Hud` (Papyrus) is the API;
@@ -811,7 +812,7 @@ the converter's Hardcore needs on `AddStats` in place of `hardcore.cpp`.
 message reaches the widget; a widget anchored on a part hides with it in
 menus and power armor.
 
-### <a id="hud-edit"></a>Saved places and the edit menu (built 2026-11-12, not played)
+### <a id="hud-edit"></a>Saved places and the edit menu (built 2026-11-12, played with the mouse 2026-11-15 and 16)
 
 Our host keeps a place per widget of ours and, since 2026-11-13, per part of the game's own HUD
 (`dll/framework/layout.cpp`, framework version 5; the parts 8):
@@ -894,7 +895,7 @@ act as the pad's buttons; a moved HUD part follows the game when it moves the pa
 armor, the enemy health meter, the crosshair in third person), and a part
 that is hidden (no enemy, no explosives) still gets a box to place it.
 
-### <a id="hud-edit-fixes"></a>Fixes from the first stock play-test (2026-11-16, not played)
+### <a id="hud-edit-fixes"></a>Fixes from the first stock play-test (2026-11-16; the first round played, the second not yet)
 
 Played 2026-11-15 in Cleanroom UI's own MO2 profile (no converter):
 - **A dragged part ran off the screen.** Flash keeps `x` and `y` in
@@ -934,7 +935,7 @@ Second play-test, 2026-11-16:
   of a tenth of a pixel, which shrinks its bounds, and the edit menu keeps
   the bounds it had as it was hidden (`Look.hiddenBounds`). Not played.
 
-### <a id="mcm-page"></a>Our MCM page (built 2026-11-16, not played)
+### <a id="mcm-page"></a>Our MCM page (built 2026-11-16, played 2026-11-16)
 
 Asked for after the first stock play-test: the edit menu and our settings from MCM, not the console. The build's
 `mcm` step installs `mcm/cleanroom_ui/` as `Data\MCM\Config\CleanroomUI\` (`crui.mcm.install_own`):
@@ -2110,7 +2111,7 @@ Each spike is one change, played in game.
    screen shows DXT3, DXT5 and a name with a space beside the DXT1 card
    ([level-up](#level-up)).
 
-### <a id="next"></a>Next, in order (2026-11-14)
+### <a id="next"></a>Next, in order (2026-11-16)
 
 **Play first.** Everything since the 2026-11-12 play is built and not
 played, and the rest builds on it. In Cleanroom UI's own build
@@ -2161,10 +2162,16 @@ played, and the rest builds on it. In Cleanroom UI's own build
      `Num` now. **`[Leave]` is off by default:** FO4's menus have no such
      option and Back or Tab leaves anyway; `[Dialogue] bLeaveRow=1` in
      `CleanroomDialogue.ini` brings the row back for a conversion that wants
-     it (the converter would ship that INI).
-   - **The HUD alone:** the host in every HUD, `DEF_HUD.xml` layouts,
-     `[Hud] sPreset` and `sShow=Immersive`, and the edit menu from the
-     console (`cgf "CRUI_Hud.EditLayout"`; no key or MCM page yet).
+     it (the converter would ship that INI). Built, not played yet.
+   - **The HUD alone:** the host and the edit menu with the mouse played
+     2026-11-15 and 16 (fixes: [hud-edit-fixes](#hud-edit-fixes), the
+     second round and the compass band not played yet); the edit menu now
+     opens from our [MCM page](#mcm-page) (a button, a hotkey). Left:
+     `DEF_HUD.xml` layouts, `[Hud] sPreset` and `sShow=Immersive`, the
+     conditions, a pad, and the [clock and power armor](#hud-extras).
+   - **Beside other mods:** Equipment Condition Classic loaded, our
+     condition steps back ([compat-ecc](#compat-ecc), built, not played):
+     no CND row, REPAIR hint or CND bar of ours, ECC's own instead.
    - **Nothing else changes:** no Pip-Boy line, tab, transfer CND line or
      level-up menu appears until a mod asks; the log names no missing ID.
    - **Old-gen 1.10.163 and next-gen 1.10.984 to 1.11.221:** the same
@@ -2189,10 +2196,12 @@ played, and the rest builds on it. In Cleanroom UI's own build
    [movie check](#testing) (built, every movie passes); next, playing the
    line in both menus.
 4. **The HUD's rest**, as play asks: fades, `flags` (a part's pieces),
-   rotating and opacity in the edit menu, a key to open it without an MCM,
-   the power armor HUD, `color2`, `SafeX`/`SafeY`, `globalscale`, FNV's CND
-   arrows and ammo type label, aiming in third person, a pad button for the
-   show key; the converter's Hardcore needs as an `AddStats` widget.
+   rotating and opacity in the edit menu, a key to open it without MCM
+   installed, parts placed for power armor (the `powerarmor` condition and
+   the game's meters there are [built](#hud-extras)), `color2`,
+   `SafeX`/`SafeY`, `globalscale`, FNV's CND arrows and ammo type label,
+   aiming in third person, a pad button for the show key; the converter's
+   Hardcore needs as an `AddStats` widget.
 5. **The level-up rest**: other mods' skills ([built](level_up_plan.md#holder-converter)
    2026-11-15, not played); an MCM page for the host's own options, which
    each mod writes against its own quest ([built](level_up_plan.md#host-mcm)
@@ -2210,12 +2219,22 @@ played, and the rest builds on it. In Cleanroom UI's own build
 9. **The [release](#release)**: built 2026-11-15, the example menu
     ([example](api.md#example)), [the API page](api.md) (its reference
     written by `python -m crui api`) and CI (`python -m crui.flex`
-    installs the Flex SDK, hash-checked); CI not yet run on GitHub.
-    Left: release assets, Nexus, and the [open decisions](#decisions).
+    installs the Flex SDK, hash-checked), passing on GitHub; the README's
+    compatibility notes (2026-11-16). Left: release assets, Nexus, and the
+    [open decisions](#decisions).
 10. **HUDFramework mods onto our host**, later: a guide for authors and a
     converter players run on their installed mods
-    ([plan](#hud-migrate)); first a survey of real mods, which waits for
-    the set of HUDFramework mods the user will download to test against.
+    ([plan](#hud-migrate)). The [survey](#hud-survey) of twelve mods is
+    done (2026-11-16): first the API gaps it found, custom messages above
+    all, then a loaded callback, a mod's own scale, opacity and position,
+    queries and an edge anchor; next, a survey of WorkshopFramework's
+    `hudframeworkmanager`, which covers Sim Settlements 2.
+11. **Other condition and Pip-Boy mods**, [surveyed](#condition-survey)
+    2026-11-16 (Condition Boy, AWC, ECC): ECC [steps us
+    back](#compat-ecc) (built). Later, as asked: the edit menu moving
+    other mods' own menus (Condition Boy, ECC's bar), and the APIs they
+    would use (per-copy item-card lines, condition events, a clip-ammo
+    native).
 
 ## <a id="release"></a>Release
 

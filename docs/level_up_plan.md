@@ -6,8 +6,8 @@ own menu opens in place of `LevelUpMenu` with skill, perk and taken pages,
 and serves as the tag and trait menus too, listing every DLC's perks and
 traits, with the balance options and a hotkey in MCM and an API for other
 mods; LevelUpMenuEx is no longer required (built 2026-11-12, not played).
-Status lines live only in
-[ROADMAP.md](ROADMAP.md). The framework side (f3ui, replacing a vanilla
+Status lines live in the framework plan's
+[Next](swf_framework.md#next). The framework side (f3ui, replacing a vanilla
 menu, the image staging) is in
 [swf_framework.md](swf_framework.md#level-up).
 
