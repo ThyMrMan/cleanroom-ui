@@ -2264,11 +2264,21 @@ played, and the rest builds on it. In Cleanroom UI's own build
   and INI format documented.
 - The dialogue menu and the converter use both.
 - <a id="fomod"></a>**One download with a FOMOD installer** (decided
-  2026-11-16, not built), in place of two downloads:
+  2026-11-16; built 2026-11-16, not yet installed in a mod manager), in
+  place of two downloads. `python -m crui all fomod` (`crui/fomod.py`)
+  splits the built mod folder into `00 Cleanroom UI/` and
+  `10 Dialogue Menu/`, writes `fomod/ModuleConfig.xml` and `info.xml`, and
+  zips it as `dist/CleanroomUI-<version>.zip` (the version is
+  `dll/xmake.lua`'s; fixed dates, so the same files give the same zip). It
+  refuses a mod folder missing a DLL, the plugin, a movie, a script or the
+  MCM page.
   - Cleanroom UI, required.
-  - The dialogue menu, an option ticked by default. A file dependency on
-    `F4SE/Plugins/XDI.dll` marks it not recommended (the DLL already
-    stands down under XDI; this only saves the install).
+  - The dialogue menu (its DLL, `DialogueMenu.swf` and
+    `CleanroomDialogue_*.txt`), an option: Recommended, so ticked, and
+    Optional, so unticked, when `F4SE\Plugins\XDI.dll` exists (the DLL
+    already stands down under XDI; this only saves the install). Whether
+    MO2 and Vortex test a non-plugin `fileDependency` is unchecked; if
+    one doesn't, the option is just ticked.
   - Patches for popular UI mods, each offered when its mod is installed.
     A mod handled at runtime (ECC, AWC, Condition Boy, DEF_HUD layouts)
     gets no patch: a patch must be rebuilt on each of its mod's updates.

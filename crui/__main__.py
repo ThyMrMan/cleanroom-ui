@@ -3,6 +3,7 @@
 
     python -m crui all --out dist/CleanroomUI
     python -m crui scripts --imports <folder>    # extra Papyrus import folders, searched before the game's
+    python -m crui all fomod                       # then the one download, dist/CleanroomUI-<version>.zip
     python -m crui check --game <Fallout 4>/Data   # the movie check (not a build step)
     python -m crui translations --test-language    # every language file stretched and accented, to look for cut text
     python -m crui example                         # the example menu for authors, into dist/ExampleMenu
@@ -16,10 +17,13 @@ import subprocess
 import sys
 from pathlib import Path
 
-from crui import POPEN_FLAGS, REPO, api, check, mcm, menus, mxmlc, papyrus, plugin, translations
+from crui import POPEN_FLAGS, REPO, api, check, fomod, mcm, menus, mxmlc, papyrus, plugin, translations
 
 STEPS = ('plugin', 'translations', 'movies', 'scripts', 'dll', 'mcm')
-DEFAULT_OUT = REPO / 'dist' / 'CleanroomUI'
+DIST = REPO / 'dist'
+DEFAULT_OUT = DIST / 'CleanroomUI'
+#: Where the download's parts are laid out before zipping.
+FOMOD_STAGE = REPO / 'out' / 'fomod'
 EXAMPLE_OUT = REPO / 'dist' / 'ExampleMenu'
 #: CommonLibF4 (CRUI_COMMONLIBF4, else the template's beside this repo) and our patches, each named for its checkout.
 COMMONLIB = Path(os.environ.get('CRUI_COMMONLIBF4')
@@ -104,6 +108,16 @@ def build_example(out: Path, imports: list) -> bool:
     return built and movie is not None
 
 
+def build_fomod(out: Path) -> bool:
+    """The one download from the mod folder <out> into DIST; False when <out> lacks a required file."""
+    absent = fomod.missing(out)
+    if absent:
+        print(f'[fomod] {out} has no {", ".join(absent)}; build it first (python -m crui all fomod)')
+        return False
+    print(f'[fomod] {fomod.write(out, FOMOD_STAGE, DIST)}')
+    return True
+
+
 def write_api() -> bool:
     """Rewrite docs/api.md#reference from the sources."""
     print(f'[api] {api.PAGE} {"rewritten" if api.write() else "already current"}')
@@ -161,20 +175,21 @@ def build_dll(out: Path) -> bool:
 def main(argv=None) -> int:
     """Run the steps named (or all); 0 when every one succeeded."""
     parser = argparse.ArgumentParser(prog='python -m crui', description=__doc__.splitlines()[0])
-    parser.add_argument('steps', nargs='*', choices=(*STEPS, 'all', 'check', 'example', 'api'), default=['all'])
+    parser.add_argument('steps', nargs='*', choices=(*STEPS, 'all', 'fomod', 'check', 'example', 'api'),
+                        default=['all'])
     parser.add_argument('--out', type=Path, help='the mod folder to write (dist/CleanroomUI; the example dist/ExampleMenu)')
     parser.add_argument('--imports', type=Path, action='append', default=[], help='extra Papyrus import folder')
     parser.add_argument('--game', type=Path, help="the game's Data folder, for the movie check's font names")
     parser.add_argument('--test-language', action='store_true',
                         help='write every language file in the test language (stretched, accented English)')
     args = parser.parse_args(argv)
-    steps = STEPS if 'all' in args.steps else args.steps
+    steps = [name for step in args.steps for name in (STEPS if step == 'all' else (step,))]
     args.out = args.out or (EXAMPLE_OUT if steps == ['example'] else DEFAULT_OUT)
     ok = {'plugin': lambda: build_plugin(args.out),
           'translations': lambda: build_translations(args.out, args.test_language),
           'movies': lambda: build_movies(args.out), 'scripts': lambda: build_scripts(args.out, args.imports),
           'dll': lambda: build_dll(args.out), 'mcm': lambda: build_mcm(args.out),
-          'check': lambda: check.check(args.game),
+          'fomod': lambda: build_fomod(args.out), 'check': lambda: check.check(args.game),
           'example': lambda: build_example(args.out, args.imports), 'api': write_api}
     results = [ok[step]() for step in steps]
     return 0 if all(results) else 1
