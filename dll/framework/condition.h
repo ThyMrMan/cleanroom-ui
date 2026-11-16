@@ -348,8 +348,16 @@ std::string KeyName(OurKey key);
 // Give `plugin` the edit menu's HudKeys.
 void RegisterKeys(Movie *movie, Value *plugin);
 
-// Setting `name` under [`section`] in our INI, then MCM's saved copy of it over it (Data\MCM\Settings), or "".
-std::string IniText(const char *section, const char *name);
+// Setting `name` under [`section`] in CleanroomUI.ini, MCM's saved copy over it (base.h IniText), or "".
+inline std::string IniText(const char *section, const char *name) {
+    return IniText("CleanroomUI", section, name);
+}
+
+// ---- Other mods' movies in the game's menus (inject.cpp; docs/swf_framework.md#inject) ----
+
+// Read every Data\F4SE\Plugins\CleanroomUI\Menus\*.ini, and listen for the menus they name opening; once the game
+// has loaded.
+void InstallInjections();
 
 // ---- Sex change (sex.cpp; docs/fork/fo4_pipeline.md#sex-change) ----
 

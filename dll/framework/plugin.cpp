@@ -110,9 +110,9 @@ void OnPluginMessage(F4SE::MessagingInterface::Message *msg) {
     F4SE::GetMessagingInterface()->Dispatch(VERSION_QUERY, &version, sizeof(version), msg->sender);
 }
 
-// F4SE messages: once every plugin has loaded, listen for other plugins' version queries; hook the Pip-Boy once the
-// game has loaded (the UI exists then); forget mods' item-card lines and ammo lists as a save loads or a new game
-// starts.
+// F4SE messages: once every plugin has loaded, listen for other plugins' version queries; hook the Pip-Boy, the HUD
+// and other mods' menu movies once the game has loaded (the UI exists then); forget mods' item-card lines and ammo
+// lists as a save loads or a new game starts.
 void OnMessage(F4SE::MessagingInterface::Message *msg) {
     using Messaging = F4SE::MessagingInterface;
     if (msg->type == Messaging::kPostLoad && !F4SE::GetMessagingInterface()->RegisterListener(OnPluginMessage, {}))
@@ -125,6 +125,7 @@ void OnMessage(F4SE::MessagingInterface::Message *msg) {
     if (msg->type == Messaging::kGameLoaded) {
         InstallPipboy();
         InstallHud();
+        InstallInjections();
     }
 }
 

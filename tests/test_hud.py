@@ -43,8 +43,7 @@ def test_the_movie_calls_every_native_the_dll_registers_for_it():
 
 
 def test_widgets_take_hudframeworks_method():
-    """A widget movie is handed messages through processMessage(command, params), HUDFramework's widget method, so
-    one widget runs under either host."""
+    """Widgets get processMessage(command, params), as under HUDFramework."""
     assert 'shown.content.processMessage(String(message.command), message.params as Array);' in _source(
         MENU.sources / f'{MENU.document}.as')
 
@@ -175,8 +174,8 @@ def test_the_fnv_preset_is_a_setting_run_between_def_and_the_places():
     parts = _source(REPO / 'dll' / 'framework' / 'parts.cpp')
     assert 'IniText("Hud", "sPreset")' in parts
     assert 'params.retVal->SetMember("preset", String(movie, preset));' in parts
-    keys = _source(REPO / 'dll' / 'framework' / 'keys.cpp')
-    assert 'std::string IniText(' in keys and 'MCM' in keys
+    base = _source(REPO / 'dll' / 'base' / 'base.cpp')
+    assert 'std::string IniText(' in base and 'MCM' in base
     layout = _source(MENU.sources / 'PartLayout.as')
     body = layout[layout.index('public function place('):layout.index('private function find(')]
     order = [body.index(step) for step in ('fnv.add(hud);', 'lay(part);', 'fnv.arrange(found, stage);',

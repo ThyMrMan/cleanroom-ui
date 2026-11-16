@@ -9,8 +9,6 @@
 // codes (Windows virtual keys): letters and digits are their capital ASCII codes, F1 is 112.
 #include "condition.h"
 
-#include <REX/W32/KERNEL32.h>
-
 #include <atomic>
 #include <cctype>
 #include <cstring>
@@ -22,8 +20,6 @@ namespace crui {
 namespace {
 
 const char *SECTION = "Keys";
-// Our INI, then MCM's saved copy of it, which wins.
-const char *INI_FILES[] = {".\\Data\\F4SE\\Plugins\\CleanroomUI.ini", ".\\Data\\MCM\\Settings\\CleanroomUI.ini"};
 const int F1 = 112;
 
 // One of our keys: its setting, its default, and the keys it may not take (the open lists' own keys: Enter, Esc
@@ -83,15 +79,6 @@ void Distinct(std::initializer_list<OurKey> keys, const char *what) {
 }
 
 }  // namespace
-
-std::string IniText(const char *section, const char *name) {
-    std::string text;
-    char buffer[64];
-    for (const char *file : INI_FILES)
-        if (REX::W32::GetPrivateProfileStringA(section, name, "", buffer, sizeof(buffer), file) > 0) text = buffer;
-    std::size_t first = text.find_first_not_of(" \t\r\n"), last = text.find_last_not_of(" \t\r\n");
-    return first == std::string::npos ? "" : text.substr(first, last - first + 1);
-}
 
 void ReadKeys() {
     for (Setting &key : g_keys) {

@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdlib>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
@@ -94,6 +95,51 @@ class LogNative : public FunctionHandler {
 public:
     void Call(const Params &params) override {
         if (params.argCount > 0 && params.args[0].IsString()) REX::DEBUG("{}", params.args[0].GetString());
+    }
+};
+
+// INI text `text` as a Flash value by setting `name`'s prefix, as Bethesda's INIs name them: b a bool (not 0),
+// i an int, u a uint, f a number, anything else the text.
+Value Typed(Movie *movie, const std::string &name, const std::string &text) {
+    char prefix = name.empty() ? 0 : char(std::tolower(static_cast<unsigned char>(name[0])));
+    switch (prefix) {
+        case 'b': return Value(std::atoi(text.c_str()) != 0 || Key(text) == "true");
+        case 'i': return Value(std::int32_t(std::strtol(text.c_str(), nullptr, 0)));
+        case 'u': return Value(std::uint32_t(std::strtoul(text.c_str(), nullptr, 0)));
+        case 'f': return Value(std::atof(text.c_str()));
+        default: return String(movie, text);
+    }
+}
+
+// Whether `mod` names an INI file and no path: letters, digits, spaces, `_`, `-` and `.`, and no "..".
+bool PlainName(const std::string &mod) {
+    return !mod.empty() && mod.find("..") == std::string::npos && std::ranges::all_of(mod, [](unsigned char c) {
+        return std::isalnum(c) || c == ' ' || c == '_' || c == '-' || c == '.';
+    });
+}
+
+// Settings(mod): mod `mod`'s INI files (IniFiles) as {section: {setting: value}}, MCM's copy over its own, each value
+// typed by its name's prefix (Typed); null for a name that is not PlainName. Read on every call, so an MCM change
+// shows the next time a movie asks. See docs/swf_framework.md#settings
+class SettingsNative : public FunctionHandler {
+public:
+    void Call(const Params &params) override {
+        std::string mod = params.argCount > 0 && params.args[0].IsString() ? params.args[0].GetString() : "";
+        *params.retVal = nullptr;
+        if (!PlainName(mod)) return;
+        params.movie->CreateObject(params.retVal);
+        std::vector<std::string> sections;
+        for (const std::string &file : IniFiles(mod))
+            for (std::string &section : IniNames(file, nullptr))
+                if (!std::ranges::contains(sections, section)) sections.push_back(std::move(section));
+        for (const std::string &section : sections) {
+            Value values;
+            params.movie->CreateObject(&values);
+            for (const std::string &file : IniFiles(mod))
+                for (const std::string &name : IniNames(file, section.c_str()))
+                    values.SetMember(name.c_str(), Typed(params.movie, name, IniText(mod, section.c_str(), name.c_str())));
+            params.retVal->SetMember(section.c_str(), values);
+        }
     }
 };
 
@@ -200,6 +246,32 @@ bool LoadChild(Movie *movie, Value &parent, const char *path) {
            loader.Invoke("load", nullptr, args, 2);
 }
 
+std::vector<std::string> IniNames(const std::string &file, const char *section) {
+    std::vector<char> buffer(32767);
+    auto size = REX::W32::GetPrivateProfileStringA(section, nullptr, "", buffer.data(),
+                                                   std::uint32_t(buffer.size()), file.c_str());
+    std::vector<std::string> names;
+    for (std::size_t at = 0; at < size && buffer[at];) {
+        names.emplace_back(buffer.data() + at);
+        at += names.back().size() + 1;
+    }
+    return names;
+}
+
+std::vector<std::string> IniFiles(const std::string &mod) {
+    return {".\\Data\\F4SE\\Plugins\\" + mod + ".ini", ".\\Data\\MCM\\Settings\\" + mod + ".ini"};
+}
+
+std::string IniText(const std::string &mod, const char *section, const char *name) {
+    std::string text;
+    char buffer[1024];
+    for (const std::string &file : IniFiles(mod))
+        if (REX::W32::GetPrivateProfileStringA(section, name, "", buffer, sizeof(buffer), file.c_str()) > 0)
+            text = buffer;
+    std::size_t first = text.find_first_not_of(" \t\r\n"), last = text.find_last_not_of(" \t\r\n");
+    return first == std::string::npos ? "" : text.substr(first, last - first + 1);
+}
+
 std::uint32_t HudColor(const char *prefix) {
     std::uint32_t rgb = 0;
     for (const char *channel : {"R", "G", "B"}) {
@@ -213,6 +285,7 @@ void RegisterSharedNatives(Movie *movie, Value *plugin) {
     RegisterFunction<TextureExistsNative>(plugin, movie, "TextureExists");
     RegisterFunction<HudColorNative>(plugin, movie, "HudColor");
     RegisterFunction<LogNative>(plugin, movie, "Log");
+    RegisterFunction<SettingsNative>(plugin, movie, "Settings");
 }
 
 bool CallsTarget(std::uintptr_t site, std::uintptr_t target) {

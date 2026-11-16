@@ -40,14 +40,7 @@ package
       // HUDFramework loads us into the HUD movie, whose root holds F4SE's object.
       private function onStage(e:Event) : void
       {
-         try
-         {
-            bridge.f4se = Object(stage.getChildAt(0)).f4se;
-         }
-         catch (error:Error)
-         {
-            bridge.f4se = null;
-         }
+         bridge.attach(stage);
          addEventListener(Event.ENTER_FRAME, onFrame);
       }
 

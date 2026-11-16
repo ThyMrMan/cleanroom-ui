@@ -1,5 +1,7 @@
 package crui
 {
+   import flash.display.Stage;
+
    // The movie's link to the game: F4SE's root object (handed over in onF4SEObjCreated) and our DLL's natives.
    // See docs/fork/swf_framework.md#design
    public class Bridge
@@ -29,6 +31,28 @@ package crui
       {
          var dll:Object = natives("CleanroomUI");
          return dll != null ? dll : natives("CleanroomDialogue");
+      }
+
+      // For a movie loaded into a menu (ours or another mod's: docs/swf_framework.md#inject): F4SE's object, which is
+      // on the menu movie's own root; null without F4SE. Call it once the movie is on the stage.
+      public function attach(stage:Stage) : void
+      {
+         try
+         {
+            f4se = Object(stage.getChildAt(0)).f4se;
+         }
+         catch (error:Error)
+         {
+            f4se = null;
+         }
+      }
+
+      // A mod's INI files as {section: {setting: value}} (Data/F4SE/Plugins/<mod>.ini, MCM's copy over it), each
+      // value typed by its prefix (b, i, u, f; else text); null without our DLL. See docs/swf_framework.md#settings
+      public function settings(mod:String) : Object
+      {
+         var dll:Object = shared();
+         return dll != null && dll.Settings != null ? dll.Settings(mod) : null;
       }
 
       // Send an F4SE external event (Papyrus RegisterForExternalEvent); nothing before F4SE is there.

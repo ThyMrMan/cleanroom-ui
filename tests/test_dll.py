@@ -13,7 +13,7 @@ FRAMEWORK, DIALOGUE = DLL / 'framework', DLL / 'dialogue'
 
 
 def _scaleform_name(entry):
-    """The name `entry` (a plugin.cpp) registers its movie natives under (f4se.plugins.<name>)."""
+    """The f4se.plugins name `entry` (a plugin.cpp) registers under."""
     source = entry.read_text(encoding='utf-8')
     name = re.search(r'scaleform->Register\((\w+|"\w+")', source).group(1)
     return name.strip('"') if name.startswith('"') else re.search(rf'{name} = "(\w+)"', source).group(1)
@@ -57,7 +57,7 @@ def test_every_native_script_the_dlls_register_exists():
 
 
 def _body(source, signature):
-    """The text of the C++ function starting at `signature` in `source`, up to its closing brace at column 0."""
+    """The C++ function at `signature` in `source`, to its column-0 brace."""
     start = source.index(signature)
     return source[start:source.index('\n}', start)]
 
@@ -77,7 +77,9 @@ def test_our_keys_are_settings():
     """The Pip-Boy's keys and hints and the edit menu's reset key come from [Keys] in CleanroomUI.ini (MCM's saved
     copy over it), read again as the Pip-Boy opens; no fixed G, B or R is left."""
     keys = (FRAMEWORK / 'keys.cpp').read_text(encoding='utf-8')
-    assert '"Keys"' in keys and 'Data\\\\MCM\\\\Settings\\\\CleanroomUI.ini' in keys
+    base = (DLL / 'base' / 'base.cpp').read_text(encoding='utf-8')
+    assert '"Keys"' in keys and 'MCM\\\\Settings\\\\" + mod + ".ini"' in base
+    assert 'return IniText("CleanroomUI", section, name);' in (FRAMEWORK / 'condition.h').read_text(encoding='utf-8')
     assert all(f'"{name}"' in keys for name in ('sRepair', 'sAmmo', 'sHudReset'))
     pipboy = (FRAMEWORK / 'pipboy.cpp').read_text(encoding='utf-8')
     ammo = (FRAMEWORK / 'ammo.cpp').read_text(encoding='utf-8')
@@ -145,3 +147,27 @@ def test_the_dialogue_release_stands_alone():
     dialogue = (DIALOGUE / 'dialogue.cpp').read_text(encoding='utf-8')
     assert re.search(r'LINKS = "Data.+CleanroomDialogue.+";', dialogue)
     assert 'ReadFolder(LINKS)' in dialogue and 'ReadFolder(LEGACY_LINKS)' in dialogue
+
+
+def test_other_mods_name_movies_for_menus():
+    """Each Menus/*.ini section names a menu or its movie file, with sMovie and sParent (root by default); the movie
+    loads once per open menu, the lists read as the game loads."""
+    inject = (FRAMEWORK / 'inject.cpp').read_text(encoding='utf-8')
+    assert 'CleanroomUI' + chr(92) * 2 + 'Menus"' in inject
+    assert '"sMovie"' in inject and '"sParent"' in inject and '"root"' in inject
+    assert 'ends_with(".swf")' in inject and 'GetFileURL()' in inject
+    assert 'g_loaded.emplace(name, i).second' in inject and 'std::erase_if(g_loaded' in inject
+    assert 'InstallInjections();' in _body((FRAMEWORK / 'plugin.cpp').read_text(encoding='utf-8'), 'void OnMessage(')
+
+
+def test_movies_read_a_mods_settings():
+    """Every movie gets Settings(mod): a plain file name only, both INI files, values typed by prefix; Bridge
+    reaches it, and injected movies find F4SE through Bridge.attach."""
+    base = (DLL / 'base' / 'base.cpp').read_text(encoding='utf-8')
+    assert 'RegisterFunction<SettingsNative>(plugin, movie, "Settings");' in base
+    assert 'if (!PlainName(mod)) return;' in base and 'mod.find("..")' in base
+    assert all(f"case '{prefix}'" in _body(base, 'Value Typed(') for prefix in 'biuf')
+    bridge = (REPO / 'as3' / 'crui' / 'Bridge.as').read_text(encoding='utf-8')
+    assert 'dll.Settings(mod)' in bridge and 'public function attach(stage:Stage)' in bridge
+    for movie in ('pipboy/as3/CRUI_Pipboy.as', 'transfer/as3/CRUI_Transfer.as', 'hud/as3/CRUI_HudStats.as'):
+        assert 'bridge.attach(stage);' in (REPO / 'menus' / movie).read_text(encoding='utf-8')

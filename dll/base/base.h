@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <initializer_list>
 #include <string>
+#include <vector>
 
 namespace crui {
 
@@ -114,12 +115,24 @@ bool Listen(Movie *movie, Value &target, const char *event) {
 // the Loader could not be added or started.
 bool LoadChild(Movie *movie, Value &parent, const char *path);
 
+// Mod `mod`'s INI files, read in this order: Data\F4SE\Plugins\<mod>.ini, then MCM's saved copy of it
+// (Data\MCM\Settings\<mod>.ini), whose values win.
+std::vector<std::string> IniFiles(const std::string &mod);
+
+// The section names of INI file `file` (`section` null), or the setting names under [`section`].
+std::vector<std::string> IniNames(const std::string &file, const char *section);
+
+// Setting `name` under [`section`] in `mod`'s INI files (IniFiles, the last one having it wins), trimmed; "" when none
+// has it.
+std::string IniText(const std::string &mod, const char *section, const char *name);
+
 // INI color `prefix`R/G/B:Interface (the player's HUD colors, e.g. iHUDColor) as 0xRRGGBB; white when not found.
 std::uint32_t HudColor(const char *prefix);
 
 // Give `plugin` (a movie's f4se.plugins.<our DLL>) the natives every movie of ours may call: TextureExists (crui's
-// Images), HudColor([prefix]) (its Theme) and Log(text) (docs/swf_framework.md#images). A DLL registering its own
-// native of one of these names does so after this call.
+// Images), HudColor([prefix]) (its Theme), Log(text) (docs/swf_framework.md#images) and Settings(mod), a mod's INI
+// files as one object (docs/swf_framework.md#settings). A DLL registering its own native of one of these names does
+// so after this call.
 void RegisterSharedNatives(Movie *movie, Value *plugin);
 
 // Whether the call instruction at `site` still calls `target` (both nonzero).

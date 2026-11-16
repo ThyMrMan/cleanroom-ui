@@ -65,7 +65,7 @@ mods reach the running one with that plugin as their only master
 | `menus/hud/` | The HUD host CleanroomUI.dll loads (`Interface/CRUI_Hud.swf`): mods' widget movies and the built-in stats line; the stats widget HUDFramework hosts when installed (`Interface/CRUI_HudStats.swf`); the edit menu for our host's widgets (`Interface/CRUI_HudEdit.swf`); and the layout of the game's own HUD parts from `DEF_HUD.xml` (`PartLayout.as`) |
 | `menus/dialogue/` | The dialogue menu (`Interface/DialogueMenu.swf`) |
 | `papyrus/` | The level-up host, its holder and its per-plugin tables (`CRUI_LevelUp`, `CRUI_LevelUpHolder`, `CRUI_LevelUpTable`), `CRUI_Array`, and the scripts declaring CleanroomUI.dll's natives (`CRUI_Condition`, `CRUI_Framework`, `CRUI_HudNative`, `CRUI_ItemCard`, `CRUI_LevelUpNative`, `CRUI_Pipboy`, `CRUI_PipboyAmmo`, `CRUI_Sex`), and `CRUI_Hud`, which puts widgets on HUDFramework when installed, else on our host |
-| `dll/` | `xmake.lua` building both DLLs on CommonLibF4: `framework/` (CleanroomUI.dll: condition API, Pip-Boy overlay, card lines, tabs, repair and ammo lists, transfer menus, `ChangeSex`, the game's perk points) and `dialogue/` (CleanroomDialogue.dll), both with `base/` (Flash helpers and the natives every movie may call); `patches/` (ours to CommonLibF4) |
+| `dll/` | `xmake.lua` building both DLLs on CommonLibF4: `framework/` (CleanroomUI.dll: condition API, Pip-Boy overlay, card lines, tabs, repair and ammo lists, transfer menus, other mods' movies in menus, `ChangeSex`, the game's perk points) and `dialogue/` (CleanroomDialogue.dll), both with `base/` (Flash helpers and the natives every movie may call); `patches/` (ours to CommonLibF4) |
 | `docs/` | The framework, level-up and spin-off plans, as written for the converter |
 | `tests/` | Contract tests between movies, scripts and the DLL, and the reproducible builds |
 
@@ -125,9 +125,11 @@ Status as of 2026-11-14. The full list, in order:
    page for the host's own options that each mod writes for its own quest
    (`crui.mcm`), both built 2026-11-15, not played; LevelUpMenuEx's INI
    format, an open decision.
-7. **The DLL side, translations, controller**: injection by menu URL,
-   a settings INI to the movies, GFx log routing; the Papyrus key check
-   and a test language; the Pip-Boy "more" button on a pad.
+7. **The DLL side, translations, controller**: other mods' movies in any
+   menu (`CleanroomUI\Menus\*.ini`) and a mod's INI to its movie
+   (`Settings`), both built 2026-11-15, not played
+   ([inject](docs/swf_framework.md#inject)); the Papyrus key check and a
+   test language; the Pip-Boy "more" button on a pad.
 8. **Release**: an example menu for authors and the API in this README;
    CI that fetches the Flex SDK and builds the movies; release assets;
    Nexus.

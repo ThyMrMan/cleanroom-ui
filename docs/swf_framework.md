@@ -45,7 +45,7 @@ licensed way to build menus without starting from decompiled Bethesda files.
 | **Replace a vanilla movie** | Dialogue menu on our own movie (spike 3, played); its `mxmlc` build. Level-up: our own registered menu opened in place of `LevelUpMenu` from Papyrus, no vanilla file shipped ([open](fo4_level_up_plan.md#open), built) | Both played; if the moment of `LevelUpMenu` first shows, F3NV.dll swapping its constructor |
 | **Inject into a vanilla menu** | Pip-Boy (spike 4, played under vanilla); CND, lists and item-card API built | Any of it played; FallUI played; the container and barter [movie](#transfer) (built, not played) |
 | **HUD widget** | `CRUI_Hud`: HUDFramework hosts the widgets when installed, else our host movie loaded into any HUD by `CleanroomUI.dll`; widget movies with HUDFramework's `processMessage`; the built-in stats line ([host](#hud-built)); our host's saved places and edit menu, with a gamepad too ([edit](#hud-edit)); DEF_HUD.xml layouts of the game's parts ([layouts](#hud-layout)), moved and scaled in the edit menu too; the [FNV preset](#fnv-preset) with its [CND bar](#fnv-widgets); [hiding and recoloring](#hud-look) in the edit menu; parts shown on [conditions](#hud-conditions), all five steps (combat, weapon drawn, V.A.T.S., a show key, a value changing or low, the location moving, aiming, sneaking; the Immersive preset; each box's rule in the edit menu; other mods' conditions and rules); all built 2026-11-12 to 13, none played | Played; then, if play asks: fades, `flags`, rotating and opacity in the edit menu, a key to open it without an MCM, the power armor HUD, `color2`, `SafeX`/`SafeY`, `globalscale`, FNV's CND arrows and ammo type, aiming in third person, a pad button for the show key; the converter's Hardcore needs on it (still C++) |
-| **DLL side** | GFx helpers (`gfx.cpp`), Pip-Boy injection (`LoadOverlay`), natives the movies call (`HudColor`, `Log`, `PipboyCardLines`, `PipboyList`, `TextureExists`) | Injection by menu URL for other menus, settings INI to the movie, GFx log routing |
+| **DLL side** | GFx helpers (`base.cpp`), Pip-Boy injection (`LoadOverlay`), natives the movies call (`HudColor`, `Log`, `PipboyCardLines`, `PipboyList`, `TextureExists`); other mods' movies in any menu by name or movie file ([inject](#inject)) and a mod's INI to its movie (`Settings`, [settings](#settings)), both built 2026-11-15, not played; GFx logging is F4SE's own ([log](#gfx-log)) | Playing them |
 | **Translations** ([translations](#translations)) | Files named after `FalloutHelpers.esl`, every language with English fallback, our fixed words as `$F3NV_` keys, the key check in preflight (spike 5, played) | The keys played; Papyrus key check; slot and per-language counts; a test language |
 | **Controller** ([controller](#controller)) | The casino and dialogue menu on `Input` and `HintBar`; the HUD edit menu's [gamepad](#hud-edit) (built, not played) | Playing them with a pad; the Pip-Boy "more" button; roulette's board on a pad |
 | **Release** ([release](#release)) | Its own repo, Cleanroom UI (GPL-3.0 with the modding exception, private), builds every movie, script, the plugin and both DLLs on its own (`python -m crui`) | An example menu, the API in the README, CI, release assets, the converter on it as a submodule, Nexus |
@@ -397,6 +397,57 @@ One shared C++ module, used by every DLL built on the
   `pipboy.cpp`, `transfer.cpp` and `hardcore.cpp`;
 - settings: read the mod's INI and hand it to the movie as one object;
 - `bEnableGFXLog` routed into our own log when debugging.
+
+### <a id="inject"></a>Other mods' movies in any menu (built 2026-11-15, not played)
+
+`CleanroomUI.dll` (`inject.cpp`) loads a mod's movie into a game menu as it
+opens, with no script and no vanilla movie shipped. Each mod ships its own
+list, `Data\F4SE\Plugins\CleanroomUI\Menus\<mod>.ini`:
+
+```ini
+; a menu by its name
+[ContainerMenu]
+sMovie=MyMod/Container.swf
+; or every menu showing this movie file, into the clip sParent (root when not given)
+[PipboyMenu.swf]
+sMovie=MyMod/Pipboy.swf
+sParent=root.Menu_mc
+```
+
+Comments go on their own lines: Windows' INI reader keeps a `; note` after
+a value as part of it.
+
+- A section ending in `.swf` matches the menu's movie by its file name (the
+  movie definition's URL), so a menu another mod registers under its own
+  name still matches.
+- The movie loads once per open menu, with a `Loader` as F4SE's `UI.Load`
+  does; F4SE's `UI.Load` needs a Papyrus script waiting on the menu event,
+  this needs none.
+- An injected movie reaches F4SE's object and our natives through
+  `Bridge.attach(stage)` (F4SE's object is on the menu movie's root); our own
+  Pip-Boy, transfer and HUD stats movies use it too.
+- The lists are read once, as the game loads; the log names each list's
+  count and every movie that could not load.
+
+### <a id="settings"></a>A mod's INI to its movie (built 2026-11-15, not played)
+
+`Settings(mod)`, a native every movie gets from either DLL
+(`RegisterSharedNatives`), returns `Data\F4SE\Plugins\<mod>.ini` with MCM's
+saved copy (`Data\MCM\Settings\<mod>.ini`) over it, as
+`{section: {setting: value}}`. Each value is typed by its name's prefix, as
+Bethesda's INIs name them: `b` a bool, `i` an int, `u` a uint, `f` a number,
+anything else text. It is read on every call, so an MCM change shows the next
+time the movie asks. `mod` must be a plain file name (no path, no `..`);
+anything else returns null. AS3: `bridge.settings("MyMod")`. The framework's
+own settings (`[Keys]`, `[Hud]`) go through the same reader.
+
+### <a id="gfx-log"></a>GFx logging
+
+F4SE already routes every movie's GFx log (its `trace` output and errors) into
+`f4se.log` with `bEnableGFXLog=1` under `[Interface]` in `F4SE\f4se.ini`
+(F4SE 0.7.9's `Hooks_Scaleform.cpp`). A second route into our log would only
+duplicate it, so none is built; our movies' own lines go through `Log(text)`
+into the DLL's log at `[Log] iLevel=3`.
 
 ## <a id="pipboy"></a>The Pip-Boy framework
 
@@ -1886,8 +1937,9 @@ played, and the rest builds on it. In Cleanroom UI's own build
    each mod writes against its own quest ([built](level_up_plan.md#host-mcm)
    2026-11-15, not played). Left: LevelUpMenuEx's INI format, an open
    decision ([order](level_up_plan.md#order)).
-6. **The DLL side**: injection by menu URL for other menus, a settings INI
-   to the movies, GFx log routing.
+6. **The DLL side**: other mods' movies in any menu ([inject](#inject)) and
+   a mod's INI to its movie ([settings](#settings)), built 2026-11-15, not
+   played; GFx logging stays F4SE's ([log](#gfx-log)).
 7. **Translations**: the Papyrus key check, slot and per-language counts, a
    test language.
 8. **Controller**: the Pip-Boy "more" button, roulette's board on a pad

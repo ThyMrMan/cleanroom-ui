@@ -37,14 +37,7 @@ package
       private function onStage(e:Event) : void
       {
          menu = parent != null ? parent.parent : null;
-         try
-         {
-            bridge.f4se = Object(stage.getChildAt(0)).f4se;
-         }
-         catch (error:Error)
-         {
-            bridge.f4se = null;
-         }
+         bridge.attach(stage);
          log("loaded into " + (menu != null ? String(menu) : "nothing") + " (CleanroomUI.dll "
              + (bridge.natives(DLL) != null ? "found" : "not found") + ")");
          addEventListener(Event.ENTER_FRAME, onFrame);
