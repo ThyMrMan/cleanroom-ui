@@ -59,7 +59,40 @@ $CRUI_LOADED	{0} (loaded)
 $CRUI_ONE_TYPE	One type only
 $CRUI_DROP_A_COPY	Drop a copy first
 $CRUI_HUD_EDIT_HINT	DRAG TO MOVE     WHEEL: SIZE     {1}: HIDE     {2}: COLOR     {3}: WHEN SHOWN     {0}: RESET     ESC: SAVE AND CLOSE
+$CRUI_HUD_EDIT_PER_SAVE	THIS LAYOUT IS KEPT WITH THIS SAVE     {0}: BACK IT UP     {1}: RESTORE THE BACKUP
+$CRUI_HUD_EDIT_SHARED	THIS LAYOUT IS SHARED BY EVERY SAVE     {0}: BACK IT UP     {1}: RESTORE THE BACKUP
+$CRUI_HUD_EDIT_BACKED_UP	LAYOUT BACKED UP ({0} CHANGED)
+$CRUI_HUD_EDIT_RESTORED	BACKUP RESTORED ({0} CHANGED)
+$CRUI_HUD_EDIT_NO_BACKUP	NO BACKUP TO RESTORE
+$CRUI_HUD_EDIT_BACKUP_FAILED	THE BACKUP COULD NOT BE WRITTEN
 $CRUI_HUD_EDIT_HIDDEN	HIDDEN
+$CRUI_MCM_HUD	HUD
+$CRUI_MCM_EDIT_LAYOUT	Edit the HUD layout
+$CRUI_MCM_EDIT_LAYOUT_HELP	Opens the HUD edit menu once you close this menu: move, size, hide and recolor the HUD's parts and widgets.
+$CRUI_MCM_EDIT_LAYOUT_KEY	HUD edit menu hotkey
+$CRUI_MCM_EDIT_LAYOUT_KEY_HELP	A key that opens the HUD edit menu in play.
+$CRUI_MCM_PER_SAVE	Keep the layout with each save
+$CRUI_MCM_PER_SAVE_HELP	On: each save keeps its own HUD layout. Off: one layout for every save. Applies after a restart.
+$CRUI_MCM_FNV_PRESET	Fallout: New Vegas layout
+$CRUI_MCM_FNV_PRESET_HELP	Arranges the game's HUD as Fallout: New Vegas does. Applies after loading a save.
+$CRUI_MCM_IMMERSIVE	Hide parts while not needed
+$CRUI_MCM_IMMERSIVE_HELP	Health, ammo and the rest show only in combat, with a weapon drawn, as they change or while the peek key is held.
+$CRUI_MCM_LINGER	Seconds a part stays
+$CRUI_MCM_LINGER_HELP	How long a part stays on screen after the last reason to show it ends.
+$CRUI_MCM_EDIT_KEYS	HUD edit menu keys
+$CRUI_MCM_KEY_RESET	Reset
+$CRUI_MCM_KEY_HIDE	Hide or show
+$CRUI_MCM_KEY_COLOR	Next color
+$CRUI_MCM_KEY_SHOW	When shown
+$CRUI_MCM_KEY_BACKUP	Back up the layout
+$CRUI_MCM_KEY_RESTORE	Restore the backup
+$CRUI_MCM_KEY_HELP	A letter, a digit or F1 to F12. Applies the next time the edit menu opens.
+$CRUI_MCM_KEY_PEEK	Peek at hidden parts
+$CRUI_MCM_KEY_PEEK_HELP	Hold to show the parts hidden while not needed. A letter, a digit or F1 to F12.
+$CRUI_MCM_PIPBOY	Pip-Boy
+$CRUI_MCM_KEY_REPAIR	Repair list
+$CRUI_MCM_KEY_AMMO	Ammo list
+$CRUI_MCM_KEY_PIPBOY_HELP	A letter, a digit or F1 to F12, not W, S or E. Applies the next time the Pip-Boy opens.
 $CRUI_HUD_EDIT_PAD_HINT	LB RB: PICK     D-PAD: MOVE     LT RT: SIZE     X: HIDE     Y: COLOR     A: WHEN SHOWN     VIEW: RESET     B: SAVE AND CLOSE
 $CRUI_SHOW_PRESET	AS ITS MOD OR THE PRESET SETS
 $CRUI_SHOW_ALWAYS	ALWAYS SHOWN

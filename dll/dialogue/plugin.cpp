@@ -10,7 +10,7 @@ namespace {
 using namespace crui;
 
 const char *NAME = "CleanroomDialogue";
-// dialogue.cpp's three calls, 14 bytes each in CommonLibF4's trampoline.
+// dialogue.cpp's four calls, 14 bytes each in CommonLibF4's trampoline.
 const std::size_t TRAMPOLINE_SIZE = 64;
 
 // Add our words (Interface\Translations\CleanroomDialogue_<sLanguage>.txt) to the game's translator, once: F4SE

@@ -39,7 +39,7 @@ package
       private var version:Number = -1;
       // Widget name -> {entry (as HudWidgets gave it), view (its Loader or StatsLine), corner (its HUD part's
       // top-left, measured before the widget joined it), content (its loaded movie), pending (messages held until
-      // it loads)}.
+      // it loads), outline (Outline: the bounds it reports)}.
       private var widgets:Object = {};
       private var seen:Object = {};
       private var frames:int = 0;
@@ -168,7 +168,11 @@ package
          }
          var wide:Number = stage.stageWidth, high:Number = stage.stageHeight;
          var origin:Point = view.parent.localToGlobal(new Point(view.x, view.y));
-         var bounds:Rectangle = view.getBounds(stage);
+         if (shown.outline == null)
+         {
+            shown.outline = new Outline();
+         }
+         var bounds:Rectangle = shown.outline.measure(view, stage);
          dll.HudReport(String(entry.name), origin.x / wide, origin.y / high, bounds.x / wide, bounds.y / high,
                        bounds.width / wide, bounds.height / high);
          var at:Object = entry.place;

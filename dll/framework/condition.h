@@ -332,6 +332,12 @@ void HudChanged();
 // Read the saved layout (Documents\My Games\Fallout4\F4SE\CleanroomUI_Hud.txt).
 void LoadLayout();
 
+// F4SE's save callbacks for the layout when it belongs to each save ([Hud] bLayoutPerSave): cleared for a new game or
+// a load, written into and read from the co-save.
+void RevertLayout(const F4SE::SerializationInterface *intfc);
+void SaveLayoutRecord(const F4SE::SerializationInterface *intfc);
+void LoadLayoutRecord(const F4SE::SerializationInterface *intfc);
+
 // Give `plugin` the host's HudReport and HudPlaceOf, and the edit menu's HudLayout, HudMove, HudScale, HudHide,
 // HudTint, HudSetShow, HudReset and HudEditDone.
 void RegisterHudLayout(Movie *movie, Value *plugin);
@@ -351,7 +357,7 @@ void RegisterHudParts(Movie *movie, Value *plugin);
 // ---- Our own keys (keys.cpp; docs/swf_framework.md#keys) ----
 
 // The keys the game has no controls for, set under [Keys] in CleanroomUI.ini.
-enum class OurKey { Repair, Ammo, HudReset, HudHide, HudColor, HudPeek, HudShow };
+enum class OurKey { Repair, Ammo, HudReset, HudHide, HudColor, HudPeek, HudShow, HudBackup, HudRestore };
 
 // Read the keys again from the INI files.
 void ReadKeys();

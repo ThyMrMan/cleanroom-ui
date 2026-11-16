@@ -24,8 +24,10 @@ package
    // through HudKeys) to put the one under the cursor back where its mod (or the game) puts it, shown, in its own
    // color (HudReset); the hide key (H) hides or shows it (HudHide), the color key (C) steps it through a few colors
    // (HudTint); hidden ones keep a dim box, so they can be shown again; the show key (V) opens a list of when it
-   // shows (RuleList: the preset's rule, always, or the conditions picked; HudSetShow); Esc or Tab
-   // saves the layout and closes (HudEditDone). With a gamepad (the game's word, SetPlatform, or Input's guess), one
+   // shows (RuleList: the preset's rule, always, or the conditions picked; HudSetShow); the backup key (K) writes the
+   // layout to its backup file (HudBackup) and the restore key (L) puts it back from there (HudRestore); Esc or Tab
+   // closes (HudEditDone), the layout kept with the save (or, with [Hud] bLayoutPerSave=0, in the file every save
+   // shares). With a gamepad (the game's word, SetPlatform, or Input's guess), one
    // box is picked instead of the one under the cursor: LB and RB pick the previous and next (top to bottom, then left
    // to right), the D-pad held moves it (faster the longer it is held), LT and RT scale it, X hides or shows it, Y gives
    // it the next color, A opens its rule list, View (Select) resets it, B saves and closes. The pad's buttons only
@@ -58,6 +60,16 @@ package
       private var colorName:String = "C";
       private var showKey:uint = 86;
       private var showName:String = "V";
+      private var backupKey:uint = 75;
+      private var backupName:String = "K";
+      private var restoreKey:uint = 76;
+      private var restoreName:String = "L";
+      // The second hint line: where the layout is kept and the backup keys, or for a while what a backup key did.
+      private static const NOTICE_MS:int = 2500;
+      private var keeping:TextField;
+      private var notice:String = null;
+      private var noticeUntil:int = 0;
+      private var kept:String = null;
       // The rule list (the show key over a box) in its pop-up, the box it edits, and the keys it moves by (Input:
       // arrows, Enter, Esc or Tab to close).
       private var input:Input;
@@ -112,6 +124,13 @@ package
             colorName = String(keys.colorName);
             showKey = uint(keys.show);
             showName = String(keys.showName);
+            if (keys.backup != null)
+            {
+               backupKey = uint(keys.backup);
+               backupName = String(keys.backupName);
+               restoreKey = uint(keys.restore);
+               restoreName = String(keys.restoreName);
+            }
          }
          hiddenWord = Text.translate("$CRUI_HUD_EDIT_HIDDEN");
          graphics.beginFill(0, DIM);
@@ -123,6 +142,11 @@ package
          hint.width = stage.stageWidth;
          hint.y = stage.stageHeight * 0.08;
          addChild(hint);
+         keeping = Text.field(16, null, Text.BOLD);
+         keeping.autoSize = TextFieldAutoSize.CENTER;
+         keeping.width = stage.stageWidth;
+         keeping.y = hint.y + 30;
+         addChild(keeping);
          rules.onChange = function(box:String, rule:String) : void
          {
             var dll:Object = bridge.natives(DLL);
@@ -152,6 +176,7 @@ package
          stage.addEventListener(MouseEvent.MOUSE_DOWN, onDown);
          stage.addEventListener(MouseEvent.MOUSE_MOVE, onMove);
          stage.addEventListener(MouseEvent.MOUSE_UP, onUp);
+         stage.addEventListener(Event.MOUSE_LEAVE, onLeave);
          stage.addEventListener(MouseEvent.MOUSE_WHEEL, onWheel);
          stage.addEventListener(KeyboardEvent.KEY_DOWN, onKey);
          stage.focus = this;
@@ -181,6 +206,7 @@ package
             hinted = says;
             Text.show(hint, says + "\t" + resetName + "\t" + hideName + "\t" + colorName + "\t" + showName);
          }
+         showKeeping(dll);
          boxes.graphics.clear();
          while (names.length > layout.length)
          {
@@ -214,6 +240,33 @@ package
             label.x = box.x;
             label.y = box.y - label.height;
          }
+      }
+
+      // The second hint line: what a backup key just did, for NOTICE_MS; else where the layout is kept and the keys.
+      private function showKeeping(dll:Object) : void
+      {
+         if (notice != null && getTimer() > noticeUntil)
+         {
+            notice = null;
+         }
+         var perSave:Boolean = dll == null || dll.HudLayoutPerSave == null || dll.HudLayoutPerSave() == true;
+         var says:String = notice != null ? notice
+                           : (perSave ? "$CRUI_HUD_EDIT_PER_SAVE" : "$CRUI_HUD_EDIT_SHARED") + "\t" + backupName + "\t"
+                             + restoreName;
+         if (says != kept)
+         {
+            kept = says;
+            Text.show(keeping, says);
+         }
+      }
+
+      // Back the layout up to its file, or put it back from there, and say how it went for a while.
+      private function backup(dll:Object, restore:Boolean) : void
+      {
+         var count:Number = Number(restore ? dll.HudRestore() : dll.HudBackup());
+         notice = count < 0 ? (restore ? "$CRUI_HUD_EDIT_NO_BACKUP" : "$CRUI_HUD_EDIT_BACKUP_FAILED")
+                  : (restore ? "$CRUI_HUD_EDIT_RESTORED" : "$CRUI_HUD_EDIT_BACKED_UP") + "\t" + count;
+         noticeUntil = getTimer() + NOTICE_MS;
       }
 
       // How a name shows on its box: a HUD part ("part:HPMeter_mc") by its clip's name alone ("HPMeter").
@@ -257,9 +310,16 @@ package
          lastY = mouseY;
       }
 
+      // A drag moves its box by the mouse's move since the last; a move with the button up ends it (its release was
+      // missed, off the movie), so a box never follows a cursor that isn't holding it (played 2026-11-15). The DLL
+      // keeps the box on the screen (HudMove).
       private function onMove(e:MouseEvent) : void
       {
          var dll:Object = bridge.natives(DLL);
+         if (dragging != null && !e.buttonDown)
+         {
+            dragging = null;
+         }
          if (dragging == null || dll == null)
          {
             return;
@@ -270,6 +330,12 @@ package
       }
 
       private function onUp(e:MouseEvent) : void
+      {
+         dragging = null;
+      }
+
+      // The cursor left the movie: its release may never come, so the drag ends.
+      private function onLeave(e:Event) : void
       {
          dragging = null;
       }
@@ -436,7 +502,7 @@ package
       }
 
       // Over a widget: the reset key resets it, the hide key hides or shows it, the color key gives it the next
-      // color. Esc or Tab saves and closes.
+      // color. Anywhere: the backup and restore keys. Esc or Tab closes.
       private function onKey(e:KeyboardEvent) : void
       {
          var dll:Object = bridge.natives(DLL);
@@ -447,6 +513,11 @@ package
          if (modal.isOpen)
          {
             // The rule list's keys are Input's (Esc or Tab closes it, not the menu).
+            return;
+         }
+         if (e.keyCode == backupKey || e.keyCode == restoreKey)
+         {
+            backup(dll, e.keyCode == restoreKey);
             return;
          }
          var name:String = under();

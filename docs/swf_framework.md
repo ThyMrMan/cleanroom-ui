@@ -697,11 +697,20 @@ menus and power armor.
 Our host keeps a place per widget of ours and, since 2026-11-13, per part of the game's own HUD
 (`dll/framework/layout.cpp`, framework version 5; the parts 8):
 - **A place** is an offset from where the widget's mod puts it, in
-  fractions of the screen, and a scale (a quarter to four times). Places are
-  kept by widget name in `Documents\My Games\Fallout4\F4SE\CleanroomUI_Hud.txt`
-  (`name<tab>x offset<tab>y offset<tab>scale`), so one layout serves every
-  save. The DLL reads it once as the game loads and writes it when the edit
-  menu is done.
+  fractions of the screen, and a scale (a quarter to four times), with its
+  look and rule. **Since 2026-11-16 places belong to each save** (asked for
+  after the first stock play-test): they go into the save's F4SE co-save
+  (record `HUDL`, the file's lines) and are cleared for a new game and for
+  a save without them. `[Hud] bLayoutPerSave=0` in `CleanroomUI.ini` gives
+  the old way: one layout for every save in
+  `Documents\My Games\Fallout4\F4SE\CleanroomUI_Hud.txt`
+  (`name<tab>x offset<tab>y offset<tab>scale<tab>...`), read once as the
+  game loads and written when the edit menu is done. Per save, that file is
+  the **backup**: K (`sHudBackup`) in the edit menu writes the layout there,
+  L (`sHudRestore`) puts it back (`HudBackup`, `HudRestore`); the menu's
+  second hint line says which way the layout is kept and names both keys
+  (`$CRUI_HUD_EDIT_PER_SAVE` or `$CRUI_HUD_EDIT_SHARED`), then for a while
+  what a key did.
 - **The host** places each widget where its mod puts it, reports that origin
   and bounds (`HudReport`), then moves and scales it by its place (each
   `HudWidgets` entry carries `place`). It places and reports every widget
@@ -765,6 +774,41 @@ the D-pad's controls too, and that the keyboard's R, C and V don't also
 act as the pad's buttons; a moved HUD part follows the game when it moves the part (power
 armor, the enemy health meter, the crosshair in third person), and a part
 that is hidden (no enemy, no explosives) still gets a box to place it.
+
+### <a id="hud-edit-fixes"></a>Fixes from the first stock play-test (2026-11-16, not played)
+
+Played 2026-11-15 in Cleanroom UI's own MO2 profile (no converter):
+- **A dragged part ran off the screen.** Flash keeps `x` and `y` in
+  twentieths of a pixel, so a part read back a little off what
+  `PartLayout` wrote; compared with what was written, every part looked
+  moved by the game, took its moved spot as its base and got its place
+  added again, on every drag step. It now keeps what the part reads back
+  after placing it (`part.set`).
+- **The drag also ends** when a mouse move finds the button up or the
+  cursor leaves the movie (a release the menu never got), and **a box stays
+  on the screen**: `HudMove` and `HudScale` move its place back
+  (`KeepOnScreen`), for the mouse and the pad alike.
+- **DirectionalHitIndicator and VaultBoyCondition's boxes kept changing
+  size and sliding**: both animate, and each report measured the bounds of
+  that frame. Each part and widget now reports every bounds it has had,
+  joined in its own space (`Outline.as`), which settles once its animation
+  has run.
+
+### <a id="mcm-page"></a>Our MCM page (built 2026-11-16, not played)
+
+Asked for after the first stock play-test: the edit menu and our settings from MCM, not the console. The build's
+`mcm` step installs `mcm/cleanroom_ui/` as `Data\MCM\Config\CleanroomUI\` (`crui.mcm.install_own`):
+- **HUD:** a button and a hotkey (`keybinds.json`) that call `CRUI_Hud.EditLayout`. MCM's calls run once the
+  pause menu closes (Papyrus waits while it is open), so the button's help says the edit menu opens then.
+- **Settings**, each an MCM ModSetting that MCM saves to `Data\MCM\Settings\CleanroomUI.ini`, which our DLL reads
+  over `CleanroomUI.ini` (`IniText`): `bLayoutPerSave` (after a restart), `fShowLinger`, and two switches,
+  `bFnvPreset` and `bImmersive`, which stand for `sPreset=FNV` and `sShow=Immersive` when those are not set
+  (MCM's dropdowns store an index, so switches keep the DLL's string settings as they are). The show rules'
+  settings are read again as the pause menu closes; the preset applies the next time the HUD loads.
+- **Keys:** the edit menu's six, the peek key and the Pip-Boy's two, as text (a letter, a digit or F1 to F12),
+  read again as the edit menu or the Pip-Boy opens.
+- `settings.ini` holds the DLL's own defaults (a test keeps them equal); its words are `$CRUI_MCM_` keys in
+  `CleanroomUI_<language>.txt`.
 
 ### <a id="hud-layout"></a>HUD layouts (what DEF_HUD did; reading built 2026-11-13, not played)
 
@@ -1598,6 +1642,8 @@ sHudHide=H    ; HUD edit menu: hide the widget under the cursor, or show it
 sHudColor=C   ; HUD edit menu: give the widget under the cursor the next color
 sHudPeek=Y    ; in play: show the HUD parts shown on conditions (held, then the linger)
 sHudShow=V    ; HUD edit menu: set when the widget under the cursor is shown
+sHudBackup=K  ; HUD edit menu: back the layout up to CleanroomUI_Hud.txt
+sHudRestore=L ; HUD edit menu: put the layout back from CleanroomUI_Hud.txt
 ```
 - `Data\MCM\Settings\CleanroomUI.ini` is read after it and wins: that is
   where an MCM page saves a setting with id `sRepair:Keys` and so on, so a
@@ -1609,8 +1655,8 @@ sHudShow=V    ; HUD edit menu: set when the widget under the cursor is shown
   when shown) show the keys set.
 - A key that isn't a letter, digit or F1-F12 keeps its default, as do
   `sRepair` and `sAmmo` set to W, S or E (the lists move and choose with
-  them) or to the same key, and two of the edit menu's four set to the
-  same key (all four go back to R, H, C and V); each logs a warning.
+  them) or to the same key, and two of the edit menu's six set to the
+  same key (all six go back to R, H, C, V, K and L); each logs a warning.
 - Not checked: the game's own Pip-Boy keys. A key the Pip-Boy page also
   uses does both (V zooms the Pip-Boy, which is why the ammo key is B).
 
@@ -1924,6 +1970,15 @@ played, and the rest builds on it. In Cleanroom UI's own build
      for every conversation; with no links files it must show the game's
      own four options, their `[Leave]` once, and the speech challenges
      (played only on converted FNV dialogue so far).
+     Played 2026-11-15: one said option grayed every row (Codsworth's
+     "What happened?"). The game dims a said button's whole holder and all
+     our rows live in the Question holder; `CleanroomDialogue.dll` now takes
+     over that tint call (`BUTTON_TINT_CALL`, 0xD9 into the SetButtonText
+     handler, the same in every checked build), keeps each button's said
+     flag and speech-challenge type (`GameButtons`) and tints undimmed, so
+     only said rows are dim and a challenge row takes its tint in the failed
+     layer (built 2026-11-16, not played). Also reported: the menu doesn't
+     step through vanilla options properly (not yet understood).
    - **The HUD alone:** the host in every HUD, `DEF_HUD.xml` layouts,
      `[Hud] sPreset` and `sShow=Immersive`, and the edit menu from the
      console (`cgf "CRUI_Hud.EditLayout"`; no key or MCM page yet).

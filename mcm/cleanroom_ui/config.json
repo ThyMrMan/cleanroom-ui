@@ -1,0 +1,156 @@
+{
+  "modName": "CleanroomUI",
+  "displayName": "Cleanroom UI",
+  "minMcmVersion": 1,
+  "content": [
+    {
+      "text": "$CRUI_MCM_HUD",
+      "type": "section"
+    },
+    {
+      "text": "$CRUI_MCM_EDIT_LAYOUT",
+      "type": "button",
+      "help": "$CRUI_MCM_EDIT_LAYOUT_HELP",
+      "action": {
+        "type": "CallGlobalFunction",
+        "script": "CRUI_Hud",
+        "function": "EditLayout",
+        "params": []
+      }
+    },
+    {
+      "id": "cleanroomui_edit_layout",
+      "text": "$CRUI_MCM_EDIT_LAYOUT_KEY",
+      "type": "hotkey",
+      "help": "$CRUI_MCM_EDIT_LAYOUT_KEY_HELP"
+    },
+    {
+      "id": "bLayoutPerSave:Hud",
+      "text": "$CRUI_MCM_PER_SAVE",
+      "type": "switcher",
+      "help": "$CRUI_MCM_PER_SAVE_HELP",
+      "valueOptions": {
+        "sourceType": "ModSettingBool"
+      }
+    },
+    {
+      "id": "bFnvPreset:Hud",
+      "text": "$CRUI_MCM_FNV_PRESET",
+      "type": "switcher",
+      "help": "$CRUI_MCM_FNV_PRESET_HELP",
+      "valueOptions": {
+        "sourceType": "ModSettingBool"
+      }
+    },
+    {
+      "id": "bImmersive:Hud",
+      "text": "$CRUI_MCM_IMMERSIVE",
+      "type": "switcher",
+      "help": "$CRUI_MCM_IMMERSIVE_HELP",
+      "valueOptions": {
+        "sourceType": "ModSettingBool"
+      }
+    },
+    {
+      "id": "fShowLinger:Hud",
+      "text": "$CRUI_MCM_LINGER",
+      "type": "slider",
+      "help": "$CRUI_MCM_LINGER_HELP",
+      "valueOptions": {
+        "min": 0,
+        "max": 10,
+        "step": 0.5,
+        "sourceType": "ModSettingFloat"
+      }
+    },
+    {
+      "text": "$CRUI_MCM_EDIT_KEYS",
+      "type": "section"
+    },
+    {
+      "id": "sHudReset:Keys",
+      "text": "$CRUI_MCM_KEY_RESET",
+      "type": "textinput",
+      "help": "$CRUI_MCM_KEY_HELP",
+      "valueOptions": {
+        "sourceType": "ModSettingString"
+      }
+    },
+    {
+      "id": "sHudHide:Keys",
+      "text": "$CRUI_MCM_KEY_HIDE",
+      "type": "textinput",
+      "help": "$CRUI_MCM_KEY_HELP",
+      "valueOptions": {
+        "sourceType": "ModSettingString"
+      }
+    },
+    {
+      "id": "sHudColor:Keys",
+      "text": "$CRUI_MCM_KEY_COLOR",
+      "type": "textinput",
+      "help": "$CRUI_MCM_KEY_HELP",
+      "valueOptions": {
+        "sourceType": "ModSettingString"
+      }
+    },
+    {
+      "id": "sHudShow:Keys",
+      "text": "$CRUI_MCM_KEY_SHOW",
+      "type": "textinput",
+      "help": "$CRUI_MCM_KEY_HELP",
+      "valueOptions": {
+        "sourceType": "ModSettingString"
+      }
+    },
+    {
+      "id": "sHudBackup:Keys",
+      "text": "$CRUI_MCM_KEY_BACKUP",
+      "type": "textinput",
+      "help": "$CRUI_MCM_KEY_HELP",
+      "valueOptions": {
+        "sourceType": "ModSettingString"
+      }
+    },
+    {
+      "id": "sHudRestore:Keys",
+      "text": "$CRUI_MCM_KEY_RESTORE",
+      "type": "textinput",
+      "help": "$CRUI_MCM_KEY_HELP",
+      "valueOptions": {
+        "sourceType": "ModSettingString"
+      }
+    },
+    {
+      "id": "sHudPeek:Keys",
+      "text": "$CRUI_MCM_KEY_PEEK",
+      "type": "textinput",
+      "help": "$CRUI_MCM_KEY_PEEK_HELP",
+      "valueOptions": {
+        "sourceType": "ModSettingString"
+      }
+    },
+    {
+      "text": "$CRUI_MCM_PIPBOY",
+      "type": "section"
+    },
+    {
+      "id": "sRepair:Keys",
+      "text": "$CRUI_MCM_KEY_REPAIR",
+      "type": "textinput",
+      "help": "$CRUI_MCM_KEY_PIPBOY_HELP",
+      "valueOptions": {
+        "sourceType": "ModSettingString"
+      }
+    },
+    {
+      "id": "sAmmo:Keys",
+      "text": "$CRUI_MCM_KEY_AMMO",
+      "type": "textinput",
+      "help": "$CRUI_MCM_KEY_PIPBOY_HELP",
+      "valueOptions": {
+        "sourceType": "ModSettingString"
+      }
+    }
+  ]
+}

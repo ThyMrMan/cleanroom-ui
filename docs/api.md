@@ -149,7 +149,7 @@ Widgets on the HUD without replacing HUDMenu.swf: CleanroomUI.dll loads our host
 - `Function SetConditionGlobal(String asName, GlobalVariable akValue, String asLabel = "") Global`: Condition asName holds while akValue is not 0, read each frame with no Papyrus call: for a state your mod keeps in a global anyway. asLabel as SetCondition.
 - `Function RemoveCondition(String asName) Global`: Take condition asName off.
 - `Function SetShowRule(String asName, String asRule) Global`: When box asName shows, unless the player set its rule in the edit menu: asRule is its conditions, comma separated (e.g. "combat,mymod.alarm,peek"; "always" for always; low:0.3 for a threshold), over the preset's ([Hud] sShow). asName is your widget's name, or "part:" and one of the HUD's parts (e.g. "part:CompassWidget_mc"). "" takes yours off. Forgotten as a save loads: set it on every game load.
-- `Function EditLayout() Global`: Open the edit menu for the widgets on our host and the game's own HUD parts: drag a box to move its widget or part, turn the mouse wheel over it to scale it, R (a setting in CleanroomUI.ini) puts it back where its mod or the game puts it, Esc or Tab saves and closes. The places are kept for every save, in Documents\My Games\Fallout4\F4SE\CleanroomUI_Hud.txt. For an MCM button, or the console: cgf "CRUI_Hud.EditLayout".
+- `Function EditLayout() Global`: Open the edit menu for the widgets on our host and the game's own HUD parts: drag a box to move its widget or part, turn the mouse wheel over it to scale it, R (a setting in CleanroomUI.ini) puts it back where its mod or the game puts it, Esc or Tab closes. The layout is kept with each save (K backs it up to Documents\My Games\Fallout4\F4SE\CleanroomUI_Hud.txt, L restores it; [Hud] bLayoutPerSave=0 shares that file between every save). Our MCM page has a button and a hotkey for it; from the console: cgf "CRUI_Hud.EditLayout".
 
 ### CRUI_HudNative
 
@@ -297,7 +297,7 @@ FO3/FNV SexChange: the game's own SexChange command, run by CleanroomUI.dll, as 
 - `HudWidgets` (framework/hud.cpp): HudWidgets(version): {version, widgets: [{name, movie, anchor, x, y, place: {dx, dy, scale, hidden, color, show}}]}, or null while the list is still the one numbered `version` (a widget added or removed, or a place changed in the edit menu).
 - `HudMessages` (framework/hud.cpp): HudMessages(): the messages sent since the last call, [{name, command, params}], in order.
 - `HudStats` (framework/hud.cpp): HudStats(name): stats line `name` now, {shown, rows: [{text, value}], steps}; null for no such line.
-- `HudKeys` (framework/keys.cpp): HudKeys(): the edit menu's keys, {reset, resetName, hide, hideName, color, colorName, show, showName} (each a code and its name), read again as it opens.
+- `HudKeys` (framework/keys.cpp): HudKeys(): the edit menu's keys, {reset, resetName, hide, hideName, color, colorName, show, showName, backup, backupName, restore, restoreName} (each a code and its name), read again as it opens.
 - `HudReport` (framework/layout.cpp): HudReport(name, ox, oy, left, top, width, height): where the host found widget `name` before moving it.
 - `HudPlaceOf` (framework/layout.cpp): HudPlaceOf(name): the place the player gave `name`, {dx, dy, scale, hidden, color, show}, or null for none and no rule (a part with only the preset's rule gets the default place with it).
 - `HudLayout` (framework/layout.cpp): HudLayout(): our widgets and the HUD's parts the host has reported, where their places put them, [Box] (the box in fractions of the screen).
@@ -307,7 +307,10 @@ FO3/FNV SexChange: the game's own SexChange command, run by CleanroomUI.dll, as 
 - `HudTint` (framework/layout.cpp): HudTint(name, color): give widget `name` a color over its own (0xRRGGBB), or its own again for -1.
 - `HudSetShow` (framework/layout.cpp): HudSetShow(name, rule): the conditions widget `name` shows under, comma separated ("" for the preset's rule, "always" for none); spaces are dropped.
 - `HudReset` (framework/layout.cpp): HudReset(name): put widget `name` back where its mod puts it, shown, in its own color, under the preset's rule.
-- `HudEditDone` (framework/layout.cpp): HudEditDone(): save the layout and close the edit menu.
+- `HudEditDone` (framework/layout.cpp): HudEditDone(): close the edit menu; the layout goes with the next game save, or into the file when layouts are shared.
+- `HudBackup` (framework/layout.cpp): HudBackup(): the layout written to the layout file; how many places (-1 when it can't be written).
+- `HudRestore` (framework/layout.cpp): HudRestore(): the layout put back from the layout file; how many places (-1 when there is no file).
+- `HudLayoutPerSave` (framework/layout.cpp): HudLayoutPerSave(): whether places belong to each save (else one layout for every save).
 - `PipboyActions` (framework/pad.cpp): PipboyActions(): the actions in use, [{text, key}]: Repair while a mod tracks an item, Ammo while one gives ammo lists.
 - `PipboyPress` (framework/pad.cpp): PipboyPress(key): Pip-Boy key `key` (a Flash key code) on the open Pip-Boy, as if typed there; whether a list is open after it.
 - `PipboyListOpen` (framework/pad.cpp): PipboyListOpen(): whether the repair or ammo list is open.

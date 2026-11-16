@@ -105,6 +105,8 @@ public:
                                           RE::BSTEventSource<RE::MenuOpenCloseEvent> *) override {
         const char *name = event.menuName.c_str();
         if (event.opening && name && !std::strcmp(name, MENU)) Hook();
+        // Leaving the pause menu, where MCM changes settings: the show rules' settings again.
+        if (!event.opening && name && !std::strcmp(name, "PauseMenu")) ReadShowSettings();
         return RE::BSEventNotifyControl::kContinue;
     }
 };

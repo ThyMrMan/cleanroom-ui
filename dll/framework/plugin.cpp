@@ -101,6 +101,8 @@ const char *NAME = "CleanroomUI", *SCRIPT = "CRUI_Condition", *FRAMEWORK_SCRIPT 
 // The F4SE message type another plugin sends us (to "CleanroomUI") to ask our version; the answer comes back to it
 // with the same type and VERSION as a std::uint32_t.
 const std::uint32_t VERSION_QUERY = 'CRUV';
+// Our records in F4SE's co-save (the HUD layout, when it belongs to each save).
+const std::uint32_t SAVE_ID = 'CRUI';
 
 // Another plugin's message: answer a version query.
 void OnPluginMessage(F4SE::MessagingInterface::Message *msg) {
@@ -311,6 +313,14 @@ F4SE_PLUGIN_LOAD(const F4SE::LoadInterface *a_f4se) {
     const F4SE::ScaleformInterface *scaleform = F4SE::GetScaleformInterface();
     if (!scaleform || !scaleform->Register(NAME, RegisterMovie)) REX::WARN("no movie natives");
     InstallTransfer();
+    if (const F4SE::SerializationInterface *saves = F4SE::GetSerializationInterface()) {
+        saves->SetUniqueID(SAVE_ID);
+        saves->SetRevertCallback(RevertLayout);
+        saves->SetSaveCallback(SaveLayoutRecord);
+        saves->SetLoadCallback(LoadLayoutRecord);
+    } else {
+        REX::WARN("no co-save: the HUD layout can't be kept with each save");
+    }
     const F4SE::MessagingInterface *messaging = F4SE::GetMessagingInterface();
     if (!messaging || !Tasks() || !messaging->RegisterListener(OnMessage))
         REX::WARN("no Pip-Boy or HUD (messaging or task interface missing)");

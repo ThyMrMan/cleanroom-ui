@@ -76,6 +76,8 @@ class PartLayoutNative : public FunctionHandler {
 public:
     void Call(const Params &params) override {
         std::string body = Body(ReadText(FILE_PATH)), preset = IniText("Hud", "sPreset");
+        // Our MCM page's switch, when sPreset isn't set.
+        if (preset.empty() && IniText("Hud", "bFnvPreset") == "1") preset = "FNV";
         Movie *movie = params.movie;
         Value settings, parts;
         movie->CreateObject(params.retVal);

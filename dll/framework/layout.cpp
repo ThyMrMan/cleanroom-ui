@@ -3,12 +3,14 @@
 // Each widget on our host, and each of the game's own HUD parts (named "part:" and its clip,
 // placed by the host's PartLayout from where the game and DEF_HUD.xml put it), may have a place the player gave it:
 // an offset from where it would be, in fractions of the screen, a scale, whether it is hidden, and a color it takes
-// over its own. Places are kept by widget name in Documents\My Games\Fallout4\F4SE\CleanroomUI_Hud.txt, for every
-// save, read once as the game loads. The host (CRUI_Hud.swf) reports each widget's unmoved origin and bounds
+// over its own. By default places belong to each save: kept in its F4SE co-save, cleared for a new game and for a
+// save without them ([Hud] bLayoutPerSave=0 shares one layout between every save, in the file below, as before
+// 2026-11-16). Documents\My Games\Fallout4\F4SE\CleanroomUI_Hud.txt is then the backup: the edit menu writes the
+// layout there (HudBackup) and puts it back from there (HudRestore). The host (CRUI_Hud.swf) reports each widget's unmoved origin and bounds
 // (HudReport) and applies its place (HudWidgets' entries carry it). The edit menu (CRUI_HudEdit.swf, opened by
 // CRUI_Hud.EditLayout) draws a box per widget where its place puts it (HudLayout), moves, scales, hides, colors and
-// resets them (HudMove, HudScale, HudHide, HudTint, HudReset), and on Done saves the file and closes
-// (HudEditDone). The boxes come from the reports and places alone, so they are right even while the HUD movie is
+// resets them (HudMove, HudScale, HudHide, HudTint, HudReset), and on Done closes, saving the file when layouts are
+// shared (HudEditDone). The boxes come from the reports and places alone, so they are right even while the HUD movie is
 // paused under the menu.
 #include "condition.h"
 
@@ -41,6 +43,14 @@ struct Rect {
 
 std::map<std::string, HudPlace> g_places;        // by name, so the file is written in order; under g_lock
 std::unordered_map<std::string, Rect> g_rects;  // under g_lock
+// Whether places belong to each save ([Hud] bLayoutPerSave, default on), read once as the game loads.
+bool g_perSave = true;
+// The co-save record holding a save's places (its lines as the file writes them), and its version.
+const std::uint32_t RECORD = 'HUDL', RECORD_VERSION = 1;
+const char *HEADER =
+    "# Cleanroom UI's HUD layout, set in its edit menu: widget<tab>x offset<tab>y offset (fractions of the "
+    "screen)<tab>scale<tab>hidden (1) or shown (0)<tab>color (RRGGBB, - for its own)<tab>shown under "
+    "(conditions, comma separated: combat, drawn, vats, peek; always for none; - for the preset's)\n";
 
 // Documents\My Games\<the game's save folder>\F4SE\CleanroomUI_Hud.txt, where F4SE keeps our log; empty when
 // Documents can't be found.
@@ -53,18 +63,24 @@ std::filesystem::path LayoutPath() {
     return std::filesystem::path(documents.get()) / "My Games" / F4SE::GetSaveFolderName() / "F4SE" / FILE_NAME;
 }
 
-// Write every place to the layout file (held under g_lock).
-void Save() {
-    std::ofstream out(LayoutPath());
-    out << "# Cleanroom UI's HUD layout, set in its edit menu: widget<tab>x offset<tab>y offset (fractions of the "
-           "screen)<tab>scale<tab>hidden (1) or shown (0)<tab>color (RRGGBB, - for its own)<tab>shown under "
-           "(conditions, comma separated: combat, drawn, vats, peek; always for none; - for the preset's)\n";
+// Every place as the layout file's lines, the header first (held under g_lock).
+std::string Lines() {
+    std::ostringstream out;
+    out << HEADER;
     for (const auto &[name, place] : g_places) {
         std::string color = place.color >= 0 ? std::format("{:06X}", std::uint32_t(place.color) & 0xFFFFFF) : "-";
         out << name << '\t' << place.dx << '\t' << place.dy << '\t' << place.scale << '\t' << (place.hidden ? 1 : 0)
             << '\t' << color << '\t' << (place.show.empty() ? "-" : place.show) << '\n';
     }
-    REX::INFO("HUD layout: {} places saved", g_places.size());
+    return out.str();
+}
+
+// Write every place to the layout file (held under g_lock); false when it can't be written.
+bool Save() {
+    std::ofstream out(LayoutPath());
+    out << Lines();
+    REX::INFO("HUD layout: {} places written to {}", g_places.size(), FILE_NAME);
+    return bool(out);
 }
 
 // The string argument `i` of `params`, or "".
@@ -98,6 +114,21 @@ Value Box(Movie *movie, const std::string &name, const Rect &rect, const HudPlac
     entry.SetMember("show", String(movie, ShowRule(name, place)));
     entry.SetMember("showOwn", String(movie, place.show));
     return entry;
+}
+
+// Place `place` of widget `name` moved back so its box stays on the screen (whole, unless it is wider or taller than
+// the screen: then its top-left corner stays on it). A box the host hasn't reported yet is left alone.
+void KeepOnScreen(const std::string &name, HudPlace *place) {
+    auto it = g_rects.find(name);
+    if (it == g_rects.end()) return;
+    const Rect &rect = it->second;
+    double left = rect.ox + place->dx + (rect.left - rect.ox) * place->scale;
+    double top = rect.oy + place->dy + (rect.top - rect.oy) * place->scale;
+    double width = rect.width * place->scale, height = rect.height * place->scale;
+    double toLeft = std::clamp(left, 0.0, std::max(0.0, 1.0 - width)) - left;
+    double toTop = std::clamp(top, 0.0, std::max(0.0, 1.0 - height)) - top;
+    place->dx += float(toLeft);
+    place->dy += float(toTop);
 }
 
 // HudLayout(): our widgets and the HUD's parts the host has reported, where their places put them, [Box] (the box
@@ -157,9 +188,11 @@ public:
     void Call(const Params &params) override {
         if (params.argCount < 3) return;
         std::lock_guard hold(g_lock);
-        HudPlace &place = g_places[Arg(params, 0)];
+        std::string name = Arg(params, 0);
+        HudPlace &place = g_places[name];
         place.dx += float(Num(params.args[1]));
         place.dy += float(Num(params.args[2]));
+        KeepOnScreen(name, &place);
         HudChanged();
     }
 };
@@ -170,8 +203,10 @@ public:
     void Call(const Params &params) override {
         if (params.argCount < 2) return;
         std::lock_guard hold(g_lock);
-        HudPlace &place = g_places[Arg(params, 0)];
+        std::string name = Arg(params, 0);
+        HudPlace &place = g_places[name];
         place.scale = std::clamp(place.scale * float(Num(params.args[1])), MIN_SCALE, MAX_SCALE);
+        KeepOnScreen(name, &place);
         HudChanged();
     }
 };
@@ -199,13 +234,14 @@ public:
     }
 };
 
-// HudEditDone(): save the layout and close the edit menu.
+// HudEditDone(): close the edit menu; the layout goes with the next game save, or into the file when layouts are
+// shared.
 class DoneNative : public FunctionHandler {
 public:
     void Call(const Params &) override {
         {
             std::lock_guard hold(g_lock);
-            Save();
+            if (!g_perSave) Save();
         }
         if (RE::UIMessageQueue *queue = RE::UIMessageQueue::GetSingleton())
             queue->AddMessage(EDIT_MENU, RE::UI_MESSAGE_TYPE::kHide);
@@ -228,6 +264,51 @@ bool ReadPlace(const std::string &line, std::string *name, HudPlace *place) {
     return true;
 }
 
+// The places in `in` (the layout file's lines) in place of the ones held (held under g_lock); how many.
+std::size_t ReadLines(std::istream &in) {
+    g_places.clear();
+    std::string line, name;
+    while (std::getline(in, line)) {
+        HudPlace place;
+        if (ReadPlace(line, &name, &place)) g_places[name] = place;
+    }
+    return g_places.size();
+}
+
+// HudBackup(): the layout written to the layout file; how many places (-1 when it can't be written).
+class BackupNative : public FunctionHandler {
+public:
+    void Call(const Params &params) override {
+        std::lock_guard hold(g_lock);
+        *params.retVal = Save() ? double(g_places.size()) : -1.0;
+    }
+};
+
+// HudRestore(): the layout put back from the layout file; how many places (-1 when there is no file).
+class RestoreNative : public FunctionHandler {
+public:
+    void Call(const Params &params) override {
+        std::ifstream in(LayoutPath());
+        std::lock_guard hold(g_lock);
+        if (!in) {
+            *params.retVal = -1.0;
+            return;
+        }
+        std::size_t count = ReadLines(in);
+        HudChanged();
+        REX::INFO("HUD layout: {} places restored from {}", count, FILE_NAME);
+        *params.retVal = double(count);
+    }
+};
+
+// HudLayoutPerSave(): whether places belong to each save (else one layout for every save).
+class PerSaveNative : public FunctionHandler {
+public:
+    void Call(const Params &params) override {
+        *params.retVal = g_perSave;
+    }
+};
+
 }  // namespace
 
 void MakePlace(Movie *movie, const std::string &name, const HudPlace &place, Value *out) {
@@ -246,14 +327,43 @@ HudPlace PlaceOf(const std::string &name) {
 }
 
 void LoadLayout() {
-    std::ifstream in(LayoutPath());
-    std::string line, name;
-    std::lock_guard hold(g_lock);
-    while (std::getline(in, line)) {
-        HudPlace place;
-        if (ReadPlace(line, &name, &place)) g_places[name] = place;
+    std::string setting = IniText("Hud", "bLayoutPerSave");
+    g_perSave = setting.empty() || std::strtol(setting.c_str(), nullptr, 10) != 0;
+    if (g_perSave) {
+        REX::INFO("HUD layout: kept with each save ({} is the backup)", FILE_NAME);
+        return;
     }
-    REX::INFO("HUD layout: {} places", g_places.size());
+    std::ifstream in(LayoutPath());
+    std::lock_guard hold(g_lock);
+    REX::INFO("HUD layout: {} places, shared by every save", ReadLines(in));
+}
+
+void RevertLayout(const F4SE::SerializationInterface *) {
+    std::lock_guard hold(g_lock);
+    if (!g_perSave) return;
+    g_places.clear();
+    HudChanged();
+}
+
+void SaveLayoutRecord(const F4SE::SerializationInterface *save) {
+    std::lock_guard hold(g_lock);
+    if (!g_perSave) return;
+    std::string lines = Lines();
+    if (!save->WriteRecord(RECORD, RECORD_VERSION, lines.data(), std::uint32_t(lines.size())))
+        REX::WARN("HUD layout: could not write it into the save");
+}
+
+void LoadLayoutRecord(const F4SE::SerializationInterface *load) {
+    std::uint32_t type = 0, version = 0, length = 0;
+    std::lock_guard hold(g_lock);
+    while (load->GetNextRecordInfo(type, version, length)) {
+        if (type != RECORD || version != RECORD_VERSION || !g_perSave) continue;
+        std::string lines(length, '\0');
+        lines.resize(load->ReadRecordData(lines.data(), length));
+        std::istringstream in(lines);
+        REX::INFO("HUD layout: {} places from the save", ReadLines(in));
+        HudChanged();
+    }
 }
 
 void RegisterHudLayout(Movie *movie, Value *plugin) {
@@ -267,6 +377,9 @@ void RegisterHudLayout(Movie *movie, Value *plugin) {
     RegisterFunction<SetShowNative>(plugin, movie, "HudSetShow");
     RegisterFunction<ResetNative>(plugin, movie, "HudReset");
     RegisterFunction<DoneNative>(plugin, movie, "HudEditDone");
+    RegisterFunction<BackupNative>(plugin, movie, "HudBackup");
+    RegisterFunction<RestoreNative>(plugin, movie, "HudRestore");
+    RegisterFunction<PerSaveNative>(plugin, movie, "HudLayoutPerSave");
 }
 
 }  // namespace crui

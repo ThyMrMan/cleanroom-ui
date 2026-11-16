@@ -1,5 +1,5 @@
 """Build Cleanroom UI into a mod folder: CleanroomUI.esl, Interface/ (movies and Translations/), Scripts/
-(Papyrus), F4SE/Plugins/ (the DLLs).
+(Papyrus), F4SE/Plugins/ (the DLLs), MCM/Config/CleanroomUI/ (our MCM page).
 
     python -m crui all --out dist/CleanroomUI
     python -m crui scripts --imports <folder>    # extra Papyrus import folders, searched before the game's
@@ -16,9 +16,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-from crui import POPEN_FLAGS, REPO, api, check, menus, mxmlc, papyrus, plugin, translations
+from crui import POPEN_FLAGS, REPO, api, check, mcm, menus, mxmlc, papyrus, plugin, translations
 
-STEPS = ('plugin', 'translations', 'movies', 'scripts', 'dll')
+STEPS = ('plugin', 'translations', 'movies', 'scripts', 'dll', 'mcm')
 DEFAULT_OUT = REPO / 'dist' / 'CleanroomUI'
 EXAMPLE_OUT = REPO / 'dist' / 'ExampleMenu'
 #: CommonLibF4 (CRUI_COMMONLIBF4, else the template's beside this repo) and our patches to its commonlib-shared.
@@ -36,6 +36,12 @@ XMAKE_HOME = REPO / 'out' / 'xmake'
 def build_plugin(out: Path) -> bool:
     """CleanroomUI.esl into <out>."""
     print(f'[plugin] {plugin.build(out)}')
+    return True
+
+
+def build_mcm(out: Path) -> bool:
+    """Our MCM page into <out>/MCM/Config/CleanroomUI."""
+    print(f'[mcm] {mcm.install_own(out)}')
     return True
 
 
@@ -167,7 +173,8 @@ def main(argv=None) -> int:
     ok = {'plugin': lambda: build_plugin(args.out),
           'translations': lambda: build_translations(args.out, args.test_language),
           'movies': lambda: build_movies(args.out), 'scripts': lambda: build_scripts(args.out, args.imports),
-          'dll': lambda: build_dll(args.out), 'check': lambda: check.check(args.game),
+          'dll': lambda: build_dll(args.out), 'mcm': lambda: build_mcm(args.out),
+          'check': lambda: check.check(args.game),
           'example': lambda: build_example(args.out, args.imports), 'api': write_api}
     results = [ok[step]() for step in steps]
     return 0 if all(results) else 1

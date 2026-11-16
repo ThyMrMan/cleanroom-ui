@@ -82,12 +82,13 @@ def test_the_movie_builds_the_same_twice(tmp_path):
 
 def test_the_edit_menu_and_host_use_every_layout_native():
     """layout.cpp's natives are each called: HudReport by the host, which applies a widget's place; HudLayout,
-    HudMove, HudScale, HudReset and HudEditDone by the edit menu, which CRUI_Hud.EditLayout opens by its movie's
-    name; the build compiles layout.cpp and HudWidgets hands each widget its place."""
+    HudMove, HudScale, HudReset, HudBackup, HudRestore and HudEditDone by the edit menu, which CRUI_Hud.EditLayout
+    opens by its movie's name; the build compiles layout.cpp and HudWidgets hands each widget its place."""
     layout = _source(REPO / 'dll' / 'framework' / 'layout.cpp')
     natives = re.findall(r'RegisterFunction<\w+>\(plugin, movie, "(\w+)"\);', layout)
-    assert sorted(natives) == ['HudEditDone', 'HudHide', 'HudLayout', 'HudMove', 'HudPlaceOf', 'HudReport',
-                               'HudReset', 'HudScale', 'HudSetShow', 'HudTint']
+    assert sorted(natives) == ['HudBackup', 'HudEditDone', 'HudHide', 'HudLayout', 'HudLayoutPerSave', 'HudMove',
+                               'HudPlaceOf', 'HudReport', 'HudReset', 'HudRestore', 'HudScale', 'HudSetShow',
+                               'HudTint']
     host = _source(MENU.sources / f'{MENU.document}.as')
     parts = _source(MENU.sources / 'PartLayout.as')
     edit_menu = menus.BY_NAME['hud_edit']
@@ -101,11 +102,21 @@ def test_the_edit_menu_and_host_use_every_layout_native():
     assert 'entry.SetMember("place", place);' in _source(HUD_CPP)
 
 
-def test_places_are_kept_for_every_save_and_only_for_our_host():
-    """Places live in a file under Documents (read once as the game loads, written when the edit menu is done), not
-    in a save; HudLayout lists only widgets on our host and the HUD's own parts, whose places the host keeps under
-    the same prefix the DLL lists."""
+def test_places_belong_to_each_save_with_a_file_as_backup():
+    """By default places belong to each save (asked for 2026-11-15): the co-save's HUDL record, cleared for a new game
+    and a load; [Hud] bLayoutPerSave=0 shares the file under Documents as before. That file is the backup the edit
+    menu's keys write and restore (sHudBackup K, sHudRestore L). HudLayout lists only widgets on our host and the
+    HUD's own parts, whose places the host keeps under the same prefix the DLL lists."""
     layout = _source(REPO / 'dll' / 'framework' / 'layout.cpp')
+    plugin = _source(REPO / 'dll' / 'framework' / 'plugin.cpp')
+    assert 'IniText("Hud", "bLayoutPerSave")' in layout and "RECORD = 'HUDL'" in layout
+    for callback in ('RevertLayout', 'SaveLayoutRecord', 'LoadLayoutRecord'):
+        assert f'void {callback}(const F4SE::SerializationInterface' in layout and f'({callback});' in plugin
+    assert "SAVE_ID = 'CRUI'" in plugin and 'saves->SetUniqueID(SAVE_ID);' in plugin
+    keys = _source(REPO / 'dll' / 'framework' / 'keys.cpp')
+    assert '{"sHudBackup", "K", "", \'K\'}' in keys and '{"sHudRestore", "L", "", \'L\'}' in keys
+    edit = _source(menus.BY_NAME['hud_edit'].sources / 'CRUI_HudEdit.as')
+    assert 'e.keyCode == backupKey || e.keyCode == restoreKey' in edit
     assert 'CleanroomUI_Hud.txt' in layout and 'FOLDERID_Documents' in layout
     assert 'if (!OurWidget(name) && !name.starts_with(PART)) continue;' in layout
     prefix = re.search(r'PART = "([^"]+)"', layout).group(1)
@@ -113,7 +124,32 @@ def test_places_are_kept_for_every_save_and_only_for_our_host():
     assert f'name.indexOf("{prefix}") == 0' in _source(menus.BY_NAME['hud_edit'].sources / 'CRUI_HudEdit.as')
     assert 'LoadLayout();' in _source(HUD_CPP)
     done = layout[layout.index('class DoneNative'):layout.index('}  // namespace')]
-    assert done.index('Save();') < done.index('UI_MESSAGE_TYPE::kHide')
+    assert done.index('if (!g_perSave) Save();') < done.index('UI_MESSAGE_TYPE::kHide')
+
+
+def test_a_placed_part_is_compared_with_what_it_reads_back():
+    """A part is compared with its read-back place (swf_framework.md#hud-edit-fixes)."""
+    parts = _source(MENU.sources / 'PartLayout.as')
+    assert 'part.set = {x: view.x, y: view.y, scaleX: view.scaleX, scaleY: view.scaleY};' in parts
+    assert 'part.set = target;' not in parts
+
+
+def test_boxes_keep_one_size_while_their_part_animates():
+    """An animated part (the Vault Boy, the hit arrows) reported changing bounds, so its box grew, shrank and slid
+    (played 2026-11-15); parts and widgets report every bounds they have had, joined in their own space (Outline)."""
+    parts, host = _source(MENU.sources / 'PartLayout.as'), _source(MENU.sources / f'{MENU.document}.as')
+    outline = _source(MENU.sources / 'Outline.as')
+    assert 'part.outline.measure(view, stage)' in parts and 'shown.outline.measure(view, stage)' in host
+    assert 'view.getBounds(stage)' not in parts and 'joined.union(now)' in outline
+
+
+def test_a_drag_never_loses_its_box():
+    """A drag ends when the button is found up or the cursor leaves the movie, and a moved or scaled box stays on
+    the screen (KeepOnScreen, for the mouse and the pad alike)."""
+    edit = _source(menus.BY_NAME['hud_edit'].sources / 'CRUI_HudEdit.as')
+    layout = _source(REPO / 'dll' / 'framework' / 'layout.cpp')
+    assert 'if (dragging != null && !e.buttonDown)' in edit and 'Event.MOUSE_LEAVE, onLeave' in edit
+    assert layout.count('KeepOnScreen(name, &place);') == 2
 
 
 def test_the_host_lays_out_the_hud_parts_from_def_hud_xml():

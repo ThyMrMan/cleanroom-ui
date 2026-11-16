@@ -39,9 +39,10 @@ package
          RightMeters_mc: ["PowerArmorLowBatteryWarning_mc", "FlashLightWidget_mc", "ExplosiveAmmoCount_mc",
                           "AmmoCount_mc", "ActionPointMeter_mc", "FatigueWarning_mc", "HUDActiveEffectsWidget_mc"]};
       // Part name (the vanilla parts, and with the FNV preset its own widgets) -> {group, name, entry (DEF_HUD.xml's,
-      // or null), base {x, y, scaleX, scaleY}, set (what we last gave it, or null), rotation (its own, as first
-      // found), view (found by the last place(), or null), hidden, color (its look, from its place and the file),
-      // show (its rule: the conditions it shows under, "" always)}.
+      // or null), base {x, y, scaleX, scaleY}, set (what it read back after we last placed it, or null), rotation
+      // (its own, as first found), view (found by the last place(), or null), hidden, color (its look, from its place
+      // and the file), show (its rule: the conditions it shows under, "" always), outline (Outline: the bounds it
+      // reports)}.
       private var parts:Object = {};
       private var log:Function;
       private var seen:Object = {};
@@ -257,7 +258,11 @@ package
          {
             var wide:Number = stage.stageWidth, high:Number = stage.stageHeight;
             var origin:Point = view.parent.localToGlobal(new Point(base.x, base.y));
-            var bounds:Rectangle = view.getBounds(stage);
+            if (part.outline == null)
+            {
+               part.outline = new Outline();
+            }
+            var bounds:Rectangle = part.outline.measure(view, stage);
             dll.HudReport(name, origin.x / wide, origin.y / high, bounds.x / wide, bounds.y / high,
                           bounds.width / wide, bounds.height / high);
             if (at != null)
@@ -269,7 +274,10 @@ package
             }
          }
          write(view, target);
-         part.set = target;
+         // What the clip holds now: Flash keeps x and y in twentieths of a pixel, so it reads back a little off what
+         // was written, and comparing with what was written took every part for one the game moved, its moved spot
+         // for its new base, and the place added again on top (played 2026-11-15: a dragged part ran off the screen).
+         part.set = {x: view.x, y: view.y, scaleX: view.scaleX, scaleY: view.scaleY};
       }
 
       // The file's rotation on `view` (its color is part of the look: draw()), and a note for what is not applied

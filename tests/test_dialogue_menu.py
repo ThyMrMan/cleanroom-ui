@@ -45,7 +45,21 @@ def test_failed_skill_checks_show_fnv_tags_in_the_hard_tint():
     assert '"[{} {}/{}]  "' in source and '"[{} {}]  "' in source
     assert 'TINT_CHALLENGE = Both(1432530, 2248685);' in source and 'CHALLENGE_HARD = 3' in source
     assert 'MENU_NEGATIVE_TARGET = 0xE8' in source
-    assert 'FadeHolder_mc.Negative.addChild(this.failedRows)' in menu and 'dll.TintFailed()' in menu
+    assert 'FadeHolder_mc.Negative.addChild(this.failedRows)' in menu and 'dll.TintFailed(tint)' in menu
+
+
+def test_a_said_option_dims_only_its_own_row():
+    """The game dims a said button's whole holder, and every row lives in the Question holder, so one said option
+    dimmed them all (played 2026-11-15, Codsworth's "What happened?"). The DLL takes over that tint call (0xD9 into
+    the SetButtonText handler in every checked build), keeps each button's said flag and challenge, tints undimmed
+    (the Question holder in the HUD color); the movie dims only said rows and puts challenges in the tinted layer."""
+    source, menu = DIALOGUE_CPP.read_text(encoding='utf-8'), MENU_AS.read_text(encoding='utf-8')
+    assert 'BUTTON_TINT_CALL = Both(651751, 2248678, 0xD9);' in source
+    assert 'g_engine.tintChallenge(menu, target, button == question ? 0 : type, false);' in source
+    assert 'trampoline.write_call<5>(tintCall, TintButton);' in source
+    assert 'RegisterFunction<ButtonsNative>(plugin, view, "GameButtons");' in source
+    assert '"said":said, "dim":said, "challenge":challenge' in menu and 'this.dll.GameButtons()' in menu
+    assert 'entry.failed == true || entry.challenge > 0 ? this.failedRows : null' in menu
 
 
 def test_movie_shows_escaped_prompts_as_written():

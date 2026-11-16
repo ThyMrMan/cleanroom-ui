@@ -32,7 +32,7 @@ struct Setting {
 };
 Setting g_keys[] = {{"sRepair", "G", "WSE", 'G'}, {"sAmmo", "B", "WSE", 'B'}, {"sHudReset", "R", "", 'R'},
                     {"sHudHide", "H", "", 'H'},  {"sHudColor", "C", "", 'C'}, {"sHudPeek", "Y", "", 'Y'},
-                    {"sHudShow", "V", "", 'V'}};
+                    {"sHudShow", "V", "", 'V'},  {"sHudBackup", "K", "", 'K'}, {"sHudRestore", "L", "", 'L'}};
 
 // `text`'s key code: a letter or a digit, or F1 to F12; 0 for anything else.
 int Parse(const std::string &text) {
@@ -51,8 +51,8 @@ Setting &Of(OurKey key) {
     return g_keys[int(key)];
 }
 
-// HudKeys(): the edit menu's keys, {reset, resetName, hide, hideName, color, colorName, show, showName} (each a
-// code and its name), read again as it opens.
+// HudKeys(): the edit menu's keys, {reset, resetName, hide, hideName, color, colorName, show, showName, backup,
+// backupName, restore, restoreName} (each a code and its name), read again as it opens.
 class KeysNative : public FunctionHandler {
 public:
     void Call(const Params &params) override {
@@ -60,7 +60,7 @@ public:
         params.movie->CreateObject(params.retVal);
         const std::pair<const char *, OurKey> keys[] = {
             {"reset", OurKey::HudReset}, {"hide", OurKey::HudHide}, {"color", OurKey::HudColor},
-            {"show", OurKey::HudShow}};
+            {"show", OurKey::HudShow}, {"backup", OurKey::HudBackup}, {"restore", OurKey::HudRestore}};
         for (const auto &[member, key] : keys) {
             params.retVal->SetMember(member, std::uint32_t(KeyCode(key)));
             params.retVal->SetMember(std::string(member) + "Name", String(params.movie, KeyName(key)));
@@ -93,10 +93,11 @@ void ReadKeys() {
         }
         key.code = code ? code : Parse(key.fallback);
     }
-    // The Pip-Boy's two keys must differ, and so must the edit menu's four.
+    // The Pip-Boy's two keys must differ, and so must the edit menu's six.
     Distinct({OurKey::Repair, OurKey::Ammo}, "sRepair and sAmmo");
-    Distinct({OurKey::HudReset, OurKey::HudHide, OurKey::HudColor, OurKey::HudShow},
-             "sHudReset, sHudHide, sHudColor and sHudShow");
+    Distinct({OurKey::HudReset, OurKey::HudHide, OurKey::HudColor, OurKey::HudShow, OurKey::HudBackup,
+              OurKey::HudRestore},
+             "sHudReset, sHudHide, sHudColor, sHudShow, sHudBackup and sHudRestore");
     REX::DEBUG("keys: repair {}, ammo {}, HUD reset {}, hide {}, color {}, peek {}, show {}", KeyName(OurKey::Repair),
                KeyName(OurKey::Ammo), KeyName(OurKey::HudReset), KeyName(OurKey::HudHide), KeyName(OurKey::HudColor),
                KeyName(OurKey::HudPeek), KeyName(OurKey::HudShow));

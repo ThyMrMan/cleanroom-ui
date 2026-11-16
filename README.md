@@ -58,7 +58,9 @@ DEF_HUD or any other). It doesn't replace `HUDMenu.swf`.
   font and color, with no movie of your own.
 - **An edit menu** where players move, resize, hide and recolor every
   widget and every part of the game's own HUD, with the mouse, keyboard or
-  gamepad. The layout is saved once and used in every save.
+  gamepad. It opens from our MCM page (a button or a hotkey). Each save
+  keeps its own layout, which can be backed up and restored.
+- **An MCM page** for the edit menu, the HUD options below and our keys.
 - **Layouts.** It reads DEF_HUD's saved layout (`DEF_HUD.xml`), so players
   keep theirs, and it has a preset that arranges the HUD like Fallout: New
   Vegas.
@@ -133,7 +135,7 @@ python -m crui check --game "<Fallout 4>/Data"
 python -m pytest
 ```
 
-`all` writes a mod folder ready to install. Each of its five steps also
+`all` writes a mod folder ready to install. Each of its six steps also
 runs on its own:
 
 | Step | What it builds | What it needs |
@@ -142,6 +144,7 @@ runs on its own:
 | `translations` | `Interface/Translations/` | Python |
 | `movies` | `Interface/*.swf` | Java and the Apache Flex SDK 4.16.1 with playerglobal 11.2. `python -m crui.flex <folder>` installs both; then set `CRUI_FLEX` to that folder. |
 | `scripts` | `Scripts/*.pex` | Fallout 4's Creation Kit and F4SE's script sources. Set `CRUI_FALLOUT4` if the game isn't found. |
+| `mcm` | `MCM/Config/CleanroomUI/` (our MCM page) | Nothing |
 | `dll` | `F4SE/Plugins/*.dll` | Visual Studio, xmake 3.1 and CommonLibF4 (`CRUI_COMMONLIBF4`). Our patches to CommonLibF4 in `dll/patches/` are applied first. |
 
 Other commands:
@@ -171,7 +174,7 @@ More detail on each tool: [toolchain](docs/swf_framework.md#toolchain),
 | `papyrus/` | Our Papyrus scripts: the APIs for other mods and the level-up host |
 | `dll/` | Both DLLs (`framework/` and `dialogue/`), the code they share (`base/`), and our patches to CommonLibF4 |
 | `translations/` | Our text, one file per language for each download |
-| `mcm/` | The level-up menu's MCM page templates |
+| `mcm/` | Our MCM page (`cleanroom_ui/`) and the level-up menu's page templates |
 | `examples/` | The example menu for authors (never part of our release) |
 | `crui/` | The build (`python -m crui`) |
 | `docs/` | The API guide and the design notes |

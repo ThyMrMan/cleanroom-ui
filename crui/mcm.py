@@ -1,5 +1,7 @@
-"""The level-up host's own options as a Mod Configuration Menu page, written by the mod that runs the host against
-its own quest: Data/MCM/Config/<mod>/ (config.json, keybinds.json) from the templates in mcm/level_up/.
+"""Mod Configuration Menu pages. Our own (mcm/cleanroom_ui/, installed as Data/MCM/Config/CleanroomUI/): the HUD
+edit menu's button and hotkey and our INI settings, which MCM saves to Data/MCM/Settings/CleanroomUI.ini, read over
+CleanroomUI.ini. And the level-up host's own options, written by the mod that runs the host against its own quest:
+Data/MCM/Config/<mod>/ (config.json, keybinds.json) from the templates in mcm/level_up/.
 
 The page reads and writes the host's properties (CRUI_LevelUp's SkillCap and ShowAllPerks), which the save keeps,
 and a hotkey calls its OpenLevelUpMenu. Its words are `$CRUI_MCM_` keys in CleanroomUI's translations, loaded with
@@ -15,6 +17,18 @@ from crui import REPO
 
 #: The page's templates: {mod}, {title}, {form}, {script} and {hotkey} are filled per mod.
 TEMPLATES = REPO / 'mcm' / 'level_up'
+#: Our own page (config.json, keybinds.json, settings.ini with the DLL's defaults) and its MCM mod name.
+OWN = REPO / 'mcm' / 'cleanroom_ui'
+OWN_NAME = 'CleanroomUI'
+
+
+def install_own(data_dir: Path) -> Path:
+    """Our own page's files into <data_dir>/MCM/Config/CleanroomUI/; that folder."""
+    folder = Path(data_dir) / 'MCM' / 'Config' / OWN_NAME
+    folder.mkdir(parents=True, exist_ok=True)
+    for path in sorted(OWN.iterdir()):
+        (folder / path.name).write_bytes(path.read_bytes())
+    return folder
 
 
 def level_up_page(mod: str, title: str, form: str, script: str = 'CRUI_LevelUp') -> dict:

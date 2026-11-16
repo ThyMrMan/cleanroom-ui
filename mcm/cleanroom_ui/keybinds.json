@@ -1,0 +1,15 @@
+{
+  "modName": "CleanroomUI",
+  "keybinds": [
+    {
+      "id": "cleanroomui_edit_layout",
+      "desc": "Open Cleanroom UI's HUD edit menu",
+      "action": {
+        "type": "CallGlobalFunction",
+        "script": "CRUI_Hud",
+        "function": "EditLayout",
+        "params": []
+      }
+    }
+  ]
+}

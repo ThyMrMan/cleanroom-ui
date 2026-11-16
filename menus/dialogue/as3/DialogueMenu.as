@@ -26,8 +26,8 @@ package
 
       public var BGSCodeObj:Object;
 
-      // f4se.plugins.<DLL>: GetDialogueOptions, SelectDialogueOption, Log, LeaveDialogue, ShadeList, TintFailed, and
-      // the shared TextureExists and HudColor.
+      // f4se.plugins.<DLL>: GetDialogueOptions, SelectDialogueOption, Log, LeaveDialogue, ShadeList, TintFailed,
+      // GameButtons, and the shared TextureExists and HudColor.
       private static const DLL:String = "CleanroomDialogue";
       private var dll:Object = null;
 
@@ -44,8 +44,9 @@ package
       // The game's text per button (0 Positive, 1 Negative, 2 Neutral, 3 Question).
       private var gameTexts:Array = ["", "", "", ""];
 
-      // The list: {text, said, dim, failed, ours, index}; index is CleanroomDialogue.dll's option or the game's button, dim the
-      // same as said (ScrollList draws a dim row fainter).
+      // The list: {text, said, dim, failed, challenge, ours, index}; index is CleanroomDialogue.dll's option or the
+      // game's button, dim the same as said (ScrollList draws a dim row fainter), challenge a game button's
+      // speech-challenge tint (0 none).
       private var entries:Array = [];
 
       // The box (its outline in its own graphics) holding the rows (crui's ScrollList) and the hints.
@@ -53,8 +54,9 @@ package
 
       private var scroll:ScrollList;
 
-      // The rows whose skill check fails, laid over the list inside the Negative holder, which CleanroomDialogue.dll tints with
-      // the game's own speech-challenge color (TintFailed) instead of the HUD color.
+      // The rows whose skill check fails, and the game's speech challenges, laid over the list inside the Negative
+      // holder, which CleanroomDialogue.dll tints with the game's own speech-challenge color (TintFailed) instead of the
+      // HUD color.
       private var failedRows:Sprite;
 
       private var listShown:Boolean = false;
@@ -299,10 +301,11 @@ package
          this.log("list made");
       }
 
-      // A failed skill check's row goes in the failed layer, tinted apart; the rest stay in the list.
+      // A failed skill check's row, or a game speech challenge's, goes in the failed layer, tinted apart; the rest stay
+      // in the list.
       private function layerOf(entry:Object) : Sprite
       {
-         return entry.failed == true ? this.failedRows : null;
+         return entry.failed == true || entry.challenge > 0 ? this.failedRows : null;
       }
 
       // The list's entries again: CleanroomDialogue.dll's options when it has any, else the game's buttons with text and our
@@ -331,12 +334,17 @@ package
          }
          else
          {
+            // Each button's said flag and challenge, as the game tinted it (it no longer dims the shared holder).
+            var looks:Object = this.dll != null && this.dll.GameButtons != null ? this.dll.GameButtons() : null;
             while(i < BUTTON_ORDER.length)
             {
                var button:int = BUTTON_ORDER[i];
                if(this.gameTexts[button] != null && this.gameTexts[button] != "")
                {
-                  this.entries.push({"text":this.gameTexts[button], "said":false, "ours":false, "index":button});
+                  var look:Object = looks != null ? looks[button] : null;
+                  var said:Boolean = look != null && look.said == true;
+                  var challenge:int = look != null ? int(look.challenge) : 0;
+                  this.entries.push({"text":this.gameTexts[button], "said":said, "dim":said, "challenge":challenge, "ours":false, "index":button});
                }
                i++;
             }
@@ -385,9 +393,11 @@ package
          var count:int = Math.min(ROWS, this.entries.length);
          var high:Number = this.scroll.listHeight;
          var failed:int = 0;
+         var tint:int = 0;
          for(var i:int = this.scroll.top; i < this.scroll.top + count; i++)
          {
-            failed = failed + (this.entries[i].failed == true ? 1 : 0);
+            failed = failed + (this.entries[i].failed == true || this.entries[i].challenge > 0 ? 1 : 0);
+            tint = tint == 0 && this.entries[i].challenge > 0 ? int(this.entries[i].challenge) : tint;
          }
          if(this.hints != null)
          {
@@ -405,7 +415,7 @@ package
          this.list.y = base.y - high;
          this.list.visible = this.listShown && count > 0;
          this.shade(this.list.visible);
-         this.overlay(failed > 0);
+         this.overlay(failed > 0, tint);
          if(this.list.visible && stage != null)
          {
             stage.focus = this.list;
@@ -424,8 +434,9 @@ package
       }
 
       // The failed rows' layer laid exactly over the list (same place and scale, from the list's corners), shown
-      // with it, and their holder tinted after the game's own re-tint of it in SetButtonText (CleanroomDialogue.dll TintFailed).
-      private function overlay(any:Boolean) : void
+      // with it, and their holder tinted after the game's own re-tint of it in SetButtonText (CleanroomDialogue.dll
+      // TintFailed): in the first shown speech challenge's tint (`tint`), else the Hard one a failed check takes.
+      private function overlay(any:Boolean, tint:int) : void
       {
          var holder:DisplayObject = this.failedRows.parent;
          var left:Point = holder.globalToLocal(this.list.localToGlobal(new Point(0, 0)));
@@ -437,7 +448,7 @@ package
          this.failedRows.visible = this.list.visible;
          if(any && this.list.visible)
          {
-            var done:Boolean = this.dll.TintFailed();
+            var done:Boolean = this.dll.TintFailed(tint);
             this.seenOnce("failed skill checks tinted" + (done ? "" : " refused"));
          }
       }

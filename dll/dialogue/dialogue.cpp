@@ -100,6 +100,9 @@ const Ids ZOOM_OUT_NAME = Both(750808, 2223332);            // 0xA7A080
 const Ids ENABLE_SHADED_BACKGROUND = Both(278402, 2287022); // 0x1B04350
 const Ids SHADER_TARGET_VTABLE = Both(298683, 298683);      // 0x27236D0
 const Ids TINT_CHALLENGE = Both(1432530, 2248685);          // 0x1043EF0
+// DialogueMenu's SetButtonText message (0x1043460): its call to the tint above, with the button's holder, its
+// speech-challenge type and whether it was said (the message's bytes +0x38, +0x39), before the movie's SetButtonText.
+const Ids BUTTON_TINT_CALL = Both(651751, 2248678, 0xD9);   // 0x1043539
 const std::uint8_t SPEAKS[] = {0x48, 0x8B, 0xC8}, SILENT[] = {0xEB, 0x1E, 0x90}, SILENT_OG[] = {0xEB, 0x14, 0x90};
 const std::uint8_t CAMERA_PLAYER = 1, CAMERA_SPEAKER = 2;
 
@@ -120,9 +123,12 @@ const std::uint32_t SCENE_STOPPING = 0x100000, PLAYER_DONE = 0x2000000, NPC_SAID
 const std::uint32_t NO_OPTION = 4, FIRST_OURS = 5, SLOTS = 4;
 // DialogueMenu: the Question holder's shader target (registerObjects keeps the four at +0xE0, Question last). The
 // shaded background as vanilla menus ask for it: MenuNoColorBackground at full size.
-const std::size_t MENU_NEGATIVE_TARGET = 0xE8, MENU_QUESTION_TARGET = 0xF8, TARGET_FX_FLAGS = 0x8C;
+const std::size_t MENU_HOLDER_TARGETS = 0xE0, MENU_NEGATIVE_TARGET = 0xE8, MENU_QUESTION_TARGET = 0xF8;
+const std::size_t TARGET_FX_FLAGS = 0x8C;
 // The speech-challenge tint 0x1043EF0 gives types 3 and 7: iDialogueSC_Hard_Tint (red).
 const std::uint32_t CHALLENGE_HARD = 3;
+// The challenge types a tint takes (0 the HUD color).
+const std::uint32_t CHALLENGE_TYPES = 7;
 const std::uint32_t FX_BACKGROUND_QUAD = 1;
 const std::uint32_t MENU_NO_COLOR_BACKGROUND = 1;
 const float FULL_QUAD = 1.0f;
@@ -194,6 +200,12 @@ std::unordered_map<std::uint32_t, std::uint32_t> g_links;
 // Answer INFO FormID (or a legacy link's option INFO) -> the skill check its prompt carries.
 std::unordered_map<std::uint32_t, Check> g_checks;
 bool g_linksRead = false;
+// Each game button's speech-challenge type and said flag, as the game last tinted its holder (TintButton).
+struct ButtonLook {
+    std::uint32_t challenge = 0;
+    bool said = false;
+};
+ButtonLook g_buttons[SLOTS];
 // The Player Dialogue action the engine ran last, and its scene.
 std::atomic<void *> g_running{nullptr}, g_runningScene{nullptr};
 RunFn g_run = nullptr;
@@ -606,6 +618,18 @@ bool ResolveEngine() {
            g_engine.stopScene;
 }
 
+// The game tinting button holder `target` for its SetButtonText: each button's type and said flag kept for the
+// movie's rows (GameButtons), and the holder tinted without the dimming, since the list's rows share holders (all of
+// them in the Question one): one said option dimmed every row. The Question holder, the list's, keeps the HUD color.
+void TintButton(void *menu, void *target, std::uint32_t type, bool said) {
+    std::uint32_t button = SLOTS;
+    for (std::uint32_t i = 0; i < SLOTS; i++)
+        if (Field<void *>(menu, MENU_HOLDER_TARGETS + i * sizeof(void *)) == target) button = i;
+    if (button < SLOTS) g_buttons[button] = {type <= CHALLENGE_TYPES ? type : 0, said};
+    std::uint32_t question = (MENU_QUESTION_TARGET - MENU_HOLDER_TARGETS) / sizeof(void *);
+    g_engine.tintChallenge(menu, target, button == question ? 0 : type, false);
+}
+
 // ---- The menu's natives (f4se.plugins.CleanroomDialogue in the menu's movie) ----
 
 // GetDialogueOptions(): [{text, said, failed}] of the running action's options; [] when it has none of ours.
@@ -694,16 +718,35 @@ public:
     }
 };
 
-// TintFailed(): the Negative holder, where the menu puts its failed skill checks, in the game's own speech-challenge
-// Hard tint. The game re-tints the holders on each SetButtonText, so the menu calls this after them.
+// TintFailed(type): the Negative holder, where the menu puts its failed skill checks and the game's speech
+// challenges, in the game's own speech-challenge tint `type` (1 to 7; Hard without one). The game re-tints the
+// holders on each SetButtonText, so the menu calls this after them.
 class TintFailedNative : public FunctionHandler {
 public:
     void Call(const Params &params) override {
+        std::uint32_t type = params.argCount > 0 && params.args[0].IsNumber() ? std::uint32_t(Num(params.args[0])) : 0;
+        if (type < 1 || type > CHALLENGE_TYPES) type = CHALLENGE_HARD;
         RE::IMenu *menu = nullptr;
         void *target = g_engine.tintChallenge ? HolderTarget(params.movie, MENU_NEGATIVE_TARGET, &menu) : nullptr;
-        if (target) g_engine.tintChallenge(menu, target, CHALLENGE_HARD, false);
+        if (target) g_engine.tintChallenge(menu, target, type, false);
         else REX::WARN("dialogue menu: no shader target for failed skill checks");
         *params.retVal = target != nullptr;
+    }
+};
+
+// GameButtons(): the game's four buttons as it last tinted them, [{said, challenge}] by button (0 Positive, 1
+// Negative, 2 Neutral, 3 Question; challenge 0 none, else its speech-challenge tint type).
+class ButtonsNative : public FunctionHandler {
+public:
+    void Call(const Params &params) override {
+        params.movie->CreateArray(params.retVal);
+        for (const ButtonLook &look : g_buttons) {
+            Value entry;
+            params.movie->CreateObject(&entry);
+            entry.SetMember("said", Value(look.said));
+            entry.SetMember("challenge", Value(look.challenge));
+            params.retVal->PushBack(entry);
+        }
     }
 };
 
@@ -729,6 +772,7 @@ bool RegisterDialogueMenu(Scaleform::GFx::Movie *view, Value *plugin) {
     RegisterFunction<LeaveNative>(plugin, view, "LeaveDialogue");
     RegisterFunction<ShadeNative>(plugin, view, "ShadeList");
     RegisterFunction<TintFailedNative>(plugin, view, "TintFailed");
+    RegisterFunction<ButtonsNative>(plugin, view, "GameButtons");
     return true;
 }
 
@@ -756,6 +800,8 @@ bool HookDialogue() {
                   "not hooked", player, npc, response);
         return false;
     }
+    std::uintptr_t tintCall = Address(BUTTON_TINT_CALL);
+    bool tint = g_engine.tintChallenge && CallsTarget(tintCall, std::uintptr_t(g_engine.tintChallenge));
     std::uintptr_t speaks = Address(PLAYER_SPEAKS), camera = Address(CAMERA_TO_PLAYER);
     g_speechPatch = speaks && camera && !std::memcmp(reinterpret_cast<void *>(speaks), SPEAKS, sizeof(SPEAKS)) &&
                     *reinterpret_cast<std::uint8_t *>(camera) == CAMERA_PLAYER;
@@ -763,6 +809,8 @@ bool HookDialogue() {
     trampoline.write_call<5>(playerCall, PlayerSlot);
     trampoline.write_call<5>(npcCall, NpcSlot);
     trampoline.write_call<5>(responseCall, Response);
+    if (tint) trampoline.write_call<5>(tintCall, TintButton);
+    else REX::WARN("dialogue menu: the buttons' tint call differs; said options dim the whole list");
     auto *slot = reinterpret_cast<RunFn *>(vtable + RUN_SLOT * sizeof(void *));
     g_run = *slot;
     RunFn run = Run;

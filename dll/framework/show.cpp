@@ -239,6 +239,8 @@ public:
 
 void ReadShowSettings() {
     std::string preset = Lower(IniText("Hud", "sShow")), linger = IniText("Hud", "fShowLinger");
+    // Our MCM page's switch, when sShow isn't set.
+    if (preset.empty() && IniText("Hud", "bImmersive") == "1") preset = "immersive";
     float seconds = DEFAULT_LINGER;
     if (!linger.empty()) {
         char *end = nullptr;
