@@ -62,6 +62,20 @@ def test_a_said_option_dims_only_its_own_row():
     assert 'entry.failed == true || entry.challenge > 0 ? this.failedRows : null' in menu
 
 
+def test_a_challenge_keeps_its_own_color():
+    """TintFailed reads its type with Num (swf_framework.md#dialogue-fixes)."""
+    source = DIALOGUE_CPP.read_text(encoding='utf-8')
+    tint = source[source.index('class TintFailedNative'):source.index('class ButtonsNative')]
+    assert 'params.argCount > 0 ? std::uint32_t(Num(params.args[0])) : 0' in tint and '.IsNumber()' not in tint
+
+
+def test_the_leave_row_is_a_setting_off_by_default():
+    """[Leave] shows only with bLeaveRow=1 (swf_framework.md#dialogue-fixes)."""
+    menu = MENU_AS.read_text(encoding='utf-8')
+    assert 'private var leaveRow:Boolean = false;' in menu and 'settings.Dialogue.bLeaveRow == true' in menu
+    assert 'if(this.dll != null && this.leaveRow)' in menu and 'this.leave(action);' in menu
+
+
 def test_movie_shows_escaped_prompts_as_written():
     """The links' &lt; &gt; &amp; show as < > & in the menu."""
     menu = MENU_AS.read_text(encoding='utf-8')

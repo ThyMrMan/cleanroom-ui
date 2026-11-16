@@ -51,6 +51,13 @@ package
       private var dragging:String = null;
       private var lastX:Number = 0;
       private var lastY:Number = 0;
+      // Boxes overlap (the subtitles over the compass): the cursor takes the smallest box under it, and a click
+      // where the last one was (within STILL px) takes the next box under it, round the end; that one stays the
+      // cursor's until it moves away.
+      private static const STILL:Number = 4;
+      private var cycled:String = null;
+      private var cycleX:Number = -1000;
+      private var cycleY:Number = -1000;
       // The reset, hide and color keys (HudKeys, from CleanroomUI.ini) and their names for the hint.
       private var resetKey:uint = 82;
       private var resetName:String = "R";
@@ -208,6 +215,7 @@ package
          }
          showKeeping(dll);
          boxes.graphics.clear();
+         var hovered:String = pad || modal.isOpen ? null : under();
          while (names.length > layout.length)
          {
             boxes.removeChild(TextField(names.pop()));
@@ -217,7 +225,7 @@ package
             var box:Rectangle = rectOf(layout[i]);
             var hidden:Boolean = layout[i].hidden == true;
             var color:Number = Number(layout[i].color);
-            var chosen:Boolean = layout[i].name == dragging || (pad && layout[i].name == picked);
+            var chosen:Boolean = layout[i].name == dragging || (pad ? layout[i].name == picked : layout[i].name == hovered);
             Draw.outline(boxes.graphics, box.x, box.y, box.width, box.height, pad && chosen ? PICKED_LINE : 2,
                          chosen ? 1 : hidden ? HIDDEN_ALPHA : 0.7, color >= 0 ? uint(color) : -1);
             if (i == names.length)
@@ -289,23 +297,59 @@ package
                               Math.max(SMALLEST, Number(entry.height) * high));
       }
 
-      // The name of the widget whose box is under the cursor (the last drawn, on top), or null.
-      private function under() : String
+      // The names of the boxes under the cursor, smallest first (the one on top first among equals).
+      private function stack() : Array
       {
+         var found:Array = [];
          for (var i:int = layout.length - 1; i >= 0; i--)
          {
-            if (rectOf(layout[i]).contains(mouseX, mouseY))
+            var box:Rectangle = rectOf(layout[i]);
+            if (box.contains(mouseX, mouseY))
             {
-               return String(layout[i].name);
+               found.push({name: String(layout[i].name), area: box.width * box.height, order: -i});
             }
          }
-         return null;
+         found.sortOn(["area", "order"], Array.NUMERIC);
+         var names:Array = [];
+         for each (var entry:Object in found)
+         {
+            names.push(entry.name);
+         }
+         return names;
+      }
+
+      // Whether the cursor is still where the last click cycled.
+      private function still() : Boolean
+      {
+         return Math.abs(mouseX - cycleX) <= STILL && Math.abs(mouseY - cycleY) <= STILL;
+      }
+
+      // The name of the widget the cursor works on: the one a click cycled to while the cursor stays there, else the
+      // smallest box under it; null for none.
+      private function under() : String
+      {
+         var names:Array = stack();
+         if (cycled != null && still() && names.indexOf(cycled) >= 0)
+         {
+            return cycled;
+         }
+         return names.length > 0 ? String(names[0]) : null;
       }
 
       private function onDown(e:MouseEvent) : void
       {
          // While the rule list is open the mouse is its own (ScrollList).
-         dragging = modal.isOpen ? null : under();
+         if (modal.isOpen)
+         {
+            dragging = null;
+            return;
+         }
+         var names:Array = stack();
+         var at:int = cycled != null && still() ? names.indexOf(cycled) : -1;
+         cycled = names.length == 0 ? null : at >= 0 ? String(names[(at + 1) % names.length]) : String(names[0]);
+         cycleX = mouseX;
+         cycleY = mouseY;
+         dragging = cycled;
          lastX = mouseX;
          lastY = mouseY;
       }

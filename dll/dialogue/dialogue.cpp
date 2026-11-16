@@ -724,7 +724,9 @@ public:
 class TintFailedNative : public FunctionHandler {
 public:
     void Call(const Params &params) override {
-        std::uint32_t type = params.argCount > 0 && params.args[0].IsNumber() ? std::uint32_t(Num(params.args[0])) : 0;
+        // Num, not IsNumber: the movie's int arrives as an Int, which IsNumber refuses (every challenge took the
+        // Hard red; played 2026-11-16).
+        std::uint32_t type = params.argCount > 0 ? std::uint32_t(Num(params.args[0])) : 0;
         if (type < 1 || type > CHALLENGE_TYPES) type = CHALLENGE_HARD;
         RE::IMenu *menu = nullptr;
         void *target = g_engine.tintChallenge ? HolderTarget(params.movie, MENU_NEGATIVE_TARGET, &menu) : nullptr;

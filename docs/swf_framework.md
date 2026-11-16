@@ -794,6 +794,23 @@ Played 2026-11-15 in Cleanroom UI's own MO2 profile (no converter):
   joined in its own space (`Outline.as`), which settles once its animation
   has run.
 
+Second play-test, 2026-11-16:
+- **A box behind another couldn't be picked** (the compass under the
+  subtitles). The cursor now takes the smallest box under it, a click where
+  the last one was takes the next box under it, round the end, and the box
+  the cursor works on is drawn bright; the hint says "CLICK AGAIN: THE BOX
+  BEHIND".
+- **The MCM button opens the edit menu only once the pause menu closes**
+  (Papyrus waits while it is open, and the HUD is hidden under it, so that
+  is also where the menu is useful); the button's label and help say so,
+  and the hotkey opens it at once in play.
+- **The MCM hotkey shows a ")" after its key**: MCM's own label code adds it
+  for every mod's hotkeys (its `Option_ButtonMapping.RefreshText`); not
+  ours.
+- **The compass's black faded shadow**: reported, not yet understood. Our
+  host doesn't touch the compass's background holder
+  (`CompassBGHolder_mc`, which the game drives from C++).
+
 ### <a id="mcm-page"></a>Our MCM page (built 2026-11-16, not played)
 
 Asked for after the first stock play-test: the edit menu and our settings from MCM, not the console. The build's
@@ -1977,8 +1994,17 @@ played, and the rest builds on it. In Cleanroom UI's own build
      handler, the same in every checked build), keeps each button's said
      flag and speech-challenge type (`GameButtons`) and tints undimmed, so
      only said rows are dim and a challenge row takes its tint in the failed
-     layer (built 2026-11-16, not played). Also reported: the menu doesn't
-     step through vanilla options properly (not yet understood).
+     layer (built 2026-11-16, not played). Stepping through vanilla
+     options was reported, then found fine on a second look.
+     <a id="dialogue-fixes"></a>Second play-test, 2026-11-16: **a speech
+     challenge showed red where FO4 shows yellow.** The game has three
+     challenge tints (types 1, 4, 5; 2, 6; 3, 7, the last red); the movie's
+     type reached `TintFailed` as an Int, which its `IsNumber` test refused,
+     so every challenge fell back to the Hard red. It reads the type with
+     `Num` now. **`[Leave]` is off by default:** FO4's menus have no such
+     option and Back or Tab leaves anyway; `[Dialogue] bLeaveRow=1` in
+     `CleanroomDialogue.ini` brings the row back for a conversion that wants
+     it (the converter would ship that INI).
    - **The HUD alone:** the host in every HUD, `DEF_HUD.xml` layouts,
      `[Hud] sPreset` and `sShow=Immersive`, and the edit menu from the
      console (`cgf "CRUI_Hud.EditLayout"`; no key or MCM page yet).

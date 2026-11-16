@@ -58,7 +58,7 @@ $CRUI_CARRIED	CARRIED
 $CRUI_LOADED	{0} (loaded)
 $CRUI_ONE_TYPE	One type only
 $CRUI_DROP_A_COPY	Drop a copy first
-$CRUI_HUD_EDIT_HINT	DRAG TO MOVE     WHEEL: SIZE     {1}: HIDE     {2}: COLOR     {3}: WHEN SHOWN     {0}: RESET     ESC: SAVE AND CLOSE
+$CRUI_HUD_EDIT_HINT	DRAG TO MOVE     CLICK AGAIN: THE BOX BEHIND     WHEEL: SIZE     {1}: HIDE     {2}: COLOR     {3}: WHEN SHOWN     {0}: RESET     ESC: SAVE AND CLOSE
 $CRUI_HUD_EDIT_PER_SAVE	THIS LAYOUT IS KEPT WITH THIS SAVE     {0}: BACK IT UP     {1}: RESTORE THE BACKUP
 $CRUI_HUD_EDIT_SHARED	THIS LAYOUT IS SHARED BY EVERY SAVE     {0}: BACK IT UP     {1}: RESTORE THE BACKUP
 $CRUI_HUD_EDIT_BACKED_UP	LAYOUT BACKED UP ({0} CHANGED)
@@ -67,8 +67,8 @@ $CRUI_HUD_EDIT_NO_BACKUP	NO BACKUP TO RESTORE
 $CRUI_HUD_EDIT_BACKUP_FAILED	THE BACKUP COULD NOT BE WRITTEN
 $CRUI_HUD_EDIT_HIDDEN	HIDDEN
 $CRUI_MCM_HUD	HUD
-$CRUI_MCM_EDIT_LAYOUT	Edit the HUD layout
-$CRUI_MCM_EDIT_LAYOUT_HELP	Opens the HUD edit menu once you close this menu: move, size, hide and recolor the HUD's parts and widgets.
+$CRUI_MCM_EDIT_LAYOUT	Edit the HUD layout (opens when you return to the game)
+$CRUI_MCM_EDIT_LAYOUT_HELP	The game holds scripts while this menu is open, and the HUD is hidden under it, so the edit menu opens as soon as you close the pause menu. The hotkey below opens it straight away in play.
 $CRUI_MCM_EDIT_LAYOUT_KEY	HUD edit menu hotkey
 $CRUI_MCM_EDIT_LAYOUT_KEY_HELP	A key that opens the HUD edit menu in play.
 $CRUI_MCM_PER_SAVE	Keep the layout with each save

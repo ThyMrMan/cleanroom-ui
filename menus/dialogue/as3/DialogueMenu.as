@@ -93,8 +93,12 @@ package
 
       private var retries:int = 0;
 
-      // The list entry that leaves the talk (LeaveDialogue), shown when a menu has no options of ours.
+      // The list entry that leaves the talk (LeaveDialogue), shown when a menu has no options of ours and
+      // [Dialogue] bLeaveRow=1 in CleanroomDialogue.ini (off by default: FO4's own menus have no such option, and Back
+      // or Tab leaves anyway; a conversion whose dialogue expects one turns it on).
       private static const LEAVE:int = -1;
+      private static const SETTINGS:String = "CleanroomDialogue";
+      private var leaveRow:Boolean = false;
 
       // The hint bar's text size and its gap under the box.
       private static const HINT_SIZE:int = 16;
@@ -159,7 +163,9 @@ package
          if(this.dll == null && bridge.natives(DLL) != null)
          {
             this.dll = bridge.natives(DLL);
-            this.log("menu ready");
+            var settings:Object = this.dll.Settings != null ? this.dll.Settings(SETTINGS) : null;
+            this.leaveRow = settings != null && settings.Dialogue != null && settings.Dialogue.bLeaveRow == true;
+            this.log("menu ready" + (this.leaveRow ? ", with a [Leave] row" : ""));
          }
       }
 
@@ -308,8 +314,8 @@ package
          return entry.failed == true || entry.challenge > 0 ? this.failedRows : null;
       }
 
-      // The list's entries again: CleanroomDialogue.dll's options when it has any, else the game's buttons with text and our
-      // [Leave], so a menu without options of ours never leaves the talk stuck.
+      // The list's entries again: CleanroomDialogue.dll's options when it has any, else the game's buttons with text (and
+      // our [Leave] when the setting asks for it).
       private function refresh() : void
       {
          if(this.list != null)
@@ -348,8 +354,8 @@ package
                }
                i++;
             }
-            this.log("no options of ours: the game's " + this.entries.length + " (" + this.gameTexts.join(" | ") + "), and [Leave]");
-            if(this.dll != null)
+            this.log("no options of ours: the game's " + this.entries.length + " (" + this.gameTexts.join(" | ") + ")" + (this.leaveRow ? ", and [Leave]" : ""));
+            if(this.dll != null && this.leaveRow)
             {
                this.entries.push({"text":"$CRUI_LEAVE", "said":false, "ours":false, "index":LEAVE});
             }

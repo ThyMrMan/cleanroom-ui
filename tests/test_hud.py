@@ -152,6 +152,15 @@ def test_a_drag_never_loses_its_box():
     assert layout.count('KeepOnScreen(name, &place);') == 2
 
 
+def test_a_box_behind_another_can_be_picked():
+    """The cursor takes the smallest box under it, and a click where the last one was takes the next box under it
+    (played 2026-11-16: the compass couldn't be picked under the subtitles); the box it works on is drawn bright."""
+    edit = _source(menus.BY_NAME['hud_edit'].sources / 'CRUI_HudEdit.as')
+    assert 'found.sortOn(["area", "order"], Array.NUMERIC);' in edit
+    assert 'String(names[(at + 1) % names.length])' in edit and 'dragging = cycled;' in edit
+    assert 'layout[i].name == hovered' in edit
+
+
 def test_the_host_lays_out_the_hud_parts_from_def_hud_xml():
     """parts.cpp reads DEF_HUD.xml from where DEF_HUD's editor saves it and hands it to the host (HudPartLayout),
     which lays out and places the parts through PartLayout on its first frame, as a place changes and every few
