@@ -25,6 +25,11 @@ python -m crui check --game "<Fallout 4>/Data"
 python -m pytest
 ```
 
+CI (`.github/workflows/build.yml`) runs on every push: it installs the Flex
+SDK with `python -m crui.flex <folder>` (each download hash-checked), builds
+the plugin, translations and movies, runs the movie check and the tests.
+Scripts and DLLs need the game and Visual Studio, so they build locally.
+
 `all` runs five steps, each also on its own (`plugin`, `translations`,
 `movies`, `scripts`, `dll`), and writes a mod folder: `CleanroomUI.esl` (the
 shared forms), `Interface/Translations/CleanroomUI_<language>.txt` and
@@ -56,7 +61,7 @@ mods reach the running one with that plugin as their only master
 
 | Folder | Holds |
 |---|---|
-| `crui/` | The build: `plugin.py` (`CleanroomUI.esl`), `mxmlc.py` (byte-stable movies), `swf.py` (SWF reader and writer), `check.py` (the movie check), `papyrus.py`, `menus.py` (every movie), `mcm.py` (the level-up host's MCM page for a mod's own quest), the `python -m crui` command |
+| `crui/` | The build: `plugin.py` (`CleanroomUI.esl`), `api.py` (docs/api.md's reference), `flex.py` (installs the Flex SDK), `mxmlc.py` (byte-stable movies), `swf.py` (SWF reader and writer), `check.py` (the movie check), `papyrus.py`, `menus.py` (every movie), `mcm.py` (the level-up host's MCM page for a mod's own quest), the `python -m crui` command |
 | `mcm/level_up/` | That page's templates (`config.json`, `keybinds.json`) |
 | `as3/crui/` | The AS3 library: `Host`, `Bridge`, `Theme`, `Draw`, `Text`, `ScrollList`, `Modal`, `Images`, `Input`, `HintBar` |
 | `translations/` | Our words, `$CRUI_KEY<tab>text` per line: a folder per release (`CleanroomUI/`, `CleanroomDialogue/`), one UTF-8 file per language (`en.txt` holds every key) |
@@ -66,7 +71,8 @@ mods reach the running one with that plugin as their only master
 | `menus/dialogue/` | The dialogue menu (`Interface/DialogueMenu.swf`) |
 | `papyrus/` | The level-up host, its holder and its per-plugin tables (`CRUI_LevelUp`, `CRUI_LevelUpHolder`, `CRUI_LevelUpTable`), `CRUI_Array`, and the scripts declaring CleanroomUI.dll's natives (`CRUI_Condition`, `CRUI_Framework`, `CRUI_HudNative`, `CRUI_ItemCard`, `CRUI_LevelUpNative`, `CRUI_Pipboy`, `CRUI_PipboyAmmo`, `CRUI_Sex`), `CRUI_Hud`, which puts widgets on our HUD host, and `CRUI_PipboyActions`, which opens the Pip-Boy's action menu |
 | `dll/` | `xmake.lua` building both DLLs on CommonLibF4: `framework/` (CleanroomUI.dll: condition API, Pip-Boy overlay, card lines, tabs, repair and ammo lists, transfer menus, other mods' movies in menus, `ChangeSex`, the game's perk points) and `dialogue/` (CleanroomDialogue.dll), both with `base/` (Flash helpers and the natives every movie may call); `patches/` (ours to CommonLibF4) |
-| `docs/` | The framework, level-up and spin-off plans, as written for the converter |
+| `examples/example_menu/` | A menu for authors to copy: movie, quest script, INI (`python -m crui example` into `dist/ExampleMenu`; never in our release) |
+| `docs/` | [`api.md`](docs/api.md), the API for mod authors; the framework, level-up and spin-off plans, as written for the converter |
 | `tests/` | Contract tests between movies, scripts and the DLL, and the reproducible builds |
 
 Stayed in the converter: the FNV table and icon builders (they read FNV
@@ -135,9 +141,11 @@ Status as of 2026-11-14. The full list, in order:
    action menu on a pad's View button, built 2026-11-15, not played
    ([pad](docs/swf_framework.md#pipboy-pad)). Nothing of HUDFramework's
    is used since 2026-11-15 ([why](docs/swf_framework.md#hud)).
-8. **Release**: an example menu for authors and the API in this README;
-   CI that fetches the Flex SDK and builds the movies; release assets;
-   Nexus.
+8. **Release**: the example menu for authors
+   ([example](docs/api.md#example)), the API page with a reference
+   generated from the sources ([API](docs/api.md)), and CI that fetches
+   the Flex SDK and builds the movies, all built 2026-11-15 (CI not yet
+   run on GitHub). Left: release assets, Nexus.
 9. **HUDFramework mods onto our host**, later: a guide for authors and a
    converter players run on their installed mods, using nothing of
    HUDFramework's ([plan](docs/swf_framework.md#hud-migrate)). First a

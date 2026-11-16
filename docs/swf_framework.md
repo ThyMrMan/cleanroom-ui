@@ -39,7 +39,7 @@ licensed way to build menus without starting from decompiled Bethesda files.
 
 | Piece | Done | Not done |
 |---|---|---|
-| **Toolchain** | `mxmlc` builds, byte-stable, every movie we ship; FFDec route deleted; the [movie check](#testing) (`python -m crui check`) | Running the check in CI |
+| **Toolchain** | `mxmlc` builds, byte-stable, every movie we ship; FFDec route deleted; the [movie check](#testing) (`python -m crui check`) | CI runs it on every push (built 2026-11-15, not yet run on GitHub) |
 | **AS3 library** ([design](#design)) | `Bridge`, `Theme`, `Host`, `Text` (with `Text.show` for `$KEY`s and slots), `Draw`; `Input` and `HintBar` ([input](#input)), `ScrollList` ([scroll list](#scroll-list)) and `Modal` ([modal](#modal)), with the dialogue list and the Pip-Boy's list panel on them; `Images` ([images](#images)) with the casino on it (all built, not played) | Every planned class is built; next, playing them |
 | **Own menu** | Casino (Papyrus `UI.RegisterCustomMenu`), HUD color by the menu itself (spike 2b, played) | Registering from the DLL: not needed for color; only if a later menu needs it |
 | **Replace a vanilla movie** | Dialogue menu on our own movie (spike 3, played); its `mxmlc` build. Level-up: our own registered menu opened in place of `LevelUpMenu` from Papyrus, no vanilla file shipped ([open](fo4_level_up_plan.md#open), built) | Both played; if the moment of `LevelUpMenu` first shows, F3NV.dll swapping its constructor |
@@ -48,7 +48,7 @@ licensed way to build menus without starting from decompiled Bethesda files.
 | **DLL side** | GFx helpers (`base.cpp`), Pip-Boy injection (`LoadOverlay`), natives the movies call (`HudColor`, `Log`, `PipboyCardLines`, `PipboyList`, `TextureExists`); other mods' movies in any menu by name or movie file ([inject](#inject)) and a mod's INI to its movie (`Settings`, [settings](#settings)), both built 2026-11-15, not played; GFx logging is F4SE's own ([log](#gfx-log)) | Playing them |
 | **Translations** ([translations](#translations)) | Files named after `FalloutHelpers.esl`, every language with English fallback, our fixed words as `$F3NV_` keys, the key check in preflight (spike 5, played) | The keys played; the Papyrus key check, slot check, per-language counts and test language are [built](#translation-checks) (2026-11-15), the test language not yet looked at in game |
 | **Controller** ([controller](#controller)) | The casino and dialogue menu on `Input` and `HintBar`; the HUD edit menu's [gamepad](#hud-edit) (built, not played) | Playing them with a pad; the Pip-Boy's [action menu](#pipboy-pad) on View (built 2026-11-15, not played); roulette's board on a pad (the converter's) |
-| **Release** ([release](#release)) | Its own repo, Cleanroom UI (GPL-3.0 with the modding exception, private), builds every movie, script, the plugin and both DLLs on its own (`python -m crui`) | An example menu, the API in the README, CI, release assets, the converter on it as a submodule, Nexus |
+| **Release** ([release](#release)) | Its own repo, Cleanroom UI (GPL-3.0 with the modding exception, private), builds every movie, script, the plugin and both DLLs on its own (`python -m crui`) | Release assets, the converter on it as a submodule, Nexus; done 2026-11-15: the example menu, [the API page](api.md), CI |
 
 Shared already:
 - `fo4_import/base/as3/f3ui/`: the AS3 library's first five classes,
@@ -207,6 +207,8 @@ builds byte-identical twice after stripping.
   matches the archive's record for both captures, 2014 and 2016. Installed
   as `frameworks\libs\player\11.2\playerglobal.swc`; `{playerglobalHome}`
   in `frameworks\flex-config.xml` replaced with `libs/player`.
+- **Scripted:** `python -m crui.flex <folder>` does all of the above with
+  both hashes checked (CI uses it); then set `CRUI_FLEX` to the folder.
 - **Command** (run from the SDK folder; in PowerShell quote every
   argument):
   `java -Xmx1024m -jar lib\mxmlc.jar +flexlib=frameworks -target-player=11.2 -swf-version=15 -static-link-runtime-shared-libraries=true -debug=false -default-size 1280 720 -default-frame-rate 30 -source-path=<src> -output=<out.swf> <src>\<Main>.as`.
@@ -1967,9 +1969,11 @@ played, and the rest builds on it. In Cleanroom UI's own build
 8. **Controller**: the Pip-Boy's [action menu](#pipboy-pad) on View, built
    2026-11-15, not played; roulette's board on a pad stays with the converter,
    which keeps the casino.
-9. **The [release](#release)**: an example menu, the API in the README,
-    CI that fetches the Flex SDK, release assets, Nexus; and the
-    [open decisions](#decisions).
+9. **The [release](#release)**: built 2026-11-15, the example menu
+    ([example](api.md#example)), [the API page](api.md) (its reference
+    written by `python -m crui api`) and CI (`python -m crui.flex`
+    installs the Flex SDK, hash-checked); CI not yet run on GitHub.
+    Left: release assets, Nexus, and the [open decisions](#decisions).
 10. **HUDFramework mods onto our host**, later: a guide for authors and a
     converter players run on their installed mods
     ([plan](#hud-migrate)); first a survey of real mods, which waits for
@@ -1983,6 +1987,9 @@ played, and the rest builds on it. In Cleanroom UI's own build
 - **The Pip-Boy framework** as a DLL + movie on Nexus, with the Papyrus API
   and INI format documented.
 - The dialogue menu and the converter use both.
+- **Built 2026-11-15:** [the API page](api.md) for authors, the example
+  menu (`examples/example_menu`, `python -m crui example`), CI on every
+  push (`.github/workflows/build.yml`).
 
 ## <a id="decisions"></a>Open decisions
 

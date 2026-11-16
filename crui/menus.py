@@ -12,20 +12,23 @@ from pathlib import Path
 from crui import CACHE, REPO, mxmlc
 
 MENUS_DIR = REPO / 'menus'
+#: Movies for authors to copy, built and checked but never in the release.
+EXAMPLES_DIR = REPO / 'examples'
 
 
 @dataclass(frozen=True)
 class Menu:
-    """One movie: built from menus/<folder, else name>/as3 with document class `document`, installed at `movie`."""
+    """One movie: built from <root>/<folder, else name>/as3 with document class `document`, installed at `movie`."""
     name: str
     document: str
     movie: str
     folder: str = ''
+    root: Path = MENUS_DIR
 
     @property
     def sources(self) -> Path:
         """The movie's AS3 source folder."""
-        return MENUS_DIR / (self.folder or self.name) / 'as3'
+        return self.root / (self.folder or self.name) / 'as3'
 
 
 #: Each movie, named by its folder (a second movie names its folder's first: the pad menu, the HUD edit menu).
@@ -37,6 +40,8 @@ MENUS = (Menu('level_up', 'CRUI_LevelUp', 'Interface/CRUI_LevelUp.swf'),
          Menu('hud_edit', 'CRUI_HudEdit', 'Interface/CRUI_HudEdit.swf', 'hud'),
          Menu('dialogue', 'DialogueMenuRoot', 'Interface/DialogueMenu.swf'))
 BY_NAME = {menu.name: menu for menu in MENUS}
+#: The example menu for authors (python -m crui example).
+EXAMPLE = Menu('example_menu', 'ExampleMenu', 'Interface/ExampleMenu.swf', root=EXAMPLES_DIR)
 
 
 def compile_movie(menu: Menu, out: Path) -> Path:

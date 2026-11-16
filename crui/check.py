@@ -203,7 +203,8 @@ def problems(menu: menus.Menu, raw: bytes, again: bytes, fonts: 'set | None') ->
 
 
 def check(game_data: 'Path | None') -> bool:
-    """Run the movie check on every menu, printing each problem; True when all pass. Needs the Flex SDK."""
+    """Run the movie check on every menu and the example, printing each problem; True when all pass. Needs the
+    Flex SDK."""
     if not mxmlc.available():
         print(f'[check] the Flex SDK is not at {mxmlc.FLEX}; set CRUI_FLEX')
         return False
@@ -212,7 +213,7 @@ def check(game_data: 'Path | None') -> bool:
         print('[check] no game Data folder with FontConfig.txt (--game); font names not checked')
     ok = True
     with tempfile.TemporaryDirectory() as tmp:
-        for menu in menus.MENUS:
+        for menu in (*menus.MENUS, menus.EXAMPLE):
             builds = [menus.compile_movie(menu, Path(tmp) / f'{menu.name}{n}.swf').read_bytes() for n in (1, 2)]
             found = problems(menu, *builds, fonts)
             print(f'[check] {menu.movie}: ' + ('ok' if not found else '; '.join(found)))

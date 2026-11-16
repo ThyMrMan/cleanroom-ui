@@ -5,6 +5,8 @@
     python -m crui scripts --imports <folder>    # extra Papyrus import folders, searched before the game's
     python -m crui check --game <Fallout 4>/Data   # the movie check (not a build step)
     python -m crui translations --test-language    # every language file stretched and accented, to look for cut text
+    python -m crui example                         # the example menu for authors, into dist/ExampleMenu
+    python -m crui api                             # docs/api.md's reference, from the sources
 """
 
 import argparse
@@ -14,10 +16,11 @@ import subprocess
 import sys
 from pathlib import Path
 
-from crui import POPEN_FLAGS, REPO, check, menus, mxmlc, papyrus, plugin, translations
+from crui import POPEN_FLAGS, REPO, api, check, menus, mxmlc, papyrus, plugin, translations
 
 STEPS = ('plugin', 'translations', 'movies', 'scripts', 'dll')
 DEFAULT_OUT = REPO / 'dist' / 'CleanroomUI'
+EXAMPLE_OUT = REPO / 'dist' / 'ExampleMenu'
 #: CommonLibF4 (CRUI_COMMONLIBF4, else the template's beside this repo) and our patches to its commonlib-shared.
 COMMONLIB = Path(os.environ.get('CRUI_COMMONLIBF4')
                  or REPO.parent / 'tools_ext' / 'commonlibf4-template' / 'lib' / 'commonlibf4')
@@ -77,6 +80,30 @@ def build_scripts(out: Path, imports: list) -> bool:
     return not failed
 
 
+def build_example(out: Path, imports: list) -> bool:
+    """The example menu for authors into its own mod folder <out>: its movie, script and INI; False when one is
+    missing a tool or fails. See: docs/api.md#example"""
+    folder = menus.EXAMPLE.sources.parent
+    plugins = out / 'F4SE' / 'Plugins'
+    plugins.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(folder / 'ExampleMenu.ini', plugins / 'ExampleMenu.ini')
+    movie = menus.install(menus.EXAMPLE, out) if mxmlc.available() else None
+    print(f'[example] {movie or "no movie: the Flex SDK is missing (CRUI_FLEX)"}')
+    if not papyrus.available():
+        print('[example] no script: the Papyrus compiler is missing (CRUI_FALLOUT4)')
+        return False
+    log = papyrus.compile_folder(folder / 'papyrus', out / 'Scripts', imports)
+    built = (out / 'Scripts' / 'ExampleMenu.pex').is_file()
+    print(f'[example] {out / "Scripts" / "ExampleMenu.pex"}' if built else f'[example] the script failed:\n{log}')
+    return built and movie is not None
+
+
+def write_api() -> bool:
+    """Rewrite docs/api.md#reference from the sources."""
+    print(f'[api] {api.PAGE} {"rewritten" if api.write() else "already current"}')
+    return True
+
+
 def _run(command: list, cwd: Path = REPO, env: 'dict | None' = None) -> bool:
     """Run `command` in `cwd` (with `env`), printing its output; whether it succeeded."""
     result = subprocess.run(command, cwd=cwd, env=env, capture_output=True, text=True, **POPEN_FLAGS)
@@ -128,18 +155,20 @@ def build_dll(out: Path) -> bool:
 def main(argv=None) -> int:
     """Run the steps named (or all); 0 when every one succeeded."""
     parser = argparse.ArgumentParser(prog='python -m crui', description=__doc__.splitlines()[0])
-    parser.add_argument('steps', nargs='*', choices=(*STEPS, 'all', 'check'), default=['all'])
-    parser.add_argument('--out', type=Path, default=DEFAULT_OUT, help='the mod folder to write')
+    parser.add_argument('steps', nargs='*', choices=(*STEPS, 'all', 'check', 'example', 'api'), default=['all'])
+    parser.add_argument('--out', type=Path, help='the mod folder to write (dist/CleanroomUI; the example dist/ExampleMenu)')
     parser.add_argument('--imports', type=Path, action='append', default=[], help='extra Papyrus import folder')
     parser.add_argument('--game', type=Path, help="the game's Data folder, for the movie check's font names")
     parser.add_argument('--test-language', action='store_true',
                         help='write every language file in the test language (stretched, accented English)')
     args = parser.parse_args(argv)
     steps = STEPS if 'all' in args.steps else args.steps
+    args.out = args.out or (EXAMPLE_OUT if steps == ['example'] else DEFAULT_OUT)
     ok = {'plugin': lambda: build_plugin(args.out),
           'translations': lambda: build_translations(args.out, args.test_language),
           'movies': lambda: build_movies(args.out), 'scripts': lambda: build_scripts(args.out, args.imports),
-          'dll': lambda: build_dll(args.out), 'check': lambda: check.check(args.game)}
+          'dll': lambda: build_dll(args.out), 'check': lambda: check.check(args.game),
+          'example': lambda: build_example(args.out, args.imports), 'api': write_api}
     results = [ok[step]() for step in steps]
     return 0 if all(results) else 1
 
