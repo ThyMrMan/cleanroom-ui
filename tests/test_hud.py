@@ -140,7 +140,7 @@ def test_boxes_keep_one_size_while_their_part_animates():
     (played 2026-11-15); parts and widgets report every bounds they have had, joined in their own space (Outline)."""
     parts, host = _source(MENU.sources / 'PartLayout.as'), _source(MENU.sources / f'{MENU.document}.as')
     outline = _source(MENU.sources / 'Outline.as')
-    assert 'part.outline.measure(view, stage, ' in parts and 'shown.outline.measure(view, stage)' in host
+    assert 'part.outline.measure(view, stage)' in parts and 'shown.outline.measure(view, stage)' in host
     assert 'view.getBounds(stage)' not in parts and 'joined.union(now)' in outline
 
 
@@ -163,10 +163,16 @@ def test_a_box_behind_another_can_be_picked():
 
 
 def test_a_hidden_part_takes_its_shaded_background_with_it():
-    """Hidden parts are clipped to a dot too (swf_framework.md#hud-edit-fixes)."""
+    """A hidden part keeps only the mask (no scrollRect, which left parts hidden once shown again); the engine's
+    shaded background behind it goes off through its background-quad flag, back on only where we took it off
+    (swf_framework.md#hud-look)."""
     look, parts = _source(MENU.sources / 'Look.as'), _source(MENU.sources / 'PartLayout.as')
-    assert 'view.scrollRect = state.clip;' in look and 'view.scrollRect = null;' in look
-    assert 'part.outline.measure(view, stage, looks.hiddenBounds(view))' in parts
+    native = _source(REPO / 'dll' / 'framework' / 'parts.cpp')
+    assert 'scrollRect' not in look and 'hiddenBounds' not in parts
+    assert 'dll.HudBackgrounds(hidden);' in parts and 'var hidden:Array = looks.hidden();' in parts
+    assert 'states.reset(Flags::kBackgroundQuad);' in native and 'g_quadless.insert(target);' in native
+    assert '} else if (g_quadless.erase(target)) {' in native and 'states.set(Flags::kBackgroundQuad);' in native
+    assert 'Get(at, "parent", &parent)' in native
 
 
 def test_the_host_lays_out_the_hud_parts_from_def_hud_xml():
@@ -176,7 +182,7 @@ def test_the_host_lays_out_the_hud_parts_from_def_hud_xml():
     parts = _source(REPO / 'dll' / 'framework' / 'parts.cpp')
     assert r'".\\Data\\Interface\\DEF_CONF\\DEF_HUD.xml"' in parts
     registered = re.findall(r'RegisterFunction<\w+>\(plugin, movie, "(\w+)"\);', parts)
-    assert registered == ['HudPartLayout', 'HudWeaponCondition', 'HudExtras']
+    assert registered == ['HudPartLayout', 'HudWeaponCondition', 'HudExtras', 'HudBackgrounds']
     assert 'RegisterHudParts(movie, plugin);' in _source(HUD_CPP)
     host = _source(MENU.sources / f'{MENU.document}.as')
     assert 'new PartLayout(dll.HudPartLayout != null ? dll.HudPartLayout() : null, log);' in host

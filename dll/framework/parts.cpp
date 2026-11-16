@@ -22,6 +22,7 @@
 #include <regex>
 #include <sstream>
 #include <string>
+#include <unordered_set>
 
 namespace crui {
 
@@ -126,6 +127,62 @@ public:
     }
 };
 
+// The HUD's shaded backgrounds our host switched off (HudBackgrounds), to switch back on. Only ones found again in the
+// HUD menu are ever touched, so a target of an earlier HUD menu is never read.
+std::unordered_set<RE::BSGFxShaderFXTarget *> g_quadless;
+
+// Whether `target`'s flash object, or a clip above it, is one of `hidden` (identities). Parents up to the HUD's root.
+bool UnderHidden(const RE::BSGFxShaderFXTarget &target, const std::unordered_set<const void *> &hidden) {
+    Value at = target;
+    for (int depth = 0; depth < 16 && at.IsObject(); depth++) {
+        if (hidden.contains(Identity(at))) return true;
+        Value parent;
+        if (!Get(at, "parent", &parent)) return false;
+        at = parent;
+    }
+    return false;
+}
+
+// `target` and the targets under it: background quad off while under a hidden part, back on (only where we took it
+// off) once not.
+void SetQuads(RE::BSGFxShaderFXTarget *target, const std::unordered_set<const void *> &hidden) {
+    using Flags = RE::UIShaderColors::Flags;
+    if (!target) return;
+    auto &states = target->shaderFX.enabledStates;
+    if (UnderHidden(*target, hidden)) {
+        if (states.any(Flags::kBackgroundQuad)) {
+            states.reset(Flags::kBackgroundQuad);
+            g_quadless.insert(target);
+        }
+    } else if (g_quadless.erase(target)) {
+        states.set(Flags::kBackgroundQuad);
+    }
+    for (RE::BSGFxShaderFXTarget *child : target->shaderFXObjects) SetQuads(child, hidden);
+}
+
+// HudBackgrounds(clips): the engine's shaded background (a target's background quad, which EnableShadedBackground
+// turns on and the HUD draws from C++ while the clip and every clip above it is visible) off behind each of `clips`
+// (the parts our host hides) and back on behind any it took it off from that is no longer hidden. Our hiding (a mask)
+// leaves visibility to the engine, so without this the compass's dark band stayed. See
+// docs/swf_framework.md#hud-look
+class BackgroundsNative : public FunctionHandler {
+public:
+    void Call(const Params &params) override {
+        std::unordered_set<const void *> hidden;
+        if (params.argCount > 0 && params.args[0].IsArray()) {
+            for (std::uint32_t i = 0; i < params.args[0].GetArraySize(); i++) {
+                Value clip;
+                if (params.args[0].GetElement(i, &clip) && Identity(clip)) hidden.insert(Identity(clip));
+            }
+        }
+        RE::UI *ui = RE::UI::GetSingleton();
+        Scaleform::Ptr<RE::IMenu> menu = ui ? ui->GetMenu("HUDMenu") : nullptr;
+        if (!menu) return;
+        for (RE::BSGFxShaderFXTarget *target : static_cast<RE::GameMenuBase *>(menu.get())->shaderFXObjects)
+            SetQuads(target, hidden);
+    }
+};
+
 // HudExtras(): {clock (our clock shown), clockRealTime (with the real time under the game's), clock24 (24-hour),
 // powerArmorMeters (the game's HP, AP and ammo kept in power armor), hour (the game's, 0 to 24; -1 not found)}.
 // The host asks a few times a second.
@@ -177,6 +234,7 @@ void RegisterHudParts(Movie *movie, Value *plugin) {
     RegisterFunction<PartLayoutNative>(plugin, movie, "HudPartLayout");
     RegisterFunction<WeaponConditionNative>(plugin, movie, "HudWeaponCondition");
     RegisterFunction<ExtrasNative>(plugin, movie, "HudExtras");
+    RegisterFunction<BackgroundsNative>(plugin, movie, "HudBackgrounds");
 }
 
 }  // namespace crui

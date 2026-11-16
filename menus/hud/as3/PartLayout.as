@@ -64,6 +64,8 @@ package
       // those kept on last frame.
       private static const ARMOR_METERS:Object = {HPMeter_mc: "", ActionPointMeter_mc: "", AmmoCount_mc: "drawn"};
       private var kept:Object = {};
+      // Whether a part was hidden last frame (its shaded background then off).
+      private var quadless:Boolean = false;
 
       // `layout` as HudPartLayout gives it ({preset, settings, parts}, parts empty with no file; or null with no
       // DLL); `log` takes a line.
@@ -189,6 +191,19 @@ package
                looks.apply(part.view, hidden, part.color != null ? Number(part.color) : -1);
             }
          }
+         backgrounds(dll);
+      }
+
+      // The engine's shaded backgrounds off behind every part hidden now and back on behind the rest
+      // (HudBackgrounds), each frame while one is hidden (the engine may turn one on again) and once after.
+      private function backgrounds(dll:Object) : void
+      {
+         var hidden:Array = looks.hidden();
+         if ((hidden.length > 0 || quadless) && dll != null && dll.HudBackgrounds != null)
+         {
+            dll.HudBackgrounds(hidden);
+         }
+         quadless = hidden.length > 0;
       }
 
       // Our clock added to its group under `hud` while [Hud] bClock is on (again when the HUD is made again), and
@@ -357,7 +372,7 @@ package
             {
                part.outline = new Outline();
             }
-            var bounds:Rectangle = part.outline.measure(view, stage, looks.hiddenBounds(view));
+            var bounds:Rectangle = part.outline.measure(view, stage);
             dll.HudReport(name, origin.x / wide, origin.y / high, bounds.x / wide, bounds.y / high,
                           bounds.width / wide, bounds.height / high);
             if (at != null)

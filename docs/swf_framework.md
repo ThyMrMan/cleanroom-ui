@@ -929,11 +929,13 @@ Second play-test, 2026-11-16:
   ours.
 - **The compass's dark band stayed while the compass was hidden** (by its
   rule; it moves with the compass). It is the game's shaded background,
-  drawn from C++ behind the part and sized by the part's bounds, as the
-  dialogue list's is ([dialogue](#dialogue-fixes)); our hide mask hid what
-  Flash draws but left the bounds. A hidden part now also gets a scrollRect
-  of a tenth of a pixel, which shrinks its bounds, and the edit menu keeps
-  the bounds it had as it was hidden (`Look.hiddenBounds`). Not played.
+  drawn from C++ behind the part. A first fix (a scrollRect of a tenth of a
+  pixel, to shrink the part's bounds) was wrong: the engine measures the
+  quad in C++, and the band stayed (played 2026-11-16). Worse, the
+  scrollRect came off only when it read back exactly as written, so parts
+  hidden by Hide Parts stayed hidden once it was turned off. Both fixed
+  through the engine's own switch ([shaded background](#hud-shaded)),
+  played 2026-11-16.
 
 ### <a id="mcm-page"></a>Our MCM page (built 2026-11-16, played 2026-11-16)
 
@@ -1108,6 +1110,22 @@ parts alike, can be hidden and recolored (`menus/hud/as3/Look.as`,
   stats line draws in the color (in place of the HUD color; the warning
   color stays); a widget movie takes it as its multipliers, over what it
   draws.
+- <a id="hud-shaded"></a>**The engine's shaded background** (the
+  compass's dark band; played 2026-11-16). Read in Fallout4.exe 1.11.240
+  (RVAs, base 0x140000000): `HUDMenu`'s `AppendShaderFXInfos` (0xA72B90)
+  calls each of its `shaderFXObjects` (+0x70); a target's background pass
+  (0x1B05000) adds a quad only while its `enabledStates` bit 0
+  (`kBackgroundQuad`, +0x8C) is set, which `EnableShadedBackground`
+  (0x1B04350) sets, and else visits its own `shaderFXObjects` (+0x90).
+  It adds nothing unless the clip and every clip above it are visible
+  with a non-zero alpha (0x1B04610). The quad's rectangle is the clip's
+  bounds measured in C++ (0x1B04AB0), so a mask or scrollRect changes
+  nothing. While parts are hidden, the host passes them to
+  `HudBackgrounds(clips)` each frame (and once after the last is shown):
+  it clears bit 0 on each target that is one of them or sits inside one,
+  and sets it again only where it cleared it. Visibility stays the
+  engine's. Not handled: the engine turning a background off itself while
+  we hold it off (we'd turn it back on); none is known.
 
 **Play check:** a hidden part stays hidden through HUD mode changes,
 power armor, menus and a save load, and shows as the game has it when
@@ -2164,8 +2182,8 @@ played, and the rest builds on it. In Cleanroom UI's own build
      `CleanroomDialogue.ini` brings the row back for a conversion that wants
      it (the converter would ship that INI). Built, not played yet.
    - **The HUD alone:** the host and the edit menu with the mouse played
-     2026-11-15 and 16 (fixes: [hud-edit-fixes](#hud-edit-fixes), the
-     second round and the compass band not played yet); the edit menu now
+     2026-11-15 and 16 (fixes: [hud-edit-fixes](#hud-edit-fixes); the
+     compass band and Hide Parts turning off played); the edit menu now
      opens from our [MCM page](#mcm-page) (a button, a hotkey). Left:
      `DEF_HUD.xml` layouts, `[Hud] sPreset` and `sShow=Immersive`, the
      conditions, a pad, and the [clock and power armor](#hud-extras).

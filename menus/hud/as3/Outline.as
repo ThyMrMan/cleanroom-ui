@@ -13,11 +13,10 @@ package
    {
       private var joined:Rectangle = null;
 
-      // `view`'s outline on `stage` where it is now: its bounds this frame joined with every earlier one. While Look
-      // hides it, its bounds are our clip's, so the ones it had as it was hidden (`hidden`) stand for them.
-      public function measure(view:DisplayObject, stage:DisplayObject, hidden:Rectangle = null) : Rectangle
+      // `view`'s outline on `stage` where it is now: its bounds this frame joined with every earlier one.
+      public function measure(view:DisplayObject, stage:DisplayObject) : Rectangle
       {
-         var now:Rectangle = hidden != null ? hidden : view.getBounds(view);
+         var now:Rectangle = view.getBounds(view);
          if (now.width > 0 || now.height > 0)
          {
             joined = joined == null ? now : joined.union(now);
