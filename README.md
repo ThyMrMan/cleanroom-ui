@@ -1,160 +1,141 @@
 # Cleanroom UI
 
-Cleanroom UI is a menu framework for Fallout 4. It lets mods add their own
-menus, HUD widgets, Pip-Boy lines and lists without shipping a copy of
-Bethesda's interface files.
+Cleanroom UI is a menu framework for Fallout 4. With it you can:
+- move, resize, hide and recolor every part of your HUD;
+- get extra lines, lists and tabs in your Pip-Boy;
+- use a dialogue menu that lists every option.
 
-Every movie, script and DLL here was written from scratch. Nothing is
-decompiled from the game or copied from another mod, so mods built on it
-can share their menus freely and don't fight each other over the same
-replaced file.
+For mod authors, it adds menus, HUD widgets and Pip-Boy lines to your
+mod without shipping a copy of Bethesda's interface files.
 
-> **Status: private and pre-release.** Everything below is built and its
-> tests pass, but most of it hasn't been played in game yet. See
-> [Roadmap](#roadmap).
+Every movie, script and DLL was written from scratch. Nothing is
+decompiled from the game or copied from another mod. Mods built on
+Cleanroom UI can share their menus freely, and they never fight over the
+same replaced file.
+
+> **Pre-release.** Not yet published. See [Roadmap](#roadmap).
 
 ## What you install
 
-Cleanroom UI comes as two separate downloads. Both need
-[F4SE](https://f4se.silverlock.org/) and nothing else.
+Cleanroom UI comes as two separate downloads. Both need only
+[F4SE](https://f4se.silverlock.org/).
 
-| Download | What it is | Who it's for |
+| Download | What's in it | Get it if |
 |---|---|---|
-| **Cleanroom UI** | `CleanroomUI.dll`, `CleanroomUI.esl`, our movies and scripts | Mod authors, and players of the mods built on it. It changes little on its own. |
-| **Cleanroom Dialogue** | `CleanroomDialogue.dll` and its dialogue menu | Players who want a dialogue menu with every option listed. It works without the framework. |
+| **Cleanroom UI** | `CleanroomUI.dll`, `CleanroomUI.esl`, its movies and scripts | You want the HUD editor, or a mod you use needs it. On its own it changes nothing until you use it. |
+| **Cleanroom Dialogue** | `CleanroomDialogue.dll` and its dialogue menu | You want every dialogue option listed instead of the four-button wheel. It works without the other download. |
 
 ## Features
 
-### Your own menus
-
-- **An ActionScript 3 library** (the `crui` package) for building menus
-  that look and feel like the game's: `Theme` takes the player's HUD color,
-  `Draw` and `Text` draw panels and labels in the game's fonts,
-  `ScrollList` is a scrolling list, `Modal` a pop-up, `Images` shows game
-  textures, and `Input` and `HintBar` handle mouse, keyboard and gamepad
-  with the button hints along the bottom.
-- **A bridge to the game.** `Bridge` connects a movie to Papyrus and to our
-  DLL: it sends events to your scripts, reads your mod's INI settings
-  (with MCM's saved copy taking priority), and knows whether our DLL is
-  installed.
-- **Your movie inside any game menu.** Drop an INI into
-  `Data\F4SE\Plugins\CleanroomUI\Menus\` naming a menu and your movie, and
-  the DLL loads your movie into that menu each time it opens. No replaced
-  `.swf` is needed.
-- **An example to copy.** [`examples/example_menu`](examples/example_menu)
-  is a small, complete menu: the movie, a quest script that opens it and
-  listens for its events, and an INI with a setting. Rename it and you
-  have the start of your own. It's explained in
-  [the API guide](docs/api.md#example).
-
 ### The HUD
 
-Cleanroom UI loads its own HUD host into whichever HUD you use (vanilla,
-DEF_HUD or any other). It doesn't replace `HUDMenu.swf`.
+Works with whichever HUD you use: vanilla, DEF_HUD or any other. Nothing
+replaces `HUDMenu.swf`.
 
-- **Widgets.** A mod puts its own movie on the HUD with
-  `CRUI_Hud.AddWidget` and talks to it with `Send`. `AddStats` gives a
-  ready-made line of labels and the player's actor values, in the HUD's
-  font and color, with no movie of your own.
-- **An edit menu** where players move, resize, hide and recolor every
-  widget and every part of the game's own HUD, with the mouse, keyboard or
-  gamepad. It opens from our MCM page (a button or a hotkey). Each save
-  keeps its own layout, which can be backed up and restored.
-- **An MCM page** for the edit menu, the HUD options below and our keys.
-- **Layouts.** It reads DEF_HUD's saved layout (`DEF_HUD.xml`), so players
-  keep theirs, and it has a preset that arranges the HUD like Fallout: New
-  Vegas.
-- **Show only when needed.** Each part can be set to appear only in
-  combat, with a weapon drawn, in V.A.T.S., while aiming or sneaking, in
-  power armor, when its value changes or runs low, or when a key is
-  pressed. Other mods can add conditions of their own.
-- **A clock**, if you want one: the game's time, and your computer's too,
-  placed and colored like any other part.
-- **Health, AP and ammo in power armor**, if you want them: the game hides
-  them there, and this switch keeps them.
+- **Edit your HUD.** Move, resize, hide or recolor any part of the HUD,
+  with the mouse, keyboard or a gamepad. Open the editor from the MCM page
+  or with its hotkey.
+- **One layout per save.** Each save keeps its own layout, and you can
+  back it up and restore it.
+- **Keep your DEF_HUD layout.** Your saved `DEF_HUD.xml` is read as it
+  is. A preset arranges the HUD like Fallout: New Vegas.
+- **Show parts only when you need them.** Set any part to appear only:
+  - in combat
+  - with a weapon drawn
+  - in V.A.T.S.
+  - while aiming or sneaking
+  - in power armor
+  - when its value changes or runs low
+  - while you hold a key
+
+  Other mods can add their own conditions.
+- **A clock** (optional): game time, real time, or both, placed and
+  colored like any other part.
+- **Health, AP and ammo in power armor** (optional). The game hides them
+  in power armor; turn this on to keep them.
 
 ### The Pip-Boy
 
-These work under the vanilla Pip-Boy and alongside FallUI.
+Works with the vanilla Pip-Boy and with FallUI.
 
-- **Item-card lines.** `CRUI_ItemCard.SetLine` adds a labeled line to an
-  item's card in the inventory, for one item or every item with a keyword.
-- **Item condition.** Weapons and armor that wear down show a CND line, in
+- **Item condition.** Weapons and armor that wear down show a CND line in
   the Pip-Boy and in the container and barter menus.
-- **Repair and ammo lists.** Pop-up lists over the item card: repair an
-  item from a spare copy, or pick a weapon's ammo type.
-- **Extra STAT tabs** (`CRUI_Pipboy.SetTab`) for a mod's own pages of
-  values.
-- **Gamepad.** The View button opens a small menu of the item actions in
-  use (Repair, Ammo), since every other button is taken by the Pip-Boy.
+- **Repair and ammo lists.** Repair an item from a spare copy, or pick a
+  weapon's ammo type, from a list over the item card.
+- **Extra item-card lines and STAT tabs**, added by the mods you use.
+- **Gamepad.** The View button opens a small menu of item actions
+  (Repair, Ammo).
 
 ### The level-up menu
 
-A level-up menu of our own, opened in place of the game's. It covers skill
-points, perks, traits and tag skills, lists every DLC's perks, and lets
-other mods add their own skills (`AddSkill`). Its options are on an MCM
-page, and a hotkey opens it.
+Replaces the game's level-up menu. You spend skill points, pick perks,
+traits and tag skills, and see every DLC's perks in one list. Other mods
+can add their own skills. Set it up on its MCM page, or open it with a
+hotkey.
 
 ### The dialogue menu (separate download)
 
-`CleanroomDialogue.dll` replaces the four-button dialogue wheel with a list
-that shows every option. Its options and answers come from text files in
-`Data\F4SE\Plugins\CleanroomDialogue\`, one per plugin. It stays out of the
-way when XDI is installed.
+Replaces the four-button dialogue wheel with a list of every option. It
+turns itself off when XDI is installed.
 
-### For scripts
+### Every language, mouse or gamepad
 
-- **Item condition per stack**, repair and vendor repair, through
-  `CRUI_Condition`.
-- **`CRUI_Array`**, array helpers for scripts converted from xNVSE.
-- **`CRUI_Sex.ChangeSex`**, which changes an actor's sex through the
-  game's own code.
-
-### Translations and gamepads
-
-- **Every game language.** All our text is in translation files, written
-  for every language the game ships. The build checks them for missing or
-  unknown keys and for mismatched placeholders.
-  `python -m crui translations --test-language` writes stretched, accented
-  English to show where a longer translation would be cut off.
-- **Gamepad support** in every menu we ship, through `Input` and
-  `HintBar`.
+- All text is translated for every language the game ships.
+- Every menu works with mouse, keyboard or gamepad, with button hints
+  along the bottom.
 
 ## Compatibility
 
 Cleanroom UI adds to the game's menus rather than replacing them, so most
-UI mods sit beside it. Our HUD loads *into* whichever HUD you use (vanilla,
-DEF_HUD, a replacer), and our edit menu moves and hides the parts that HUD
-has. What it can't reach is anything a mod draws in **its own menu**
-floating over the game: that stays where its mod puts it, set in that
-mod's own options.
+UI mods work beside it. The HUD editor moves and hides the parts of
+whichever HUD you use. It can't move anything another mod draws in **its
+own menu** on top of the game; place those in that mod's own settings.
 
-**HUD widget mods** (checked 2026-11-16: twelve mods that need
-HUDFramework). Cleanroom UI doesn't run them and never loads HUDFramework.
-Their widgets keep working with HUDFramework installed; the plan is a way
-to move them onto our HUD, so the edit menu could place them too
-([survey](docs/swf_framework.md#hud-survey)). Two of them we now offer
-ourselves: a **clock** (as HoloTime) and **health, AP and ammo in power
-armor** (as Power Armor HUD).
+**HUDFramework widget mods** keep working with HUDFramework installed.
+They don't appear in the HUD editor yet. Cleanroom UI has its own clock
+and power armor meters, so you don't need HoloTime or Power Armor HUD for
+those.
 
-**Item condition and Pip-Boy mods** (checked 2026-11-16,
-[details](docs/swf_framework.md#condition-survey)):
+**Item condition and Pip-Boy mods:**
 
-| Mod | Alongside Cleanroom UI |
+| Mod | With Cleanroom UI |
 |---|---|
-| **Equipment Condition Classic** | Works. It keeps condition in the same place we do, so when it's loaded, our own condition display and repair step back and its own show instead (no double CND bars or repair menus). Its HUD bar is its own menu: place it in its MCM, not our edit menu. |
-| **Armor and Weapon Condition (AWC)** | Works. It keeps condition its own way and shows it in item names; nothing of ours touches it. It reads the ammo count from the HUD, which our layouts keep readable. |
-| **Condition Boy** | Works. It draws in its own menu, so our edit menu can't move it (use its MCM). Hide the game's own Vault Boy in our edit menu if you don't want both. It may stay on screen over our own menus. |
+| **Equipment Condition Classic** | Works. When it's installed, Cleanroom UI's condition display and repair turn off and its own show instead, so you never get two CND bars or repair menus. Place its HUD bar in its own MCM page. |
+| **Armor and Weapon Condition (AWC)** | Works. It shows condition in item names, and Cleanroom UI leaves that alone. |
+| **Condition Boy** | Works. Place it in its own MCM page. To avoid two Vault Boys, hide the game's in the HUD editor. It may show over Cleanroom UI's menus. |
 
 ## For mod authors
 
-Start with **[the API guide](docs/api.md)**. It covers what your mod needs,
-how to build your own menu from the example, and has a full reference of
-every script function, every native a movie can call, and every library
-class. The reference is generated from the sources, so it stays current.
+Start with **[the API guide](docs/api.md)**. It covers what your mod
+needs, how to build a menu from the example, and every script function,
+movie native and library class.
 
-Script names, movies and translation keys all start with **`CRUI_`**. Movies
-reach the DLLs as `f4se.plugins.CleanroomUI` and
+What you can build:
+
+- **Your own menus** in ActionScript 3, on the `crui` library. They match
+  the game's look and the player's HUD color, and handle mouse, keyboard
+  and gamepad for you. The library has lists, pop-ups, game textures and
+  button hints.
+- **Your movie inside any game menu.** Add an INI to
+  `Data\F4SE\Plugins\CleanroomUI\Menus\` naming the menu and your movie.
+- **HUD widgets** with `CRUI_Hud.AddWidget`, or a line of labels and
+  actor values with `AddStats` and no movie at all. Players place them in
+  the HUD editor.
+- **Pip-Boy additions:** item-card lines (`CRUI_ItemCard.SetLine`) and
+  STAT tabs (`CRUI_Pipboy.SetTab`).
+- **Item condition per stack**, repair and vendor repair
+  (`CRUI_Condition`).
+- **Level-up skills** of your own (`AddSkill`).
+- **Your mod's settings** in your movie, read from your INI with MCM's
+  saved values first.
+- **Script helpers:** `CRUI_Array` for arrays, and `CRUI_Sex.ChangeSex`.
+
+[`examples/example_menu`](examples/example_menu) is a complete small
+menu: the movie, a quest script that opens it, and an INI setting. Copy
+and rename it to start your own.
+
+Script names, movies and translation keys start with **`CRUI_`**. Movies
+call the DLLs as `f4se.plugins.CleanroomUI` and
 `f4se.plugins.CleanroomDialogue`.
 
 ## Building
@@ -165,91 +146,66 @@ python -m crui check --game "<Fallout 4>/Data"
 python -m pytest
 ```
 
-`all` writes a mod folder ready to install. Each of its six steps also
-runs on its own:
+`all` writes a mod folder ready to install. Each step also runs on its
+own:
 
-| Step | What it builds | What it needs |
+| Step | Builds | Needs |
 |---|---|---|
 | `plugin` | `CleanroomUI.esl` | Python |
 | `translations` | `Interface/Translations/` | Python |
 | `movies` | `Interface/*.swf` | Java and the Apache Flex SDK 4.16.1 with playerglobal 11.2. `python -m crui.flex <folder>` installs both; then set `CRUI_FLEX` to that folder. |
 | `scripts` | `Scripts/*.pex` | Fallout 4's Creation Kit and F4SE's script sources. Set `CRUI_FALLOUT4` if the game isn't found. |
-| `mcm` | `MCM/Config/CleanroomUI/` (our MCM page) | Nothing |
-| `dll` | `F4SE/Plugins/*.dll` | Visual Studio, xmake 3.1 and CommonLibF4 (`CRUI_COMMONLIBF4`). Our patches to CommonLibF4 in `dll/patches/` are applied first. |
+| `mcm` | `MCM/Config/CleanroomUI/` | Nothing |
+| `dll` | `F4SE/Plugins/*.dll` | Visual Studio, xmake 3.1 and CommonLibF4 (`CRUI_COMMONLIBF4`). The patches in `dll/patches/` are applied first. |
 
 Other commands:
 
-- `python -m crui check` builds every movie twice and checks it: the two
-  builds must match, and every font it names must be one the game has
-  (with `--game`, read from the game's own font list).
-- `python -m crui example` builds the example menu into
-  `dist/ExampleMenu`.
+- `python -m crui check` builds every movie twice, checks both builds
+  match, and checks every font is one the game has.
+- `python -m crui translations --test-language` writes stretched, accented
+  English to show where a longer translation would be cut off.
+- `python -m crui example` builds the example menu into `dist/ExampleMenu`.
 - `python -m crui api` regenerates the reference in `docs/api.md`.
 
-Built files never go in git. GitHub Actions builds the plugin, translations
-and movies, runs the movie check and the tests on every push
-([build.yml](.github/workflows/build.yml)). Scripts and DLLs need the game
-and Visual Studio, so they're built locally.
-
-More detail on each tool: [toolchain](docs/swf_framework.md#toolchain),
-[mxmlc setup](docs/swf_framework.md#mxmlc-setup),
-[the DLL port](docs/spin_offs.md#port-status).
+GitHub Actions builds the plugin, translations and movies and runs the
+checks and tests on every push. Scripts and DLLs need the game and Visual
+Studio, so build those locally. Built files never go in git.
 
 ## What's in this repo
 
 | Folder | What's in it |
 |---|---|
 | `as3/crui/` | The ActionScript library |
-| `menus/` | Our own movies: the HUD host and its edit menu, the Pip-Boy overlay and action menu, the level-up menu, the dialogue menu |
-| `papyrus/` | Our Papyrus scripts: the APIs for other mods and the level-up host |
-| `dll/` | Both DLLs (`framework/` and `dialogue/`), the code they share (`base/`), and our patches to CommonLibF4 |
-| `translations/` | Our text, one file per language for each download |
-| `mcm/` | Our MCM page (`cleanroom_ui/`) and the level-up menu's page templates |
-| `examples/` | The example menu for authors (never part of our release) |
-| `crui/` | The build (`python -m crui`) |
-| `docs/` | The API guide and the design notes |
-| `tests/` | Tests that keep the movies, scripts and DLLs in agreement, and check that builds are reproducible |
+| `menus/` | The movies: HUD host and editor, Pip-Boy overlay and action menu, level-up menu, dialogue menu |
+| `papyrus/` | The Papyrus scripts |
+| `dll/` | Both DLLs (`framework/`, `dialogue/`), their shared code (`base/`), and the CommonLibF4 patches |
+| `translations/` | The text, one file per language for each download |
+| `mcm/` | The MCM pages |
+| `examples/` | The example menu for authors |
+| `crui/` | The build |
+| `docs/` | The API guide and design notes |
+| `tests/` | The tests |
 
-The project started inside the
-[FO3/FNV to Fallout 4 converter](https://github.com/ThyMrMan/fo3fnv-in-fo4)
-and was split out with its history. Anything specific to Fallout: New Vegas's
-rules, such as Damage Threshold and Hardcore, stayed in the converter.
+Cleanroom UI began inside the
+[FO3/FNV to Fallout 4 converter](https://github.com/ThyMrMan/fo3fnv-in-fo4).
+New Vegas's own rules, such as Damage Threshold and Hardcore, stay there.
 
 ## Roadmap
 
-The detailed list is in [the framework plan](docs/swf_framework.md#next).
-In short:
-
-1. **Play-test everything.** Cleanroom UI alone on an unmodded Fallout 4
-   is under way: the dialogue menu on vanilla conversations, the HUD edit
-   menu and the MCM page have been played and fixed twice. Left: the rest
-   of the HUD (layouts, presets, show conditions, a gamepad, the clock and
-   power armor), the Pip-Boy, the level-up menu, and other game versions.
-2. **The converter on Cleanroom UI as a submodule.** It already runs on
-   our DLLs from a pinned commit.
-3. **More game versions.** Both DLLs support Steam 1.11.240, old-gen
-   1.10.163 and next-gen 1.10.984 to 1.11.221. GOG waits for an Address
-   Library database.
-4. **What play-testing asks for**: the rest of the HUD options (fades,
-   rotation, parts placed for power armor), and the level-up menu's last
-   open decision.
-5. **Release**: release downloads and the Nexus page. The example menu,
-   API guide, CI and the [compatibility](#compatibility) notes are done.
-6. **Moving HUDFramework mods onto our HUD**, later: a guide for authors
-   and a tool players run on their installed mods
-   ([plan](docs/swf_framework.md#hud-migrate)). It uses nothing of
-   HUDFramework's. Twelve mods surveyed on 2026-11-16: the plain ones can
-   be converted, the big ones (Sim Settlements 2, through WorkshopFramework)
-   need their authors, a clock and the power armor meters we now offer
-   ourselves, and the biggest gap is custom messages
-   ([survey](docs/swf_framework.md#hud-survey)).
-7. **Other mods' menus in the edit menu**, later: moving mods that draw in
-   their own menu (Condition Boy, Equipment Condition Classic's bar), and
-   the APIs condition mods would use
-   ([survey](docs/swf_framework.md#condition-survey)).
+1. **Release:** downloads and a Nexus page.
+2. **More game versions.** Played on Steam 1.11.240. Also built for
+   old-gen 1.10.163 and next-gen 1.10.984 to 1.11.221, not yet played
+   there. GOG needs an Address Library first.
+3. **More testing beside other mods.**
+4. **More HUD options:** fades, rotation, and separate places for parts
+   in power armor.
+5. **HUDFramework widgets in the HUD editor:** a guide for authors, and a
+   tool that moves your installed widget mods onto Cleanroom UI's HUD.
+6. **Other mods' own menus in the HUD editor,** such as Condition Boy and
+   Equipment Condition Classic's bar.
 
 ## License
 
 GPL-3.0, with the modding and linking exceptions in
-[EXCEPTIONS](EXCEPTIONS), so menus and mods built on Cleanroom UI may use
-any license.
+[EXCEPTIONS](EXCEPTIONS). Menus and mods built on Cleanroom UI may use any
+license.
