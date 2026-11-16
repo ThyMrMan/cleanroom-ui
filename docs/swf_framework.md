@@ -2263,14 +2263,27 @@ played, and the rest builds on it. In Cleanroom UI's own build
 - **The Pip-Boy framework** as a DLL + movie on Nexus, with the Papyrus API
   and INI format documented.
 - The dialogue menu and the converter use both.
+- <a id="fomod"></a>**One download with a FOMOD installer** (decided
+  2026-11-16, not built), in place of two downloads:
+  - Cleanroom UI, required.
+  - The dialogue menu, an option ticked by default. A file dependency on
+    `F4SE/Plugins/XDI.dll` marks it not recommended (the DLL already
+    stands down under XDI; this only saves the install).
+  - Patches for popular UI mods, each offered when its mod is installed.
+    A mod handled at runtime (ECC, AWC, Condition Boy, DEF_HUD layouts)
+    gets no patch: a patch must be rebuilt on each of its mod's updates.
+    Candidates: converted HUDFramework widgets ([survey](#hud-survey)),
+    layout presets for popular HUD replacers.
+  - The converter installs from the pinned commit, not the installer.
 - **Built 2026-11-15:** [the API page](api.md) for authors, the example
   menu (`examples/example_menu`, `python -m crui example`), CI on every
   push (`.github/workflows/build.yml`).
 
 ## <a id="decisions"></a>Open decisions
 
-- Where built movies live: release assets only, or an exempt folder in git.
 - Whether the Pip-Boy framework reads PipboyTabs' INI files.
 - Settled 2026-11-15: the prefix is `CRUI_` (scripts, keys, movies) and the
   AS3 package `crui`; nothing to do with HUDFramework, whose author never
   answered ([HUD](#hud)).
+- Settled 2026-11-16: built movies live only in the release download (the
+  [FOMOD](#fomod)), never in git.

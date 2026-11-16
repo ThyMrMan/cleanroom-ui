@@ -17,13 +17,14 @@ same replaced file.
 
 ## What you install
 
-Cleanroom UI comes as two separate downloads. Both need only
+Cleanroom UI is one download with an installer (FOMOD), which works in
+Mod Organizer 2, Vortex and other mod managers. It needs only
 [F4SE](https://f4se.silverlock.org/).
 
-| Download | What's in it | Get it if |
+| Option | What's in it | Pick it if |
 |---|---|---|
-| **Cleanroom UI** | `CleanroomUI.dll`, `CleanroomUI.esl`, its movies and scripts | You want the HUD editor, or a mod you use needs it. On its own it changes nothing until you use it. |
-| **Cleanroom Dialogue** | `CleanroomDialogue.dll` and its dialogue menu | You want every dialogue option listed instead of the four-button wheel. It works without the other download. |
+| **Cleanroom UI** (always installed) | `CleanroomUI.dll`, `CleanroomUI.esl`, its movies and scripts | Always. On its own it changes nothing until you use it. |
+| **Dialogue menu** | `CleanroomDialogue.dll` and its dialogue menu | You want every dialogue option listed instead of the four-button wheel. The installer suggests leaving it off if XDI is installed. |
 
 ## Features
 
@@ -66,14 +67,7 @@ Works with the vanilla Pip-Boy and with FallUI.
 - **Gamepad.** The View button opens a small menu of item actions
   (Repair, Ammo).
 
-### The level-up menu
-
-Replaces the game's level-up menu. You spend skill points, pick perks,
-traits and tag skills, and see every DLC's perks in one list. Other mods
-can add their own skills. Set it up on its MCM page, or open it with a
-hotkey.
-
-### The dialogue menu (separate download)
+### The dialogue menu (optional)
 
 Replaces the four-button dialogue wheel with a list of every option. It
 turns itself off when XDI is installed.
@@ -125,7 +119,11 @@ What you can build:
   STAT tabs (`CRUI_Pipboy.SetTab`).
 - **Item condition per stack**, repair and vendor repair
   (`CRUI_Condition`).
-- **Level-up skills** of your own (`AddSkill`).
+- **A Fallout 3/New Vegas-style level-up menu** for mods that add
+  skill-based leveling: skill points, tag skills, traits and perks, with
+  every DLC's perks in one list and your own skills through `AddSkill`.
+  Nothing opens it in plain Fallout 4, and the game's perk chart is left
+  alone. The FO3/FNV conversion uses it.
 - **Your mod's settings** in your movie, read from your INI with MCM's
   saved values first.
 - **Script helpers:** `CRUI_Array` for arrays, and `CRUI_Sex.ChangeSex`.
@@ -179,7 +177,7 @@ Studio, so build those locally. Built files never go in git.
 | `menus/` | The movies: HUD host and editor, Pip-Boy overlay and action menu, level-up menu, dialogue menu |
 | `papyrus/` | The Papyrus scripts |
 | `dll/` | Both DLLs (`framework/`, `dialogue/`), their shared code (`base/`), and the CommonLibF4 patches |
-| `translations/` | The text, one file per language for each download |
+| `translations/` | The text, one file per language for each DLL |
 | `mcm/` | The MCM pages |
 | `examples/` | The example menu for authors |
 | `crui/` | The build |
@@ -192,15 +190,16 @@ New Vegas's own rules, such as Damage Threshold and Hardcore, stay there.
 
 ## Roadmap
 
-1. **Release:** downloads and a Nexus page.
+1. **Release:** the installer and a Nexus page.
 2. **More game versions.** Played on Steam 1.11.240. Also built for
    old-gen 1.10.163 and next-gen 1.10.984 to 1.11.221, not yet played
    there. GOG needs an Address Library first.
 3. **More testing beside other mods.**
 4. **More HUD options:** fades, rotation, and separate places for parts
    in power armor.
-5. **HUDFramework widgets in the HUD editor:** a guide for authors, and a
-   tool that moves your installed widget mods onto Cleanroom UI's HUD.
+5. **HUDFramework widgets in the HUD editor:** a guide for authors, a
+   tool that moves your installed widget mods onto Cleanroom UI's HUD,
+   and installer patches for the most popular ones.
 6. **Other mods' own menus in the HUD editor,** such as Condition Boy and
    Equipment Condition Classic's bar.
 
