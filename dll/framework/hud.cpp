@@ -1,15 +1,13 @@
 // Our HUD host (docs/swf_framework.md#hud): mods' widgets on the HUD without replacing HUDMenu.swf.
 //
-// A mod adds a widget through CRUI_Hud: a movie of its own (any HUDFramework widget: it implements
-// processMessage(command, params)) or our built-in stats line (labeled actor values with dim, warning and flashing
-// steps). CRUI_Hud (Papyrus) picks the host and tells us (CRUI_HudNative): HUDFramework when it is installed, which
-// then loads the widget movies, and our stats widget (Interface/CRUI_HudStats.swf) for the stats lines; else ours.
-// Each time the HUD movie loads, this file loads our host movie (Interface/CRUI_Hud.swf) into whatever HUD movie is
-// installed, with or without widgets of ours: it also lays out and places the game's own HUD parts (parts.cpp,
-// layout.cpp), and the edit menu needs them measured before it opens, since the HUD may not run under it. Each
-// frame the host and the stats widget ask for the widget list (HudWidgets, only when it changed), the host for the
-// messages sent since (HudMessages), and both for each stats line's values (HudStats). Widgets, stats and messages
-// are forgotten as a save loads or a new game starts; each mod adds its own on every load.
+// A mod adds a widget through CRUI_Hud (Papyrus, which tells us through CRUI_HudNative): a movie of its own (it
+// implements processMessage(command, params)) or our built-in stats line (labeled actor values with dim, warning and
+// flashing steps). Each time the HUD movie loads, this file loads our host movie (Interface/CRUI_Hud.swf) into
+// whatever HUD movie is installed, with or without widgets of ours: it also lays out and places the game's own HUD
+// parts (parts.cpp, layout.cpp), and the edit menu needs them measured before it opens, since the HUD may not run
+// under it. Each frame the host asks for the widget list (HudWidgets, only when it changed), the messages sent since
+// (HudMessages), and each stats line's values (HudStats). Widgets, stats and messages are forgotten as a save loads
+// or a new game starts; each mod adds its own on every load.
 #include "condition.h"
 
 #include <algorithm>
@@ -24,12 +22,11 @@ namespace {
 
 const char *SCRIPT = "CRUI_HudNative", *MENU = "HUDMenu", *HOST = "CRUI_Hud.swf", *HOOKED = "cruiHud";
 
-// A widget: its movie ("" for a stats line), the HUD part it sits under ("" for the HUD itself), its place from
-// that part's top-left, and its host ("" ours; "HUDFramework").
+// A widget: its movie ("" for a stats line), the HUD part it sits under ("" for the HUD itself) and its place from
+// that part's top-left.
 struct Widget {
     std::string name, movie, anchor;
     float x = 0.0f, y = 0.0f;
-    std::string host;
 };
 
 // A stats line: a label and actor value per entry, its steps (dim below, warning from, flashing from) and the global
@@ -61,8 +58,7 @@ const Widget *Find(const std::string &name) {
 }  // namespace
 
 bool OurWidget(const std::string &name) {
-    const Widget *widget = Find(name);
-    return widget && widget->host.empty();
+    return Find(name) != nullptr;
 }
 
 void HudChanged() {
@@ -116,39 +112,23 @@ OpenSink g_openSink;
 
 // ---- Papyrus (CRUI_HudNative, called by CRUI_Hud) ----
 
-// Papyrus: show `movie` (a path under Interface, any HUDFramework widget) as widget `name` under HUD part `anchor`
-// (a clip path from the HUD's root; "" for the HUD itself) at x, y from that part's top-left, on host `host` ("" ours;
-// "HUDFramework", which CRUI_Hud has registered it with).
-void AddWidget(std::monostate, std::string name, std::string movie, float x, float y, std::string anchor,
-               std::string host) {
-    Put({name, movie, anchor, x, y, host});
+// Papyrus: show `movie` (a path under Interface) as widget `name` under HUD part `anchor` (a clip path from the
+// HUD's root; "" for the HUD itself) at x, y from that part's top-left.
+void AddWidget(std::monostate, std::string name, std::string movie, float x, float y, std::string anchor) {
+    Put({name, movie, anchor, x, y});
 }
 
 // Papyrus: show a stats line as widget `name`: each label with its actor value on the player, dim below steps[0],
 // in the HUD's warning color from steps[1] and flashing from steps[2] (fewer steps: those stay off), while `shown`
-// is not 0 (None: always); placed and hosted as AddWidget does a widget.
+// is not 0 (None: always); placed as AddWidget places a widget.
 void AddStats(std::monostate, std::string name, std::vector<std::string> labels,
               std::vector<RE::ActorValueInfo *> values, std::vector<float> steps, RE::TESGlobal *shown, float x,
-              float y, std::string anchor, std::string host) {
+              float y, std::string anchor) {
     {
         std::lock_guard hold(g_lock);
         g_stats[name] = {labels, values, steps, shown};
     }
-    Put({name, "", anchor, x, y, host});
-}
-
-// Papyrus: widget `name`'s host ("" ours, "HUDFramework"); "none" for no such widget.
-std::string HostOf(std::monostate, std::string name) {
-    std::lock_guard hold(g_lock);
-    const Widget *widget = Find(name);
-    return widget ? widget->host : "none";
-}
-
-// Papyrus: widget `name`'s movie ("" for a stats line or no such widget).
-std::string MovieOf(std::monostate, std::string name) {
-    std::lock_guard hold(g_lock);
-    const Widget *widget = Find(name);
-    return widget ? widget->movie : "";
+    Put({name, "", anchor, x, y});
 }
 
 // Papyrus: take widget `name` off the HUD.
@@ -167,7 +147,7 @@ void Send(std::monostate, std::string name, std::string command, std::vector<std
 
 // ---- The host movie's natives (f4se.plugins.CleanroomUI) ----
 
-// Widget `w` as the host takes it, {name, movie, anchor, x, y, host, place}.
+// Widget `w` as the host takes it, {name, movie, anchor, x, y, place}.
 Value WidgetObject(Movie *movie, const Widget &w) {
     Value entry, place;
     movie->CreateObject(&entry);
@@ -176,13 +156,12 @@ Value WidgetObject(Movie *movie, const Widget &w) {
     entry.SetMember("anchor", String(movie, w.anchor));
     entry.SetMember("x", double(w.x));
     entry.SetMember("y", double(w.y));
-    entry.SetMember("host", String(movie, w.host));
     MakePlace(movie, w.name, PlaceOf(w.name), &place);
     entry.SetMember("place", place);
     return entry;
 }
 
-// HudWidgets(version): {version, widgets: [{name, movie, anchor, x, y, host, place: {dx, dy, scale, hidden, color,
+// HudWidgets(version): {version, widgets: [{name, movie, anchor, x, y, place: {dx, dy, scale, hidden, color,
 // show}}]}, or null while the list is still the one numbered `version` (a widget added or removed, or a place
 // changed in the edit menu).
 class WidgetsNative : public FunctionHandler {
@@ -289,8 +268,6 @@ void RegisterHudMenu(Movie *movie, Value *plugin) {
 void RegisterHud(RE::BSScript::IVirtualMachine *vm) {
     vm->BindNativeMethod(SCRIPT, "AddWidget", AddWidget);
     vm->BindNativeMethod(SCRIPT, "AddStats", AddStats);
-    vm->BindNativeMethod(SCRIPT, "HostOf", HostOf);
-    vm->BindNativeMethod(SCRIPT, "MovieOf", MovieOf);
     vm->BindNativeMethod(SCRIPT, "RemoveWidget", RemoveWidget);
     vm->BindNativeMethod(SCRIPT, "Send", Send);
     RegisterShow(vm);

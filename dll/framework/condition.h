@@ -224,8 +224,23 @@ std::int32_t PipboyLineStack(std::uint32_t formID, std::uint32_t nodeID);
 // Whether the repair list is open.
 bool RepairListOpen();
 
+// Whether a mod tracks an item (CRUI_Condition.Track): only then do the REPAIR hint and its key open a list.
+bool RepairInUse();
+
+// Pip-Boy key `key` (a Flash key code) on the Pip-Boy's movie `movie`: the open list's keys, else the ammo or repair
+// key opening its list. On the UI thread.
+void PipboyKey(Movie *movie, int key);
+
 // Give `plugin` (a movie's f4se.plugins.CleanroomUI) the Pip-Boy movie's natives PipboyCardLines and PipboyList.
 void RegisterPipboyMenu(Movie *movie, Value *plugin);
+
+// ---- The Pip-Boy on a pad (pad.cpp; docs/swf_framework.md#pipboy-pad) ----
+
+// Listen for View on a pad, which opens the action menu over the Pip-Boy; once the game has loaded.
+void InstallPad();
+
+// Give `plugin` the action menu's natives PipboyActions, PipboyPress, PipboyListOpen and PipboyActionsDone.
+void RegisterPad(Movie *movie, Value *plugin);
 
 // ---- The ammo list (ammo.cpp; docs/fork/fo4_condition.md#ammo-list) ----
 
@@ -308,7 +323,7 @@ void RegisterShow(RE::BSScript::IVirtualMachine *vm);
 // Widget `name`'s place (the default for none). Held under g_lock.
 HudPlace PlaceOf(const std::string &name);
 
-// Whether widget `name` is on our host (added, not HUDFramework's). Held under g_lock.
+// Whether widget `name` was added. Held under g_lock.
 bool OurWidget(const std::string &name);
 
 // A place changed: the host gets the widget list again. Held under g_lock.

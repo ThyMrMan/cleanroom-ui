@@ -1,6 +1,6 @@
 // Our HUD host's saved layout and its edit menu (docs/swf_framework.md#hud-edit).
 //
-// Each widget on our host (not HUDFramework's), and each of the game's own HUD parts (named "part:" and its clip,
+// Each widget on our host, and each of the game's own HUD parts (named "part:" and its clip,
 // placed by the host's PartLayout from where the game and DEF_HUD.xml put it), may have a place the player gave it:
 // an offset from where it would be, in fractions of the screen, a scale, whether it is hidden, and a color it takes
 // over its own. Places are kept by widget name in Documents\My Games\Fallout4\F4SE\CleanroomUI_Hud.txt, for every

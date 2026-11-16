@@ -18,9 +18,9 @@ package
 
    // Our HUD host. CleanroomUI.dll loads it into the HUD movie (hud.cpp) each time the HUD loads, under any
    // HUDMenu.swf. Each frame it asks CleanroomUI.dll for the widget list when it changed (HudWidgets) and
-   // loads each widget's movie (into the HUD's own class domain, as HUDFramework loads its widgets) or makes a stats
-   // line, under the HUD part the widget names; hands each widget the messages sent to it (HudMessages) through
-   // processMessage(command, params), HUDFramework's widget method, held until the widget has loaded; and redraws
+   // loads each widget's movie (into the HUD's own class domain) or makes a stats line, under the HUD part the
+   // widget names; hands each widget the messages sent to it (HudMessages) through processMessage(command, params),
+   // held until the widget has loaded; and redraws
    // the stats lines (HudStats). Each widget is moved and scaled by the place the player gave it in the edit menu,
    // and where its mod puts it is reported for that menu (HudReport). The game's own HUD parts are laid out from
    // DEF_HUD.xml (HudPartLayout) and placed and reported the same way (PartLayout), again every few frames and as a
@@ -68,8 +68,7 @@ package
          {
             bridge.f4se = null;
          }
-         log("loaded into the HUD (CleanroomUI.dll " + (bridge.natives(DLL) != null ? "found" : "not found")
-             + ", HUDFramework " + (part("HUDFramework") != null ? "found" : "not found") + ")");
+         log("loaded into the HUD (CleanroomUI.dll " + (bridge.natives(DLL) != null ? "found" : "not found") + ")");
          addEventListener(Event.ENTER_FRAME, onFrame);
       }
 
@@ -116,7 +115,7 @@ package
          }
       }
 
-      // Show our widgets of `list` ({version, widgets}; HUDFramework hosts those naming it): add the new ones, re-add
+      // Show the widgets of `list` ({version, widgets}): add the new ones, re-add
       // one whose movie or HUD part changed, move the rest, and take off those no longer listed.
       private function sync(dll:Object, list:Object) : void
       {
@@ -124,10 +123,6 @@ package
          var wanted:Object = {};
          for each (var entry:Object in list.widgets as Array)
          {
-            if (entry.host != "")
-            {
-               continue;
-            }
             wanted[entry.name] = true;
             var shown:Object = widgets[entry.name];
             if (shown != null && (shown.entry.movie != entry.movie || shown.entry.anchor != entry.anchor))

@@ -30,8 +30,7 @@ package
    // to right), the D-pad held moves it (faster the longer it is held), LT and RT scale it, X hides or shows it, Y gives
    // it the next color, A opens its rule list, View (Select) resets it, B saves and closes. The pad's buttons only
    // count while a pad is in use: FO4 sends some keyboard keys as the same controls (R is X, C is LB, V is View).
-   // The game's own HUD parts are here too, named by their clips. Widgets HUDFramework hosts are not here: its own
-   // editor places them.
+   // The game's own HUD parts are here too, named by their clips.
    // See docs/swf_framework.md#hud-edit
    public class CRUI_HudEdit extends MovieClip
    {

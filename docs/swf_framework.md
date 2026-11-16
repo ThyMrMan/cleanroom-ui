@@ -44,10 +44,10 @@ licensed way to build menus without starting from decompiled Bethesda files.
 | **Own menu** | Casino (Papyrus `UI.RegisterCustomMenu`), HUD color by the menu itself (spike 2b, played) | Registering from the DLL: not needed for color; only if a later menu needs it |
 | **Replace a vanilla movie** | Dialogue menu on our own movie (spike 3, played); its `mxmlc` build. Level-up: our own registered menu opened in place of `LevelUpMenu` from Papyrus, no vanilla file shipped ([open](fo4_level_up_plan.md#open), built) | Both played; if the moment of `LevelUpMenu` first shows, F3NV.dll swapping its constructor |
 | **Inject into a vanilla menu** | Pip-Boy (spike 4, played under vanilla); CND, lists and item-card API built | Any of it played; FallUI played; the container and barter [movie](#transfer) (built, not played) |
-| **HUD widget** | `CRUI_Hud`: HUDFramework hosts the widgets when installed, else our host movie loaded into any HUD by `CleanroomUI.dll`; widget movies with HUDFramework's `processMessage`; the built-in stats line ([host](#hud-built)); our host's saved places and edit menu, with a gamepad too ([edit](#hud-edit)); DEF_HUD.xml layouts of the game's parts ([layouts](#hud-layout)), moved and scaled in the edit menu too; the [FNV preset](#fnv-preset) with its [CND bar](#fnv-widgets); [hiding and recoloring](#hud-look) in the edit menu; parts shown on [conditions](#hud-conditions), all five steps (combat, weapon drawn, V.A.T.S., a show key, a value changing or low, the location moving, aiming, sneaking; the Immersive preset; each box's rule in the edit menu; other mods' conditions and rules); all built 2026-11-12 to 13, none played | Played; then, if play asks: fades, `flags`, rotating and opacity in the edit menu, a key to open it without an MCM, the power armor HUD, `color2`, `SafeX`/`SafeY`, `globalscale`, FNV's CND arrows and ammo type, aiming in third person, a pad button for the show key; the converter's Hardcore needs on it (still C++) |
+| **HUD widget** | `CRUI_Hud`: our host movie loaded into any HUD by `CleanroomUI.dll` (nothing of HUDFramework's since 2026-11-15, [why](#hud)); widget movies with a `processMessage` method; the built-in stats line ([host](#hud-built)); our host's saved places and edit menu, with a gamepad too ([edit](#hud-edit)); DEF_HUD.xml layouts of the game's parts ([layouts](#hud-layout)), moved and scaled in the edit menu too; the [FNV preset](#fnv-preset) with its [CND bar](#fnv-widgets); [hiding and recoloring](#hud-look) in the edit menu; parts shown on [conditions](#hud-conditions), all five steps (combat, weapon drawn, V.A.T.S., a show key, a value changing or low, the location moving, aiming, sneaking; the Immersive preset; each box's rule in the edit menu; other mods' conditions and rules); all built 2026-11-12 to 13, none played | Played; then, if play asks: fades, `flags`, rotating and opacity in the edit menu, a key to open it without an MCM, the power armor HUD, `color2`, `SafeX`/`SafeY`, `globalscale`, FNV's CND arrows and ammo type, aiming in third person, a pad button for the show key; the converter's Hardcore needs on it (still C++) |
 | **DLL side** | GFx helpers (`base.cpp`), Pip-Boy injection (`LoadOverlay`), natives the movies call (`HudColor`, `Log`, `PipboyCardLines`, `PipboyList`, `TextureExists`); other mods' movies in any menu by name or movie file ([inject](#inject)) and a mod's INI to its movie (`Settings`, [settings](#settings)), both built 2026-11-15, not played; GFx logging is F4SE's own ([log](#gfx-log)) | Playing them |
 | **Translations** ([translations](#translations)) | Files named after `FalloutHelpers.esl`, every language with English fallback, our fixed words as `$F3NV_` keys, the key check in preflight (spike 5, played) | The keys played; the Papyrus key check, slot check, per-language counts and test language are [built](#translation-checks) (2026-11-15), the test language not yet looked at in game |
-| **Controller** ([controller](#controller)) | The casino and dialogue menu on `Input` and `HintBar`; the HUD edit menu's [gamepad](#hud-edit) (built, not played) | Playing them with a pad; the Pip-Boy "more" button; roulette's board on a pad |
+| **Controller** ([controller](#controller)) | The casino and dialogue menu on `Input` and `HintBar`; the HUD edit menu's [gamepad](#hud-edit) (built, not played) | Playing them with a pad; the Pip-Boy's [action menu](#pipboy-pad) on View (built 2026-11-15, not played); roulette's board on a pad (the converter's) |
 | **Release** ([release](#release)) | Its own repo, Cleanroom UI (GPL-3.0 with the modding exception, private), builds every movie, script, the plugin and both DLLs on its own (`python -m crui`) | An example menu, the API in the README, CI, release assets, the converter on it as a submodule, Nexus |
 
 Shared already:
@@ -380,7 +380,7 @@ log, instead of an empty mount.
 | **Own menu** | Casino, settings screens | Registered by our DLL through CommonLibF4 (`GameMenuBase`), not Papyrus, so flags, depth and HUD color are set in one place and need no restart |
 | **Replace a vanilla movie** | Dialogue menu | Our movie at `Interface\DialogueMenu.swf`, implementing the engine's calls ([contract](dialogue_menu_mod.md#swf)). Only where the engine owns a menu we must take over completely |
 | **Inject into a vanilla menu** | Pip-Boy, container, barter | The DLL loads our small movie into the open menu with a `Loader` and gives it a native API object. No vanilla file is shipped, so DEF_UI, FallUI and the rest keep working |
-| **HUD widget** | HUD elements (our Hardcore needs) | Hosted by HUDFramework when installed, else injected by our DLL ([how](#hud)) |
+| **HUD widget** | HUD elements (our Hardcore needs) | Injected by our DLL into any HUD ([how](#hud)) |
 | **Holotape program** | Possibly casino games, later | An SWF in `Data\Programs` played on the Pip-Boy screen; the same library, with a native bridge. Research only |
 
 ### The DLL side
@@ -574,10 +574,10 @@ From the Pip-Boy survey (S), ranked by what nothing provides today:
 - Power armor and VR use other Pip-Boy screens: check power armor; leave VR
   out of the first release.
 
-### What we take from HUDFramework's design
+### Housekeeping a widget framework needs
 
-The Pip-Boy framework is HUDFramework's job for a different menu, so it
-should do the same housekeeping ([HUDFramework](#hudframework)):
+The same duties any widget framework has, here for the Pip-Boy (read from
+HUDFramework before the [decision](#hud); nothing of it is used):
 - registrations kept in the save and re-applied each time the Pip-Boy
   movie loads;
 - registrations from uninstalled mods cleared on load;
@@ -585,76 +585,76 @@ should do the same housekeeping ([HUDFramework](#hudframework)):
   implements;
 - power armor's Pip-Boy handled as its own layout.
 
-It differs on purpose in one place: it injects through F4SE instead of
-shipping a patched Bethesda movie. That keeps it clear of every Pip-Boy
+It injects through F4SE instead of shipping a patched Bethesda movie. That keeps it clear of every Pip-Boy
 replacer and of Bethesda's files, at the price of PC only.
 
-## <a id="hud"></a>The HUD: work with HUDFramework, never require it
+## <a id="hud"></a>The HUD: our own host, nothing of HUDFramework's
 
-HUDFramework already solves HUD widgets, is installed by millions, and
-keeps up with game versions. A second HUD framework would split authors for
-little gain. But it has no license, so we can't ship, fork or fix it, and
-our mods must not break when it's missing or changes.
+**Decision (2026-11-15): nothing to do with HUDFramework.** Its author
+never answered the license question, so Cleanroom UI neither calls it,
+registers widgets with it, ships a widget for it, nor reads its files.
+Every widget is on our own host. A player who has HUDFramework installed
+still gets our widgets on our host; the two never talk. The research above
+([HUDFramework](#hudframework)) stays as background on what HUD widgets
+need, and nothing built depends on it.
 
-**One widget, two hosts.** Our HUD pieces (first: Hardcore's H2O / FOD / SLP,
-today drawn into `LeftMeters_mc` by `hardcore.cpp`) are one movie built with
-our library. It works under either host, chosen once per game session:
+Our HUD pieces (first: FNV Hardcore's H2O / FOD / SLP, today drawn into
+`LeftMeters_mc` by the converter's `hardcore.cpp`) are widgets built with
+our library, which our DLL injects into whatever `HUDMenu.swf` is loaded
+(vanilla, DEF_HUD, anything), as with the Pip-Boy. Placing, scaling,
+hiding and recoloring them is our own [edit menu](#hud-edit).
 
-| HUDFramework | Host | What the player gets |
-|---|---|---|
-| Installed | HUDFramework loads our movie as a widget; our script registers it | Its saved position, scale and opacity and its drag-to-edit mode, alongside their other widgets |
-| Not installed | Our DLL injects the same movie into whatever `HUDMenu.swf` is loaded (vanilla, DEF_HUD, anything), as with the Pip-Boy | The widget at its default place, settings from our INI |
+Playing nicely with other HUD mods:
+- Ship no `HUDMenu.swf`, and never patch anyone's.
+- Add nothing to the HUD's root under other mods' names; namespace ours.
+- Test with vanilla and DEF_HUD.
 
-How, without depending on it:
-- **No compile dependency.** Our Papyrus finds its quest with
-  `Game.GetFormFromFile` on `HUDFramework.esm`, then calls it through
-  `CastAs("HUDFramework")` and `CallFunction` (vanilla Papyrus), so our
-  scripts compile and run without its `.psc` or `.esm`.
-- **The movie speaks both ways:** it implements `processMessage(command,
-  params)` for HUDFramework, and takes the same commands from our DLL's
-  native calls. Values come from our DLL either way, not through
-  HUDFramework's notification channel, so we add no on-screen message
-  traffic and no throttle.
-- **Detect, don't assume:** the patched HUD sets a `HUDFramework` member on
-  the HUD movie. Our DLL checks for it before injecting, so a widget is never
-  loaded twice.
+### <a id="hud-migrate"></a>Moving HUDFramework mods to our host (planned, later)
 
-Playing nicely:
-- Ship no `HUDMenu.swf`, and never patch theirs.
-- Add nothing to the HUD's root under their names; namespace ours.
-- Follow their power armor switch when hosted; handle it ourselves when not.
-- Test with vanilla, HUDFramework, and HUDFramework's DEF_UI patch.
+About 360 mods require HUDFramework. Two routes move them to our host
+without using anything of HUDFramework's: no calls into it, none of its
+files read or shipped, no script or plugin under its names (the stand-in
+route stays ruled out, [decision](#hud)). Both read only the mods' own
+files.
 
-### What we could add to it
+**How close the two are:** a widget is a movie loaded with a `Loader` into
+the HUD and sent messages through `processMessage(command, params)` under
+both, so many widget movies should run on our host unchanged; one that
+reaches into HUDFramework's own objects, assumes it sits under the compass
+bar, or assumes its coordinates won't. The Papyrus calls differ (about 25
+functions there; `AddWidget`, `Send`, `RemoveWidget`, `AddStats` here), but
+the common ones map nearly one to one. No route covers `Eval` (changing any
+HUD element from Papyrus: nothing here does that, on purpose) or Xbox
+(HUDFramework needs no F4SE; we do).
 
-Only with the author's agreement, offered as contributions, since we can't
-release changes to unlicensed code:
-- **The F4SE fast path it already reserves.** `HUDFramework.psc` calls
-  `HUDFrameworkNative.SendMessageRaw` but forces it off
-  (`StartSession`: "TODO - Unlock this once native functions are
-  implemented"), so every message on PC goes through notification text and
-  a throttle. A small DLL with that native, built on our shared base, would
-  make PC messages instant. Their script must switch it on, so it needs them.
-- **A license.** Asking costs nothing; with one, we could depend on it fully.
+1. **A guide for mod authors**: which calls to swap for `CRUI_Hud`'s, how
+   to turn a start position into an anchor and an offset, and that the
+   widget movie stays as it is. Reaches only authors still active.
+2. **A converter the player runs on their own installed mods**, like our
+   FO3/FNV converter: it rewrites the mod's compiled scripts so its calls go
+   to `CRUI_Hud`, drops the `HUDFramework.esm` master where nothing else in
+   the plugin uses it, keeps the widget movie, and reports the mods it
+   can't convert (`Eval`, deeper HUD use). The output stays on the player's
+   machine; nobody's mod is redistributed.
 
-The Nexus author is registrator2000, very likely reg2k (XDI, MCM). If so,
-one conversation covers this, the [`XDI.esm` stand-in](dialogue_menu_mod.md#decisions)
-and MCM. Neanka (XDI co-author, DEF_UI, PipboyTabs) is the other person to
-ask.
+**First, a survey**, which decides what route 2 can do automatically: per
+mod, which functions it calls, a master or a lookup at run time, `Eval` or
+not, and whether its widget movie uses HUDFramework's own classes. **The
+user will download a set of HUDFramework mods to survey and test
+against**; until then both routes wait. After the release.
 
 ### <a id="hud-built"></a>The host (built 2026-11-13, not played)
 
-`CRUI_Hud` (Papyrus) picks each widget's host; `CleanroomUI.dll`
-(`dll/framework/hud.cpp`, natives on `CRUI_HudNative`, framework version 4)
-keeps the list; `menus/hud/` holds our host movie `CRUI_Hud.swf` and the
-stats widget `CRUI_HudStats.swf`.
-- **`AddWidget(owner, name, movie, x, y, anchor)`** shows a widget movie
-  (a path under `Interface`, as HUDFramework's widgets are).
+`CleanroomUI.dll` (`dll/framework/hud.cpp`, natives on `CRUI_HudNative`,
+framework version 4) keeps the widget list; `CRUI_Hud` (Papyrus) is the API;
+`menus/hud/` holds our host movie `CRUI_Hud.swf`.
+- **`AddWidget(name, movie, x, y, anchor)`** shows a widget movie (a path
+  under `Interface`).
 - **`Send(name, command, params)`** calls the widget's
-  `processMessage(command, params)`, HUDFramework's widget method, held
-  until the widget has loaded.
-- **`AddStats(owner, name, labels, values, steps, shown, x, y, anchor)`**
-  is a built-in widget: a line of labels (a `$KEY` is translated) with the
+  `processMessage(command, params)`, the one method a widget implements,
+  held until the widget has loaded.
+- **`AddStats(name, labels, values, steps, shown, x, y, anchor)`** is a
+  built-in widget: a line of labels (a `$KEY` is translated) with the
   player's actor values, in the HUD's bold font and color. Below `steps[0]`
   a value is dim, from `steps[1]` it takes the HUD's warning color
   (`iHUDColorWarning`), from `steps[2]` it flashes; it shows while the
@@ -665,54 +665,34 @@ stats widget `CRUI_HudStats.swf`.
   widget. Every widget, stats line and message is forgotten as a save loads
   or a new game starts, so each mod adds its own on every load.
 
-**With HUDFramework installed** (`HUDFramework.esm` or `.esp`), it hosts:
-- `CRUI_Hud` reaches it only through vanilla calls
-  (`Utility.CallGlobalFunction("HUDFramework", "GetInstance")`, then
-  `CallFunction`), so nothing of ours needs its scripts or plugin.
-- A widget movie is registered with it (`RegisterWidget`, loaded now and on
-  every game load) **only when it is not registered yet**: registering
-  again puts back our `x`, `y` over the place the player gave it with
-  HUDFramework's editor. `x`, `y` are its first place in HUDFramework's
-  own coordinates; the HUD-part anchor doesn't apply there. `owner` is its
-  owner: HUDFramework drops a widget whose owner is gone and calls the
-  owner's `HUD_WidgetLoaded(widgetID)` when it loads (a missing function
-  only logs a Papyrus error).
-- `Send` goes through its string channel (`SendMessageString`, the params
-  joined with `" | "`, which it splits back into `params`). On PC that is
-  about once a second, a newer message for the same command replacing an
-  older one, since its own fast path is still switched off.
-- Every stats line is drawn by our one stats widget, registered with it,
-  one line under another: the player moves all of them together.
-- `RemoveWidget` unloads and unregisters a widget there too.
-- Our host movie still loads, with no widget of its own: it places the
-  game's own HUD parts ([edit](#hud-edit), [layouts](#hud-layout)).
+Until 2026-11-15 `CRUI_Hud` handed widgets to HUDFramework when it was
+installed (its own owner argument, a `CRUI_HudStats.swf` stats widget for
+it, a host per widget); all of that is gone, so `AddWidget` and `AddStats`
+lost their first argument.
 
-Without it, our host: `CleanroomUI.dll` loads `CRUI_Hud.swf` into whatever
-`HUDMenu.swf` is installed (vanilla, DEF_HUD's) with a `Loader`, as the
-Pip-Boy overlay does, each time the HUD movie loads (until 2026-11-13 only
-once a widget of ours was added; the HUD's own parts need it now). A widget there joins its HUD part (`anchor`: clip names
-from the HUD's root, dotted, e.g. `LeftMeters_mc`), so it moves, hides and
-fades with it, at `x`, `y` from that part's top-left as measured before the
-widget joined; `""` puts it on the HUD itself. Messages reach it on the
-host's next frame, with no notification text or throttle. Each frame the
-host asks `HudWidgets(version)` (null while the list is unchanged),
+`CleanroomUI.dll` loads `CRUI_Hud.swf` into whatever `HUDMenu.swf` is
+installed with a `Loader`, as the Pip-Boy overlay does, each time the HUD
+movie loads (until 2026-11-13 only once a widget of ours was added; the
+HUD's own parts need it now). A widget joins its HUD part (`anchor`: clip
+names from the HUD's root, dotted, e.g. `LeftMeters_mc`), so it moves,
+hides and fades with it, at `x`, `y` from that part's top-left as measured
+before the widget joined; `""` puts it on the HUD itself. Messages reach it
+on the host's next frame, with no notification text or throttle. Each frame
+the host asks `HudWidgets(version)` (null while the list is unchanged),
 `HudMessages()` and `HudStats(name)`; the shared natives gained
 `HudColor(prefix)` and `Log(text)` (the framework DLL had no `Log` since the
 split, so the Pip-Boy movie's lines were lost).
 
 Not built yet: the power armor HUD on our host ([saved places and the
 edit menu](#hud-edit) and the [layout module](#hud-layout) are built), and
-the converter's Hardcore needs on
-`AddStats` in place of `hardcore.cpp`. **Play check:** a test widget and a
-stats line under vanilla, DEF_HUD and HUDFramework (registered once, moved
-in its editor, still there after a save loads); a message reaches the
-widget under both hosts; on our host a widget anchored on a part hides with
-it in menus and power armor.
+the converter's Hardcore needs on `AddStats` in place of `hardcore.cpp`.
+**Play check:** a test widget and a stats line under vanilla and DEF_HUD; a
+message reaches the widget; a widget anchored on a part hides with it in
+menus and power armor.
 
 ### <a id="hud-edit"></a>Saved places and the edit menu (built 2026-11-12, not played)
 
-Our host keeps a place per widget of ours (players without HUDFramework)
-and, since 2026-11-13, per part of the game's own HUD
+Our host keeps a place per widget of ours and, since 2026-11-13, per part of the game's own HUD
 (`dll/framework/layout.cpp`, framework version 5; the parts 8):
 - **A place** is an offset from where the widget's mod puts it, in
   fractions of the screen, and a scale (a quarter to four times). Places are
@@ -745,7 +725,6 @@ and, since 2026-11-13, per part of the game's own HUD
   offset follows it. R puts a part back to the game's (or DEF's) place.
   For this the host now loads into every HUD, with or without widgets: the
   edit menu needs the parts measured before it opens.
-- Widgets HUDFramework hosts are not in it: its own editor places them.
 
 Hiding and recoloring are built ([look](#hud-look)), and parts shown on
 [conditions](#hud-conditions).
@@ -1161,8 +1140,7 @@ gone after loading a save made without the mod.
 **Open questions:** whether a part the engine hides on its own (the enemy
 health meter, the sneak meter) needs any rule at all, or is left out of
 the preset; whether the peek key is press-for-a-while or hold by default
-(Immersive HUD offers both); whether HUDFramework's widgets (placed by its
-editor, not ours) get rules through its own settings or ours.
+(Immersive HUD offers both).
 
 ## <a id="level-up"></a>Our own level-up menu (built 2026-11-12, not played)
 
@@ -1460,7 +1438,7 @@ feature that works only on keyboard is not finished.
 |---|---|---|
 | Dialogue menu | On `Input` and `HintBar` (built 2026-11-12): D-pad (`QuickkeyUp/Down`) moves, A picks, B leaves, hints under the list | Never played with a pad |
 | Casino | On `Input` and `HintBar` (built 2026-11-12): A spins, the D-pad changes the bet, Y bets the most on slots, B leaves; the gamepad cursor flag is set | Never played with a pad; roulette's board is mouse-only |
-| Pip-Boy repair and ammo | **None.** Keyboard only (G, V); hints hidden on a pad, because every gamepad button is taken in the Pip-Boy ([condition](fo4_condition.md#pipboy)) | A way in on a pad |
+| Pip-Boy repair and ammo | View opens our [action menu](#pipboy-pad), which works the lists (built 2026-11-15); on keyboard G and B | Played with a pad |
 | STAT tabs | The game's own tab switching | Check with a pad |
 
 ### <a id="input"></a>`Input` and `HintBar` (built 2026-11-12, not played)
@@ -1634,18 +1612,50 @@ sHudShow=V    ; HUD edit menu: set when the widget under the cursor is shown
 - Not checked: the game's own Pip-Boy keys. A key the Pip-Boy page also
   uses does both (V zooms the Pip-Boy, which is why the ammo key is B).
 
-### The Pip-Boy problem
+### <a id="pipboy-pad"></a>The Pip-Boy on a pad (built 2026-11-15, not played)
 
-Item actions (our Repair and Ammo, and every action other mods register
-through the framework) can't each have a button on a pad. Design:
-- **One "more" button opens an action list** for the highlighted item:
-  every registered action that applies, in a `ScrollList` pop-up. One
-  button for all mods, so actions never fight over buttons.
-- **Which button** is a research item: candidates are a long press on a
-  button the page already uses, a stick click, or a shoulder-plus-button
-  combination. Read what the inventory page leaves free on a pad, and check
-  what FallUI and DEF_INV already use, before choosing.
-- On keyboard, actions keep their own keys (G, V) as well as the list.
+Item actions (our Repair and Ammo) can't each have a button on a pad: one
+**action menu** holds them all, opened by one button.
+
+**Which button (V, read 2026-11-15 from the game's `PipboyMenu.swf` and
+`Pipboy_InvPage.swf`, decompiled into the scratchpad, nothing copied):** the
+inventory page uses A (equip, read, play), B, X (drop), LB (cycle damage,
+component view), RB (favorite), L3 (sort), R3 (inspect); the Pip-Boy menu
+uses Y on every page (Grid View, or LEVEL UP with perk points), the triggers
+(the previous and next page) and the D-pad (tabs and the list). **View is
+the one button neither movie handles**, so it opens the action menu.
+
+**How** (`dll/framework/pad.cpp`, `papyrus/CRUI_PipboyActions.psc`,
+`menus/pipboy/as3/CRUI_PipboyActions.as`):
+- A `MenuControls` input handler (CommonLibF4's `RegisterHandler`, IDs in
+  all three runtimes) watches for View's release on a pad, matched by its
+  raw button (`BS_BUTTON_CODE::kBack`), not a control name, which the
+  Pip-Boy's context may map differently. While the Pip-Boy is open and a
+  mod uses Repair or Ammo, it calls `CRUI_PipboyActions.Open` (the game's
+  VM, `DispatchStaticCall`).
+- `Open` registers and opens an F4SE custom menu, `CRUI_PipboyActions`:
+  flags `0x8000099` (pauses, the menu context and its movement controls,
+  modal, no pause menu; no cursor), depth 10 (above the Pip-Boy's), the
+  HUD's colors. On top, it takes the pad, so A doesn't also equip the item
+  and B doesn't close the Pip-Boy.
+- The menu lists the actions in use (`PipboyActions`: Repair while a mod
+  tracks an item, Ammo while one gives ammo lists) in a `Modal` with a
+  `ScrollList`, and a `HintBar` (A `$CRUI_PAD_CHOOSE`, B `$CRUI_PAD_BACK`).
+- A picks: the menu presses that action's key in the Pip-Boy
+  (`PipboyPress`, which runs the same `PipboyKey` as the Pip-Boy's own key
+  handler). When a list opens, the pop-up goes and the D-pad, A and B work
+  the list as up, down, Enter and Esc, until it closes (`PipboyListOpen`);
+  then the menu closes (`PipboyActionsDone`). A pick that opens nothing (the
+  item card says why: not needed, no spare) closes it at once.
+- On keyboard, actions keep their own keys (G, B) and hints.
+
+**Not known until played:** whether `MenuControls` passes View to our
+handler while the Pip-Boy is open (the log says `View on the pad`); whether
+the engine does something of its own with View there; whether the custom
+menu takes the pad from the Pip-Boy; how a flat menu over the Pip-Boy's 3D
+screen looks. The lists still show their keyboard words (`ENTER) REPAIR`)
+under the menu's pad hints. Other mods registering actions of their own is
+not built.
 
 ### Testing
 
@@ -1800,7 +1810,7 @@ Each spike is one change, played in game.
        runs once per Pip-Boy menu (the `fnvConditionHooked` flag), it makes
        a `flash.display.Loader`, adds it to the menu instance
        (`root.Menu_mc`) and loads `F3NV_Pipboy.swf` (a path under
-       `Data\Interface`, as HUDFramework's widgets load), the same calls as
+       `Data\Interface`), the same calls as
        F4SE's `UI.Load`. Logs `Pip-Boy: F3NV_Pipboy.swf loading`.
      - **The movie** (`fo4_import/pipboy_overlay/as3/F3NV_Pipboy.as`,
        `mxmlc` with `f3ui`, 2,325 bytes): it finds the menu as its Loader's
@@ -1894,8 +1904,8 @@ played, and the rest builds on it. In Cleanroom UI's own build
    `Images` ([play check](#images)), the translated keys.
 4. **The dialogue menu**: its `mxmlc` build, its own words and links folder
    ([dialogue release](spin_offs.md#split-status)).
-5. **The HUD**, each section's play check in turn: the [host](#hud-built)
-   (and under HUDFramework), the [edit menu](#hud-edit) with mouse, keys
+5. **The HUD**, each section's play check in turn: the [host](#hud-built),
+   the [edit menu](#hud-edit) with mouse, keys
    and a pad, the [layouts](#hud-layout), the [FNV preset](#fnv-preset)
    and [CND bar](#fnv-widgets), [hiding and recoloring](#hud-look), the
    [conditions](#hud-conditions).
@@ -1954,11 +1964,16 @@ played, and the rest builds on it. In Cleanroom UI's own build
 7. **Translations**: the Papyrus key check, the slot check, per-language
    counts and a test language, [built](#translation-checks) 2026-11-15;
    next, a look at the test language in game.
-8. **Controller**: the Pip-Boy "more" button, roulette's board on a pad
-   (the casino stays in the converter).
+8. **Controller**: the Pip-Boy's [action menu](#pipboy-pad) on View, built
+   2026-11-15, not played; roulette's board on a pad stays with the converter,
+   which keeps the casino.
 9. **The [release](#release)**: an example menu, the API in the README,
     CI that fetches the Flex SDK, release assets, Nexus; and the
     [open decisions](#decisions).
+10. **HUDFramework mods onto our host**, later: a guide for authors and a
+    converter players run on their installed mods
+    ([plan](#hud-migrate)); first a survey of real mods, which waits for
+    the set of HUDFramework mods the user will download to test against.
 
 ## <a id="release"></a>Release
 
@@ -1972,7 +1987,7 @@ played, and the rest builds on it. In Cleanroom UI's own build
 ## <a id="decisions"></a>Open decisions
 
 - Where built movies live: release assets only, or an exempt folder in git.
-- Library and Papyrus prefix names.
 - Whether the Pip-Boy framework reads PipboyTabs' INI files.
-- Whether to contact HUDFramework's author (license, the F4SE fast path),
-  together with the XDI question.
+- Settled 2026-11-15: the prefix is `CRUI_` (scripts, keys, movies) and the
+  AS3 package `crui`; nothing to do with HUDFramework, whose author never
+  answered ([HUD](#hud)).

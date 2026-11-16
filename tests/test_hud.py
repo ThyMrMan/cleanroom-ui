@@ -23,13 +23,12 @@ def _source(path):
 def test_the_dll_loads_the_host_the_build_installs_into_every_hud():
     """hud.cpp loads HOST (the movie the build installs under Interface) into the HUD's root once per HUD movie, with
     or without widgets of ours (it also places the game's own parts, which the edit menu needs measured before it
-    opens); the host skips HUDFramework's widgets."""
+    opens)."""
     source = _source(HUD_CPP)
     assert 'Interface/' + re.search(r'HOST = "([^"]+)"', source).group(1) == MENU.movie
     hook = source[source.index('void HookMovie()'):source.index('void Hook()')]
     assert hook.index('if (root.HasMember(HOOKED)) return;') < hook.index('LoadChild(movie, root, HOST)')
     assert 'Ours()' not in hook and 'HasPartLayout' not in source
-    assert 'if (entry.host != "")' in _source(MENU.sources / f'{MENU.document}.as')
 
 
 def test_the_movie_calls_every_native_the_dll_registers_for_it():
@@ -42,8 +41,8 @@ def test_the_movie_calls_every_native_the_dll_registers_for_it():
     assert 'RegisterFunction<LogNative>(plugin, movie, "Log");' in _source(REPO / 'dll' / 'base' / 'base.cpp')
 
 
-def test_widgets_take_hudframeworks_method():
-    """Widgets get processMessage(command, params), as under HUDFramework."""
+def test_widgets_take_messages_through_process_message():
+    """Widgets get processMessage(command, params)."""
     assert 'shown.content.processMessage(String(message.command), message.params as Array);' in _source(
         MENU.sources / f'{MENU.document}.as')
 
@@ -57,26 +56,17 @@ def test_the_native_script_declares_every_native_hud_cpp_registers():
     registered = set(re.findall(r'BindNativeMethod\(SCRIPT, "(\w+)"', source + show))
     script = _source(REPO / 'papyrus' / f'{script_name}.psc')
     declared = set(re.findall(r'^\w*\s?Function (\w+)\(.*\) Global Native$', script, re.M))
-    assert registered == declared == {'AddWidget', 'AddStats', 'RemoveWidget', 'Send', 'HostOf', 'MovieOf',
+    assert registered == declared == {'AddWidget', 'AddStats', 'RemoveWidget', 'Send',
                                       'SetCondition', 'SetConditionGlobal', 'RemoveCondition', 'SetShowRule'}
 
 
-def test_hudframework_hosts_when_installed_and_keeps_the_players_place():
-    """CRUI_Hud reaches HUDFramework only through vanilla calls (no compile dependency), registers a widget only
-    when it is not registered yet (registering again resets the place the player gave it), sends through its
-    string channel with the params joined as it splits them, and hosts every stats line in our stats widget."""
-    script = _source(REPO / 'papyrus' / 'CRUI_Hud.psc')
-    code = re.sub(r'\{.*?\}', '', script, flags=re.S).replace('"HUDFramework.esm"', '').replace('"HUDFramework.esp"', '')
-    assert 'Utility.CallGlobalFunction("HUDFramework", "GetInstance", new Var[0]) as ScriptObject' in script
-    assert 'HUDFramework.' not in code and 'As HUDFramework' not in code.replace('as', 'As')
-    register = script[script.index('Function Register('):script.index('String Function Joined')]
-    assert register.index('"IsWidgetRegistered"') < register.index('"RegisterWidget"')
-    assert 'hud.CallFunction("SendMessageString", args)' in script and 'out += " | "' in script
-    stats = menus.BY_NAME['hud_stats']
-    assert f'Register(hud, akOwner, "{stats.movie.removeprefix("Interface/")}", afX, afY)' in script
-    widget = _source(stats.sources / f'{stats.document}.as')
-    assert 'entry.movie == "" && entry.host == "HUDFramework"' in widget
-    assert 'public function processMessage(command:String, params:Array) : void' in widget
+def test_the_hud_stands_alone():
+    """Every widget is on our host: no other HUD framework is reached, and no host is chosen."""
+    for path in (REPO / 'papyrus' / 'CRUI_Hud.psc', REPO / 'papyrus' / 'CRUI_HudNative.psc', HUD_CPP,
+                 MENU.sources / f'{MENU.document}.as'):
+        source = _source(path)
+        assert 'HUDFramework' not in source and 'host ==' not in source and 'asHost' not in source, path.name
+    assert 'hud_stats' not in menus.BY_NAME and not (MENU.sources / 'CRUI_HudStats.as').exists()
 
 
 @pytest.mark.skipif(not mxmlc.available(), reason='the Flex SDK is not installed')
@@ -87,16 +77,6 @@ def test_the_movie_builds_the_same_twice(tmp_path):
     assert not {t.code for t in Swf.parse(raw).tags} & set(mxmlc.DATED)
     for name in (b'CRUI_Hud', b'StatsLine', b'PartLayout', b'FnvPreset', b'ConditionBar', b'HudWidgets',
                  b'HudMessages', b'HudStats', b'HudPartLayout', b'HudWeaponCondition', b'processMessage', b'crui'):
-        assert name in raw
-
-
-@pytest.mark.skipif(not mxmlc.available(), reason='the Flex SDK is not installed')
-def test_the_stats_widget_builds_from_the_hosts_folder(tmp_path):
-    """The stats widget HUDFramework hosts builds from the host's folder, with the same StatsLine."""
-    stats = menus.BY_NAME['hud_stats']
-    assert stats.sources == MENU.sources
-    raw = menus.compile_movie(stats, tmp_path / 'stats.swf').read_bytes()
-    for name in (b'CRUI_HudStats', b'StatsLine', b'HudWidgets', b'HudStats', b'processMessage'):
         assert name in raw
 
 

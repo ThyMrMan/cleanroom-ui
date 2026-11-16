@@ -592,7 +592,7 @@ Animation Replacer in Skyrim:
 |---|---|---|
 | 1. XDI → our [dialogue menu](dialogue_menu_mod.md) | We need it anyway; the most to add | Large, half built |
 | 2. Pip-Boy framework ([plan](swf_framework.md#pipboy)) | No incumbent to replace; builds the injection code the HUD needs | Medium |
-| 3. HUDFramework → HUD on the same injection ([plan](swf_framework.md#hud)) | Ends the `HUDMenu.swf` conflict; instant messages on PC; about 25 Papyrus functions and one widget method to match. The host is built ([host](swf_framework.md#hud-built), not played); the HUDFramework-compatible API waits on its author | Medium once 2 exists |
+| 3. Our own HUD host on the same injection ([plan](swf_framework.md#hud)) | Widgets without replacing `HUDMenu.swf`; instant messages on PC. The host is built ([host](swf_framework.md#hud-built), not played). No HUDFramework-compatible API or stand-in: nothing to do with HUDFramework (decided 2026-11-15) | Medium once 2 exists |
 | 3b. DEF_HUD layouts on the same HUD host ([reading built](swf_framework.md#hud-layout), not played) | Move, scale, recolor and hide the game's own HUD parts without replacing `HUDMenu.swf`; reads `DEF_HUD.xml`; ends the DEF_UI + HUDFramework merge patch | Small on top of 3 |
 | 4. MCM | Works, most depended on, still updated; no clear gain yet | Largest; keep using its file format |
 | 5. DEF_INV-style inventory | Icons, tabs and key-ring roll-ups from sorting mods' tags; FallUI Inventory already holds this space | Large; maybe never |
@@ -648,7 +648,9 @@ not planned.
   updates, and only a shared core makes that affordable.
 
 **Status:** the HUDFramework license question was sent to the author on
-Nexus; waiting for an answer.
+Nexus and never answered. **Decided 2026-11-15: nothing to do with
+HUDFramework** (no calls into it, no widget for it, no stand-in, no
+compatible API); our HUD host stands alone ([HUD](swf_framework.md#hud)).
 
 ## <a id="license"></a>License
 

@@ -23,7 +23,8 @@ namespace crui {
 
 namespace {
 
-// The Pip-Boy's own keys there: Enter, X, R, Q, C, Tab, Z, and T (Grid View); G is free. No gamepad button is.
+// The Pip-Boy's own keys there: Enter, X, R, Q, C, Tab, Z, and T (Grid View); G is free. On a pad only View is
+// (pad.cpp).
 const char *MENU = "PipboyMenu", *LINE = "$CRUI_CND", *HINT = "$CRUI_REPAIR", *HOOKED = "cruiHooked";
 const char *HINT_CLASS = "Shared.AS3.BSButtonHintData", *REPAIR_EVENT = "CRUI_ConditionRepair";
 const std::uint32_t KEYBOARD_MOUSE = 0;  // PlatformChangeEvent.PLATFORM_PC_KB_MOUSE
@@ -101,12 +102,6 @@ bool Resolve(std::uint32_t formID, std::uint32_t nodeID) {
     float health = HealthOf(chosen);
     g_health = health < 0.0f ? 1.0f : health;
     return true;
-}
-
-// Whether a mod tracks an item (CRUI_Condition.Track): only then do the REPAIR hint and G open a list.
-bool RepairInUse() {
-    std::lock_guard hold(g_lock);
-    return !g_tracked.empty();
 }
 
 // Ask Papyrus to repair the highlighted item: the mod's script listens for the F4SE external event.
@@ -324,9 +319,7 @@ public:
     void Call(const Params &params) override {
         Value code;
         if (params.argCount < 1 || !Get(params.args[0], "keyCode", &code) || Typed(params.args[0])) return;
-        int key = int(Num(code));
-        if (g_list.open) ListKey(params.movie, key);
-        else if (!AmmoKey(params.movie, key) && key == KeyCode(OurKey::Repair) && RepairInUse()) OpenList(params.movie);
+        PipboyKey(params.movie, int(Num(code)));
     }
 };
 
@@ -564,6 +557,7 @@ void InstallPipboy() {
     RE::UI *ui = RE::UI::GetSingleton();
     if (ui) ui->GetEventSource<RE::MenuOpenCloseEvent>()->RegisterSink(&g_openSink);
     REX::INFO("Pip-Boy hook {}", ui ? "listening for the menu" : "could not listen for menus");
+    InstallPad();
 }
 
 bool TakePipboyRepair(Repair *out) {
@@ -586,9 +580,20 @@ bool RepairListOpen() {
     return g_list.open;
 }
 
+bool RepairInUse() {
+    std::lock_guard hold(g_lock);
+    return !g_tracked.empty();
+}
+
+void PipboyKey(Movie *movie, int key) {
+    if (g_list.open) ListKey(movie, key);
+    else if (!AmmoKey(movie, key) && key == KeyCode(OurKey::Repair) && RepairInUse()) OpenList(movie);
+}
+
 void RegisterPipboyMenu(Movie *movie, Value *plugin) {
     RegisterFunction<CardLinesNative>(plugin, movie, "PipboyCardLines");
     RegisterFunction<ListNative>(plugin, movie, "PipboyList");
+    RegisterPad(movie, plugin);
 }
 
 }  // namespace crui

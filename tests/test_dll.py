@@ -169,5 +169,5 @@ def test_movies_read_a_mods_settings():
     assert all(f"case '{prefix}'" in _body(base, 'Value Typed(') for prefix in 'biuf')
     bridge = (REPO / 'as3' / 'crui' / 'Bridge.as').read_text(encoding='utf-8')
     assert 'dll.Settings(mod)' in bridge and 'public function attach(stage:Stage)' in bridge
-    for movie in ('pipboy/as3/CRUI_Pipboy.as', 'transfer/as3/CRUI_Transfer.as', 'hud/as3/CRUI_HudStats.as'):
+    for movie in ('pipboy/as3/CRUI_Pipboy.as', 'transfer/as3/CRUI_Transfer.as'):
         assert 'bridge.attach(stage);' in (REPO / 'menus' / movie).read_text(encoding='utf-8')

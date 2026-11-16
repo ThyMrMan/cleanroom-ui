@@ -61,10 +61,10 @@ mods reach the running one with that plugin as their only master
 | `as3/crui/` | The AS3 library: `Host`, `Bridge`, `Theme`, `Draw`, `Text`, `ScrollList`, `Modal`, `Images`, `Input`, `HintBar` |
 | `translations/` | Our words, `$CRUI_KEY<tab>text` per line: a folder per release (`CleanroomUI/`, `CleanroomDialogue/`), one UTF-8 file per language (`en.txt` holds every key) |
 | `menus/level_up/` | The level-up, tag-skill and trait menu (`Interface/CRUI_LevelUp.swf`) |
-| `menus/pipboy/` | The Pip-Boy overlay CleanroomUI.dll loads (`Interface/CRUI_Pipboy.swf`): item-card lines, the list panel |
-| `menus/hud/` | The HUD host CleanroomUI.dll loads (`Interface/CRUI_Hud.swf`): mods' widget movies and the built-in stats line; the stats widget HUDFramework hosts when installed (`Interface/CRUI_HudStats.swf`); the edit menu for our host's widgets (`Interface/CRUI_HudEdit.swf`); and the layout of the game's own HUD parts from `DEF_HUD.xml` (`PartLayout.as`) |
+| `menus/pipboy/` | The Pip-Boy overlay CleanroomUI.dll loads (`Interface/CRUI_Pipboy.swf`): item-card lines, the list panel; the action menu View opens on a pad (`Interface/CRUI_PipboyActions.swf`) |
+| `menus/hud/` | The HUD host CleanroomUI.dll loads (`Interface/CRUI_Hud.swf`): mods' widget movies and the built-in stats line; the edit menu for our host's widgets (`Interface/CRUI_HudEdit.swf`); and the layout of the game's own HUD parts from `DEF_HUD.xml` (`PartLayout.as`) |
 | `menus/dialogue/` | The dialogue menu (`Interface/DialogueMenu.swf`) |
-| `papyrus/` | The level-up host, its holder and its per-plugin tables (`CRUI_LevelUp`, `CRUI_LevelUpHolder`, `CRUI_LevelUpTable`), `CRUI_Array`, and the scripts declaring CleanroomUI.dll's natives (`CRUI_Condition`, `CRUI_Framework`, `CRUI_HudNative`, `CRUI_ItemCard`, `CRUI_LevelUpNative`, `CRUI_Pipboy`, `CRUI_PipboyAmmo`, `CRUI_Sex`), and `CRUI_Hud`, which puts widgets on HUDFramework when installed, else on our host |
+| `papyrus/` | The level-up host, its holder and its per-plugin tables (`CRUI_LevelUp`, `CRUI_LevelUpHolder`, `CRUI_LevelUpTable`), `CRUI_Array`, and the scripts declaring CleanroomUI.dll's natives (`CRUI_Condition`, `CRUI_Framework`, `CRUI_HudNative`, `CRUI_ItemCard`, `CRUI_LevelUpNative`, `CRUI_Pipboy`, `CRUI_PipboyAmmo`, `CRUI_Sex`), `CRUI_Hud`, which puts widgets on our HUD host, and `CRUI_PipboyActions`, which opens the Pip-Boy's action menu |
 | `dll/` | `xmake.lua` building both DLLs on CommonLibF4: `framework/` (CleanroomUI.dll: condition API, Pip-Boy overlay, card lines, tabs, repair and ammo lists, transfer menus, other mods' movies in menus, `ChangeSex`, the game's perk points) and `dialogue/` (CleanroomDialogue.dll), both with `base/` (Flash helpers and the natives every movie may call); `patches/` (ours to CommonLibF4) |
 | `docs/` | The framework, level-up and spin-off plans, as written for the converter |
 | `tests/` | Contract tests between movies, scripts and the DLL, and the reproducible builds |
@@ -86,7 +86,7 @@ Status as of 2026-11-14. The full list, in order:
    the converter on 2026-11-12; the full check and the holder without the
    converter are left), `Input`, `HintBar`, `ScrollList`, `Modal` and
    `Images`, the dialogue menu's own build, words and links, and the whole
-   HUD: the host (also under HUDFramework), saved places and the edit menu
+   HUD: the host, saved places and the edit menu
    (mouse, keys, gamepad), DEF_HUD.xml layouts, the FNV preset and its
    weapon condition bar, hiding and recoloring, and parts shown on
    conditions (combat, weapon drawn, V.A.T.S., a key, a value changing or
@@ -131,11 +131,18 @@ Status as of 2026-11-14. The full list, in order:
    ([inject](docs/swf_framework.md#inject)); the Papyrus key and slot
    checks, per-language counts and a test language
    (`python -m crui translations --test-language`), built 2026-11-15
-   ([checks](docs/swf_framework.md#translation-checks)); the Pip-Boy
-   "more" button on a pad.
+   ([checks](docs/swf_framework.md#translation-checks)); the Pip-Boy's
+   action menu on a pad's View button, built 2026-11-15, not played
+   ([pad](docs/swf_framework.md#pipboy-pad)). Nothing of HUDFramework's
+   is used since 2026-11-15 ([why](docs/swf_framework.md#hud)).
 8. **Release**: an example menu for authors and the API in this README;
    CI that fetches the Flex SDK and builds the movies; release assets;
    Nexus.
+9. **HUDFramework mods onto our host**, later: a guide for authors and a
+   converter players run on their installed mods, using nothing of
+   HUDFramework's ([plan](docs/swf_framework.md#hud-migrate)). First a
+   survey of real mods; the user will download a set of HUDFramework
+   mods to test against.
 
 ## License
 
