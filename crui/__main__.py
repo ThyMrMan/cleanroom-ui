@@ -4,6 +4,7 @@
     python -m crui all --out dist/CleanroomUI
     python -m crui scripts --imports <folder>    # extra Papyrus import folders, searched before the game's
     python -m crui check --game <Fallout 4>/Data   # the movie check (not a build step)
+    python -m crui translations --test-language    # every language file stretched and accented, to look for cut text
 """
 
 import argparse
@@ -35,9 +36,22 @@ def build_plugin(out: Path) -> bool:
     return True
 
 
-def build_translations(out: Path) -> bool:
-    """Both DLLs' words in every game language into <out>/Interface/Translations."""
-    print(f'[translations] {translations.install(out)} files')
+def build_translations(out: Path, test: bool = False) -> bool:
+    """Both releases' words in every game language (with `test`, the test language) into
+    <out>/Interface/Translations, and each release's untranslated keys per language; False on a translation's
+    problems."""
+    try:
+        written = translations.install(out, test=test)
+    except ValueError as error:
+        print(f'[translations] {error}')
+        return False
+    print(f'[translations] {written} files{" in the test language" if test else ""}')
+    for release, missing in translations.untranslated().items():
+        counts = {}
+        for language, count in missing.items():
+            counts.setdefault(count, []).append(language)
+        print(f'[translations] {release} untranslated: ' + '; '.join(
+            f'{count} in {", ".join(languages)}' for count, languages in sorted(counts.items())))
     return True
 
 
@@ -118,9 +132,12 @@ def main(argv=None) -> int:
     parser.add_argument('--out', type=Path, default=DEFAULT_OUT, help='the mod folder to write')
     parser.add_argument('--imports', type=Path, action='append', default=[], help='extra Papyrus import folder')
     parser.add_argument('--game', type=Path, help="the game's Data folder, for the movie check's font names")
+    parser.add_argument('--test-language', action='store_true',
+                        help='write every language file in the test language (stretched, accented English)')
     args = parser.parse_args(argv)
     steps = STEPS if 'all' in args.steps else args.steps
-    ok = {'plugin': lambda: build_plugin(args.out), 'translations': lambda: build_translations(args.out),
+    ok = {'plugin': lambda: build_plugin(args.out),
+          'translations': lambda: build_translations(args.out, args.test_language),
           'movies': lambda: build_movies(args.out), 'scripts': lambda: build_scripts(args.out, args.imports),
           'dll': lambda: build_dll(args.out), 'check': lambda: check.check(args.game)}
     results = [ok[step]() for step in steps]

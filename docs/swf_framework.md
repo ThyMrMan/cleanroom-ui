@@ -46,7 +46,7 @@ licensed way to build menus without starting from decompiled Bethesda files.
 | **Inject into a vanilla menu** | Pip-Boy (spike 4, played under vanilla); CND, lists and item-card API built | Any of it played; FallUI played; the container and barter [movie](#transfer) (built, not played) |
 | **HUD widget** | `CRUI_Hud`: HUDFramework hosts the widgets when installed, else our host movie loaded into any HUD by `CleanroomUI.dll`; widget movies with HUDFramework's `processMessage`; the built-in stats line ([host](#hud-built)); our host's saved places and edit menu, with a gamepad too ([edit](#hud-edit)); DEF_HUD.xml layouts of the game's parts ([layouts](#hud-layout)), moved and scaled in the edit menu too; the [FNV preset](#fnv-preset) with its [CND bar](#fnv-widgets); [hiding and recoloring](#hud-look) in the edit menu; parts shown on [conditions](#hud-conditions), all five steps (combat, weapon drawn, V.A.T.S., a show key, a value changing or low, the location moving, aiming, sneaking; the Immersive preset; each box's rule in the edit menu; other mods' conditions and rules); all built 2026-11-12 to 13, none played | Played; then, if play asks: fades, `flags`, rotating and opacity in the edit menu, a key to open it without an MCM, the power armor HUD, `color2`, `SafeX`/`SafeY`, `globalscale`, FNV's CND arrows and ammo type, aiming in third person, a pad button for the show key; the converter's Hardcore needs on it (still C++) |
 | **DLL side** | GFx helpers (`base.cpp`), Pip-Boy injection (`LoadOverlay`), natives the movies call (`HudColor`, `Log`, `PipboyCardLines`, `PipboyList`, `TextureExists`); other mods' movies in any menu by name or movie file ([inject](#inject)) and a mod's INI to its movie (`Settings`, [settings](#settings)), both built 2026-11-15, not played; GFx logging is F4SE's own ([log](#gfx-log)) | Playing them |
-| **Translations** ([translations](#translations)) | Files named after `FalloutHelpers.esl`, every language with English fallback, our fixed words as `$F3NV_` keys, the key check in preflight (spike 5, played) | The keys played; Papyrus key check; slot and per-language counts; a test language |
+| **Translations** ([translations](#translations)) | Files named after `FalloutHelpers.esl`, every language with English fallback, our fixed words as `$F3NV_` keys, the key check in preflight (spike 5, played) | The keys played; the Papyrus key check, slot check, per-language counts and test language are [built](#translation-checks) (2026-11-15), the test language not yet looked at in game |
 | **Controller** ([controller](#controller)) | The casino and dialogue menu on `Input` and `HintBar`; the HUD edit menu's [gamepad](#hud-edit) (built, not played) | Playing them with a pad; the Pip-Boy "more" button; roulette's board on a pad |
 | **Release** ([release](#release)) | Its own repo, Cleanroom UI (GPL-3.0 with the modding exception, private), builds every movie, script, the plugin and both DLLs on its own (`python -m crui`) | An example menu, the API in the README, CI, release assets, the converter on it as a submodule, Nexus |
 
@@ -1399,9 +1399,9 @@ text is what showed before, word for word.
 - No fixed text widths. German runs about a third longer than English, and
   CJK text breaks lines differently. `Text` measures the text and wraps, or
   shrinks within limits, and lists scroll horizontally only as a last resort.
-- A **test language**: a tool writes a fake translation with every string
-  lengthened and accented (`[Lëävë~~~~]`), installed as a language file. One
-  look in game shows any text that is cut off or never translated.
+- A **test language** ([built](#translation-checks)): every string
+  lengthened and accented (`[Lëävë~~]`), installed as every language's file.
+  One look in game shows any text that is cut off or never translated.
 - Right-to-left scripts: the game doesn't support them; out of scope.
 
 ### Checks
@@ -1421,10 +1421,21 @@ holds the repo to none. `install` writes nothing while `en.txt` has no
 keys. The masterless build installs the files beside the Pip-Boy movie
 (`build_finish`), no longer only with the casino.
 
-Still planned:
-- keys in Papyrus sources too, once those pass `$KEY`s to a menu;
-- each language file has the same `{slots}` as English;
-- a count of untranslated keys per language for the release notes.
+<a id="translation-checks"></a>**Built 2026-11-15** (in Cleanroom UI's
+`crui/translations.py`):
+- **Papyrus keys:** `papyrus/*.psc` is read for `"$CRUI_KEY"` strings too,
+  `;` comment lines left out. No script passes one yet, so the check holds
+  the scripts to none they lack.
+- **Each language keeps English's `{slots}`** and adds no key of its own
+  (`problems`); `install`, and so `python -m crui translations`, fails on
+  either.
+- **Untranslated counts:** the translations step prints, per release, how
+  many English keys each language's source lacks (today 84 for CleanroomUI
+  and 3 for CleanroomDialogue in every language), for the release notes.
+- **The test language:** `python -m crui translations --test-language`
+  writes every language's file as English stretched by a third, accented
+  and bracketed (`Level {0}` becomes `[Lëvël {0}~~~]`), slots kept. Not yet
+  looked at in game.
 
 ### Compatibility
 
@@ -1940,8 +1951,9 @@ played, and the rest builds on it. In Cleanroom UI's own build
 6. **The DLL side**: other mods' movies in any menu ([inject](#inject)) and
    a mod's INI to its movie ([settings](#settings)), built 2026-11-15, not
    played; GFx logging stays F4SE's ([log](#gfx-log)).
-7. **Translations**: the Papyrus key check, slot and per-language counts, a
-   test language.
+7. **Translations**: the Papyrus key check, the slot check, per-language
+   counts and a test language, [built](#translation-checks) 2026-11-15;
+   next, a look at the test language in game.
 8. **Controller**: the Pip-Boy "more" button, roulette's board on a pad
    (the casino stays in the converter).
 9. **The [release](#release)**: an example menu, the API in the README,

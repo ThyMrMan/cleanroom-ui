@@ -5,7 +5,8 @@ plugin, so CleanroomUI's is named after CleanroomUI.esl; the dialogue release sh
 CleanroomDialogue.dll loads its own file through F4SE's reader. Each source holds `$KEY<tab>text` lines; the
 installed file is UTF-16 LE with a BOM and CRLF lines. Every game language gets a file, its missing keys in
 English, since F4SE has no fallback of its own. A key's text may hold `{0}`, `{1}` slots, which crui's Text.fill
-fills.
+fills; a translation must keep English's slots and add no key of its own. The test language puts every key's English
+text, stretched and accented, in each language's file, so one look in game shows cut-off or untranslated text.
 
 See: docs/swf_framework.md#translations
 """
@@ -29,10 +30,18 @@ LIBRARY = REPO / 'as3'
 LINE_LIMIT = 511
 #: Fallout 4's sLanguage values (its own Interface/translate_<language>.txt files).
 LANGUAGES = ('cn', 'de', 'en', 'es', 'esmx', 'fr', 'it', 'ja', 'pl', 'ptbr', 'ru')
-#: The code that shows our keys: the AS3 library, every menu, our DLLs and the MCM page templates.
-CODE = ((LIBRARY, '**/*.as'), (REPO / 'menus', '**/*.as'), (REPO / 'dll', '**/*.cpp'), (REPO / 'mcm', '**/*.json'))
+#: The code that shows our keys: the AS3 library, every menu, our DLLs, the MCM page templates and our scripts.
+CODE = ((LIBRARY, '**/*.as'), (REPO / 'menus', '**/*.as'), (REPO / 'dll', '**/*.cpp'), (REPO / 'mcm', '**/*.json'),
+        (REPO / 'papyrus', '**/*.psc'))
 #: A `"$CRUI_KEY"` string literal, or a template's `"$CRUI_KEY\t`.
 KEY_LITERAL = re.compile(r'"(\$CRUI_[A-Z0-9_]+)(?=["\\])')
+#: A comment line's start: `//` in AS3 and C++, `;` in Papyrus.
+COMMENTS = ('//', ';')
+#: A `{0}` slot, which Text.fill fills.
+SLOT = re.compile(r'(\{\d+\})')
+#: The test language: vowels and a few consonants accented, and a third longer (German runs about that much longer).
+ACCENTS = str.maketrans('aeiouycnAEIOUYCN', 'äëïöüÿçñÄËÏÖÜŸÇÑ')
+STRETCH = 1 / 3
 
 
 def entries(source: Path) -> dict:
@@ -53,16 +62,69 @@ def encoded(table: dict) -> bytes:
     return ('﻿' + ''.join(f'{key}\t{text}\r\n' for key, text in table.items())).encode('utf-16-le')
 
 
-def install(data_dir: Path, sources: Path = SOURCES) -> int:
+def slots(text: str) -> list:
+    """The sorted `{n}` slots of `text`."""
+    return sorted(SLOT.findall(text))
+
+
+def translated(release: str, sources: Path = SOURCES) -> dict:
+    """{language: {key: text}} of `release`'s non-English sources."""
+    folder = Path(sources) / release
+    return {language: entries(folder / f'{language}.txt') for language in LANGUAGES
+            if language != 'en' and (folder / f'{language}.txt').is_file()}
+
+
+def wrong_keys(name: str, english: dict, table: dict) -> list:
+    """What source `name`'s `table` gets wrong against `english`: a key it lacks, or other slots."""
+    out = []
+    for key, text in table.items():
+        if key not in english:
+            out.append(f'{name}: {key} is not in en.txt')
+        elif slots(text) != slots(english[key]):
+            out.append(f'{name}: {key} has slots {slots(text)}, English {slots(english[key])}')
+    return out
+
+
+def problems(sources: Path = SOURCES) -> list:
+    """What every translation gets wrong against its release's English (wrong_keys)."""
+    out = []
+    for release in RELEASES:
+        english = entries(Path(sources) / release / 'en.txt')
+        for language, table in translated(release, sources).items():
+            out += wrong_keys(f'{release}/{language}.txt', english, table)
+    return out
+
+
+def untranslated(sources: Path = SOURCES) -> dict:
+    """{release: {language: how many English keys its source lacks}} for every game language but English."""
+    out = {}
+    for release in RELEASES:
+        english, own = entries(Path(sources) / release / 'en.txt'), translated(release, sources)
+        out[release] = {language: len(set(english) - set(own.get(language, {})))
+                        for language in LANGUAGES if language != 'en'}
+    return out
+
+
+def pseudo(text: str) -> str:
+    """`text` in the test language (accented, longer, bracketed), slots kept."""
+    body = ''.join(part if SLOT.fullmatch(part) else part.translate(ACCENTS) for part in SLOT.split(text))
+    return f'[{body}{"~" * max(1, round(len(text) * STRETCH))}]'
+
+
+def install(data_dir: Path, sources: Path = SOURCES, test: bool = False) -> int:
     """Write <data_dir>/Interface/Translations/<release>_<language>.txt for every release and game language
-    (English under the language's own source); how many were written."""
+    (English under the language's own source; with `test`, the test language in every file); how many were
+    written. ValueError when a translation has problems()."""
+    wrong = problems(sources)
+    if wrong:
+        raise ValueError('translations: ' + '; '.join(wrong))
     folder = Path(data_dir) / 'Interface' / 'Translations'
     folder.mkdir(parents=True, exist_ok=True)
     for release in RELEASES:
-        english = entries(Path(sources) / release / 'en.txt')
+        english, own = entries(Path(sources) / release / 'en.txt'), translated(release, sources)
+        pseudo_table = {key: pseudo(text) for key, text in english.items()}
         for language in LANGUAGES:
-            own = Path(sources) / release / f'{language}.txt'
-            table = {**english, **(entries(own) if own.is_file() else {})}
+            table = pseudo_table if test else {**english, **own.get(language, {})}
             (folder / f'{release}_{language}.txt').write_bytes(encoded(table))
     return len(RELEASES) * len(LANGUAGES)
 
@@ -76,14 +138,14 @@ def releases_of(path: Path) -> tuple:
 
 def used_keys(release: str = PLUGIN, code=CODE) -> dict:
     """{key: [files]} of the `"$CRUI_KEY"` strings in the files of `code` ((folder, glob) pairs) that `release`
-    ships, `//` comment lines left out."""
+    ships, comment lines left out."""
     out = {}
     for folder, pattern in code:
         for path in sorted(Path(folder).glob(pattern)):
             if release not in releases_of(path):
                 continue
             lines = path.read_text(encoding='utf-8').splitlines()
-            text = '\n'.join(line for line in lines if not line.lstrip().startswith('//'))
+            text = '\n'.join(line for line in lines if not line.lstrip().startswith(COMMENTS))
             for key in KEY_LITERAL.findall(text):
                 out.setdefault(key, []).append(path.name)
     return out

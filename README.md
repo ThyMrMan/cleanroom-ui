@@ -128,8 +128,11 @@ Status as of 2026-11-14. The full list, in order:
 7. **The DLL side, translations, controller**: other mods' movies in any
    menu (`CleanroomUI\Menus\*.ini`) and a mod's INI to its movie
    (`Settings`), both built 2026-11-15, not played
-   ([inject](docs/swf_framework.md#inject)); the Papyrus key check and a
-   test language; the Pip-Boy "more" button on a pad.
+   ([inject](docs/swf_framework.md#inject)); the Papyrus key and slot
+   checks, per-language counts and a test language
+   (`python -m crui translations --test-language`), built 2026-11-15
+   ([checks](docs/swf_framework.md#translation-checks)); the Pip-Boy
+   "more" button on a pad.
 8. **Release**: an example menu for authors and the API in this README;
    CI that fetches the Flex SDK and builds the movies; release assets;
    Nexus.
