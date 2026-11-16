@@ -15,7 +15,8 @@
 //   (keyboard only; a key also bound in game does both).
 // - aiming (step 3): the player aims down the sights (the player camera in its iron sights state) or through a
 //   scope (ScopeMenu open). Third person's over-the-shoulder aim isn't a camera state of its own and doesn't count.
-// Step 3's sneaking is the host's: the game's sneak meter on screen (ShowRules.as).
+// Step 3's sneaking is the host's: the game's sneak meter on screen (ShowRules.as); so is powerarmor, the game's
+// HUD in its power armor mode (docs/swf_framework.md#hud-extras).
 // Step 2's are worked out by the host (ShowRules.as) from what it reads: changed (the box's value or text changed),
 // low (its value under a threshold) and moved (the location text or the quest updates changed). The values come
 // from HudValues: the player's health and AP as fractions, rads, the equipped weapon and its condition.
@@ -67,8 +68,8 @@ float g_linger = DEFAULT_LINGER;
 
 // The script our Papyrus natives are on, and the conditions of ours (a mod's can't take these names).
 const char *SCRIPT = "CRUI_HudNative";
-const char *BUILT_IN[] = {"combat", "drawn", "vats", "peek", "aiming", "sneaking", "changed", "low", "moved",
-                          "always", "linger"};
+const char *BUILT_IN[] = {"combat", "drawn", "vats", "peek", "aiming", "sneaking", "powerarmor", "changed", "low",
+                          "moved", "always", "linger"};
 
 // ---- Other mods' conditions and default rules (Papyrus, CRUI_HudNative, called by CRUI_Hud) ----
 

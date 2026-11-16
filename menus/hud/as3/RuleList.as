@@ -13,11 +13,11 @@ package
    public class RuleList extends Sprite
    {
       // The conditions, in the list's order, and each row's words.
-      public static const CONDITIONS:Array = ["combat", "drawn", "aiming", "sneaking", "vats", "changed", "low",
-                                              "moved", "peek"];
+      public static const CONDITIONS:Array = ["combat", "drawn", "aiming", "sneaking", "powerarmor", "vats", "changed",
+                                              "low", "moved", "peek"];
       private static const WORDS:Object = {
          combat: "$CRUI_SHOW_COMBAT", drawn: "$CRUI_SHOW_DRAWN", aiming: "$CRUI_SHOW_AIMING",
-         sneaking: "$CRUI_SHOW_SNEAKING", vats: "$CRUI_SHOW_VATS", changed: "$CRUI_SHOW_CHANGED", low: "$CRUI_SHOW_LOW",
+         sneaking: "$CRUI_SHOW_SNEAKING", powerarmor: "$CRUI_SHOW_POWERARMOR", vats: "$CRUI_SHOW_VATS", changed: "$CRUI_SHOW_CHANGED", low: "$CRUI_SHOW_LOW",
          moved: "$CRUI_SHOW_MOVED", peek: "$CRUI_SHOW_PEEK"};
       private static const PRESET:int = 0;
       private static const ALWAYS:int = 1;

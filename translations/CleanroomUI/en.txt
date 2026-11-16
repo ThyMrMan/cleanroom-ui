@@ -38,6 +38,7 @@ $CRUI_LU_PICK_FULL	Untag or drop one first.
 $CRUI_LU_TAG_MORE	Tag {0} more.
 $CRUI_LU_OWN_TEST	Its own requirements
 $CRUI_CND	CND
+$CRUI_CLOCK_REAL	REAL {0}
 $CRUI_REPAIR	REPAIR
 $CRUI_AMMO	AMMO
 $CRUI_REPAIR_SKILL	REPAIR SKILL
@@ -79,6 +80,14 @@ $CRUI_MCM_IMMERSIVE	Hide parts while not needed
 $CRUI_MCM_IMMERSIVE_HELP	Health, ammo and the rest show only in combat, with a weapon drawn, as they change or while the peek key is held.
 $CRUI_MCM_LINGER	Seconds a part stays
 $CRUI_MCM_LINGER_HELP	How long a part stays on screen after the last reason to show it ends.
+$CRUI_MCM_CLOCK	Clock
+$CRUI_MCM_CLOCK_HELP	Shows the game's time at the top right. Move it, color it or set when it shows in the HUD edit menu. Applies when you return to the game.
+$CRUI_MCM_CLOCK_REAL	Clock: real time too
+$CRUI_MCM_CLOCK_REAL_HELP	Shows your computer's time under the game's.
+$CRUI_MCM_CLOCK_24	Clock: 24-hour
+$CRUI_MCM_CLOCK_24_HELP	On: 20:05. Off: 8:05 PM.
+$CRUI_MCM_ARMOR_METERS	Health, AP and ammo in power armor
+$CRUI_MCM_ARMOR_METERS_HELP	The game hides its health and AP meters and ammo count in power armor. On: they stay, the ammo with a weapon out. Rules set in the HUD edit menu still apply.
 $CRUI_MCM_EDIT_KEYS	HUD edit menu keys
 $CRUI_MCM_KEY_RESET	Reset
 $CRUI_MCM_KEY_HIDE	Hide or show
@@ -100,6 +109,7 @@ $CRUI_SHOW_COMBAT	IN COMBAT
 $CRUI_SHOW_DRAWN	WEAPON OUT
 $CRUI_SHOW_AIMING	AIMING
 $CRUI_SHOW_SNEAKING	SNEAKING
+$CRUI_SHOW_POWERARMOR	IN POWER ARMOR
 $CRUI_SHOW_VATS	IN V.A.T.S.
 $CRUI_SHOW_CHANGED	AS ITS VALUE CHANGES
 $CRUI_SHOW_LOW	WHILE LOW

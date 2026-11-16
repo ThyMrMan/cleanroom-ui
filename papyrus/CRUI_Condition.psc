@@ -20,7 +20,10 @@ Bool Function SetStackHealth(ObjectReference akHolder, Form akItem, Int aiStack,
 {SetHealth on stack aiStack of akItem, chosen as GetStackHealth chooses it.}
 
 Function Track(Form[] akItems) Global Native
-{akItems wear: the Pip-Boy shows their condition (CND) on the item card. Adds to the items other mods track; the REPAIR hint and G key appear only once some mod tracks an item.}
+{akItems wear: the Pip-Boy shows their condition (CND) on the item card. Adds to the items other mods track; the REPAIR hint and G key appear only once some mod tracks an item. Does nothing while ConditionOwner() names a mod.}
+
+String Function ConditionOwner() Global Native
+{The plugin of a mod that owns item condition itself (Equipment Condition Classic: "EquipmentConditionClassic.esm"), or "". While one is loaded, Track and TrackRepair do nothing, so ours stays off; a mod that wears items should stop too.}
 
 Form Function PipboySelection() Global Native
 {The item highlighted in the Pip-Boy's inventory when it wears; None otherwise.}

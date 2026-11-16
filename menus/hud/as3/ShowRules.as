@@ -13,6 +13,8 @@ package
    // - combat, drawn, vats, peek, aiming: from the DLL (HudState), once a frame.
    // - sneaking: the game's sneak meter (StealthMeter_mc) is on screen: it and every clip above it visible and not
    //   faded out. The engine shows it only while the player sneaks; our own hiding (a mask) doesn't change that.
+   // - powerarmor: the game's HUD is in its power armor mode (the active effects widget's bInPowerArmorMode, which
+   //   the engine sets as the player enters and leaves a frame).
    // - changed: the box's value changed (a meter's, from HudValues, a few times a second: HP, AP, rads, the CND
    //   bar's condition), or, for a part with no value (the ammo count, the explosives count, ...), the text it shows.
    // - low (low:F for a threshold F from 0 to 1): the box's value is under F (HP, AP, the CND bar: 0.5 by default),
@@ -26,9 +28,12 @@ package
       private static const VALUES:Object = {
          "part:HPMeter_mc": "health", "part:ActionPointMeter_mc": "ap", "part:RadsMeter_mc": "rads",
          "part:CRUI_WeaponCondition_mc": "condition"};
-      // The parts the host hands update(): those whose text `moved` watches, then the sneak meter.
-      public static const WATCHED:Array = ["LocationText_mc", "QuestUpdates_mc", "StealthMeter_mc"];
+      // The parts the host hands update(): those whose text `moved` watches, the sneak meter, then the active effects
+      // widget (powerarmor).
+      public static const WATCHED:Array = ["LocationText_mc", "QuestUpdates_mc", "StealthMeter_mc",
+                                           "HUDActiveEffectsWidget_mc"];
       private static const MOVED:int = 2;
+      private static const POWER:int = 3;
       // How faded a clip may be and still count as on screen.
       private static const SHOWN_ALPHA:Number = 0.05;
       // The ammo count's part (low is its magazine).
@@ -50,9 +55,11 @@ package
       // The ammo count: the fullest magazine seen, and the weapon it was seen with.
       private var fullest:Number = 0;
       private var fullestWeapon:Number = -1;
-      // The frame `moved` last held on, and whether the sneak meter is on screen.
+      // The frame `moved` last held on, whether the sneak meter is on screen, and whether the HUD is in its power
+      // armor mode.
       private var movedFrame:int = -1;
       private var sneaking:Boolean = false;
+      private var powerArmor:Boolean = false;
       private var log:Function;
       private var seen:Object = {};
 
@@ -62,8 +69,8 @@ package
          this.log = log;
       }
 
-      // The conditions now, from `dll` (HudState each frame, HudValues every few), and `moved` and `sneaking` from
-      // the parts `watched` (WATCHED's views, null where not found).
+      // The conditions now, from `dll` (HudState each frame, HudValues every few), and `moved`, `sneaking` and
+      // `powerarmor` from the parts `watched` (WATCHED's views, null where not found).
       public function update(dll:Object, watched:Array) : void
       {
          state = dll != null && dll.HudState != null ? dll.HudState() : null;
@@ -81,6 +88,17 @@ package
             }
          }
          sneaking = watched != null && onScreen(watched[MOVED]);
+         powerArmor = watched != null && inPowerArmor(watched[POWER]);
+      }
+
+      // Whether condition `word` holds now: one of the DLL's (HudState) or the host's sneaking and powerarmor.
+      public function holds(word:String) : Boolean
+      {
+         if (word == "sneaking" || word == "powerarmor")
+         {
+            return word == "sneaking" ? sneaking : powerArmor;
+         }
+         return state != null && state[word] == true;
       }
 
       // Whether box `name` under rule `rule` ("" or null: always) is shown now; `view` is the part (null for a
@@ -118,6 +136,10 @@ package
             else if (word == "sneaking")
             {
                holds = holds || sneaking;
+            }
+            else if (word == "powerarmor")
+            {
+               holds = holds || powerArmor;
             }
             else if (state[word] === undefined)
             {
@@ -213,6 +235,19 @@ package
             alpha *= at.alpha;
          }
          return alpha > SHOWN_ALPHA;
+      }
+
+      // Whether the HUD is in its power armor mode, as active effects widget `view` holds it.
+      private static function inPowerArmor(view:DisplayObject) : Boolean
+      {
+         try
+         {
+            return view != null && Object(view).bInPowerArmorMode == true;
+         }
+         catch (error:Error)
+         {
+         }
+         return false;
       }
 
       // The text `view` shows: its text fields' text, in order, joined (null for no view).

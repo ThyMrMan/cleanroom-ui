@@ -10,10 +10,15 @@
 //
 // The FNV preset's own widget, the weapon condition (CND) bar, reads the equipped weapon's condition here
 // (HudWeaponCondition; docs/swf_framework.md#fnv-widgets).
+//
+// Our other HUD parts' settings and the game's hour (HudExtras; docs/swf_framework.md#hud-extras): the clock
+// ([Hud] bClock, bClockRealTime, bClock24) and the game's meters kept in power armor ([Hud] bPowerArmorMeters), read
+// again as the HUD loads and as the pause menu closes (ReadPartSettings), so MCM's changes apply then.
 #include "condition.h"
 
 #include <cstdlib>
 #include <fstream>
+#include <mutex>
 #include <regex>
 #include <sstream>
 #include <string>
@@ -23,6 +28,15 @@ namespace crui {
 namespace {
 
 const char *FILE_PATH = ".\\Data\\Interface\\DEF_CONF\\DEF_HUD.xml";
+// Fallout4.esm's GameHour global (0 to 24).
+const std::uint32_t GAME_HOUR = 0x38;
+
+// Our other parts' settings (ReadPartSettings), under g_extrasLock.
+struct Extras {
+    bool clock = false, clockRealTime = false, clock24 = false, powerArmorMeters = false;
+};
+std::mutex g_extrasLock;
+Extras g_extras;
 
 // File `path`'s text; "" when it can't be read.
 std::string ReadText(const char *path) {
@@ -112,7 +126,40 @@ public:
     }
 };
 
+// HudExtras(): {clock (our clock shown), clockRealTime (with the real time under the game's), clock24 (24-hour),
+// powerArmorMeters (the game's HP, AP and ammo kept in power armor), hour (the game's, 0 to 24; -1 not found)}.
+// The host asks a few times a second.
+class ExtrasNative : public FunctionHandler {
+public:
+    void Call(const Params &params) override {
+        static RE::TESGlobal *hour = FormOf(GAME_HOUR) ? FormOf(GAME_HOUR)->As<RE::TESGlobal>() : nullptr;
+        Extras now;
+        {
+            std::lock_guard hold(g_extrasLock);
+            now = g_extras;
+        }
+        params.movie->CreateObject(params.retVal);
+        params.retVal->SetMember("clock", now.clock);
+        params.retVal->SetMember("clockRealTime", now.clockRealTime);
+        params.retVal->SetMember("clock24", now.clock24);
+        params.retVal->SetMember("powerArmorMeters", now.powerArmorMeters);
+        params.retVal->SetMember("hour", hour ? double(hour->GetValue()) : -1.0);
+    }
+};
+
 }  // namespace
+
+void ReadPartSettings() {
+    Extras read;
+    read.clock = IniText("Hud", "bClock") == "1";
+    read.clockRealTime = IniText("Hud", "bClockRealTime") == "1";
+    read.clock24 = IniText("Hud", "bClock24") == "1";
+    read.powerArmorMeters = IniText("Hud", "bPowerArmorMeters") == "1";
+    std::lock_guard hold(g_extrasLock);
+    g_extras = read;
+    REX::DEBUG("HUD extras: clock {} (real time {}, 24-hour {}), power armor meters {}", read.clock,
+               read.clockRealTime, read.clock24, read.powerArmorMeters);
+}
 
 double WeaponCondition(RE::Actor *player, RE::TESForm *weapon) {
     if (!weapon) return -1.0;
@@ -129,6 +176,7 @@ double WeaponCondition(RE::Actor *player, RE::TESForm *weapon) {
 void RegisterHudParts(Movie *movie, Value *plugin) {
     RegisterFunction<PartLayoutNative>(plugin, movie, "HudPartLayout");
     RegisterFunction<WeaponConditionNative>(plugin, movie, "HudWeaponCondition");
+    RegisterFunction<ExtrasNative>(plugin, movie, "HudExtras");
 }
 
 }  // namespace crui

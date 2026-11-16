@@ -174,8 +174,36 @@ std::uint32_t StackCount(std::monostate, RE::TESObjectREFR *holder, RE::TESForm 
     return stack ? stack->GetCount() : 0;
 }
 
-// Papyrus: `items` wear, so the Pip-Boy shows their condition; adds to the forms already given.
+// Plugins of mods that own item condition themselves in the same engine health (docs/swf_framework.md#compat-ecc):
+// with one loaded, Track and TrackRepair take nothing, so our CND rows, REPAIR hint and key, repair lists and the
+// FNV preset's CND bar all stay off and that mod's own show instead.
+const char *CONDITION_OWNERS[] = {"EquipmentConditionClassic.esm"};
+
+// The loaded plugin of a mod that owns item condition, or "" (looked up once; Papyrus calls come after the data).
+const std::string &OwnerPlugin() {
+    static const std::string owner = [] {
+        auto *data = RE::TESDataHandler::GetSingleton();
+        for (const char *name : CONDITION_OWNERS) {
+            const RE::TESFile *mod = data ? data->LookupModByName(name) : nullptr;
+            if (mod && mod->IsActive()) {
+                REX::INFO("{} is loaded: it owns item condition, ours steps back", name);
+                return std::string(name);
+            }
+        }
+        return std::string();
+    }();
+    return owner;
+}
+
+// Papyrus: the plugin of the mod that owns item condition instead of ours, or "".
+std::string ConditionOwner(std::monostate) {
+    return OwnerPlugin();
+}
+
+// Papyrus: `items` wear, so the Pip-Boy shows their condition; adds to the forms already given. Nothing while
+// another mod owns condition (OwnerPlugin).
 void Track(std::monostate, std::vector<RE::TESForm *> items) {
+    if (!OwnerPlugin().empty()) return;
     std::lock_guard hold(g_lock);
     for (RE::TESForm *form : items)
         if (form) g_tracked.insert(form->GetFormID());
@@ -204,9 +232,11 @@ std::uint32_t GetVersion(std::monostate) {
 }
 
 // Papyrus: FNV repair lists (`lists`: weapons' first, then armors', parallel to the two), the Jury Rigging groups
-// (parallel to `lists`) and the Repair skill, added to what other mods gave.
+// (parallel to `lists`) and the Repair skill, added to what other mods gave. Nothing while another mod owns
+// condition (OwnerPlugin).
 void TrackRepairLists(std::monostate, std::vector<RE::TESForm *> weapons, std::vector<RE::TESForm *> armors,
                       std::vector<RE::TESForm *> lists, std::vector<std::int32_t> groups, RE::ActorValueInfo *skill) {
+    if (!OwnerPlugin().empty()) return;
     std::vector<RE::TESForm *> items = weapons;
     items.insert(items.end(), armors.begin(), armors.end());
     for (std::size_t i = 0; i < items.size() && i < lists.size(); i++) {
@@ -267,6 +297,7 @@ bool Register(RE::BSScript::IVirtualMachine *vm) {
     vm->BindNativeMethod(SCRIPT, "GetEquippedWeaponHealth", GetEquippedWeaponHealth);
     vm->BindNativeMethod(SCRIPT, "StackCount", StackCount);
     vm->BindNativeMethod(SCRIPT, "Track", Track);
+    vm->BindNativeMethod(SCRIPT, "ConditionOwner", ConditionOwner);
     vm->BindNativeMethod(SCRIPT, "PipboySelection", PipboySelection);
     vm->BindNativeMethod(SCRIPT, "PipboyStack", PipboyStack);
     vm->BindNativeMethod(SCRIPT, "PipboyRefresh", PipboyRefresh);

@@ -641,9 +641,128 @@ HUD element from Papyrus: nothing here does that, on purpose) or Xbox
 
 **First, a survey**, which decides what route 2 can do automatically: per
 mod, which functions it calls, a master or a lookup at run time, `Eval` or
-not, and whether its widget movie uses HUDFramework's own classes. **The
-user will download a set of HUDFramework mods to survey and test
-against**; until then both routes wait. After the release.
+not, and whether its widget movie uses HUDFramework's own classes. Done
+2026-11-16 on 12 mods: [survey](#hud-survey).
+
+### <a id="hud-survey"></a>The survey (2026-11-16)
+
+Twelve mods that require HUDFramework, downloaded by the user, unpacked
+(their scripts, movies, plugins and text only, out of their BA2s too) into
+`out/hudf_survey/` and read there; decompiled into
+`out/hudf_survey/_decomp/`. None of HUDFramework's own files was read: any
+file named `HUDFramework.*` was left out (PowerHUD's own
+`PowerHUDFramework.*` files were read; they are PowerHUD's).
+
+**What they share.** Every widget movie carries only its own copy of the
+one-method `IHUDWidget` interface and implements `processMessage(command,
+params)`, comparing `String(command)` and converting each parameter
+itself, so numeric commands and float parameters already fit `Send(String,
+String[])`. Only PowerHUD reaches HUDFramework's own object. `Eval` is
+live in one mod (HoloTime, to show the compass while its holotape plays);
+GasMasks and SS2 have it only in dead or debug code. AN76's script was
+compiled by Caprica and Champollion can't decompile it, so a converter
+must rewrite compiled scripts, not decompile and recompile them.
+
+| Mod | Shows | Reaches HUDFramework | Eval | Movie | Verdict |
+|---|---|---|---|---|---|
+| AN76 Needs HUD | Food, water, sleep, hygiene (Advanced Needs 76) | master; 10 calls | no | own interface only | B |
+| Companion Status | Followers' HP, AP, stimpaks | master; 14 calls, 1 custom message | no | own interface only | B with custom messages |
+| Companion Status Enhanced | Follower bars, portraits; an API for other mods | no master: `CastAs` + 18 `CallFunction("Name")` in one wrapper script | wrapper, unused | own interface only | C (one wrapper to port) |
+| HoloTime | Game and real time clock | script type, no master; 25 calls, messages to HUDFramework itself | yes, the compass | own interface only | A: a clock of ours |
+| DEF_WIDGETS_SURVIVAL | Survival needs, caffeine, adrenaline | masters HUDFramework, DEF_WIDGETS_CORE; 21 calls, 3 custom messages | no | own interface only | B (also replaces `HC_ManagerScript`) |
+| Settlement Resource Bar | 31 component counts | master; 6 calls | no | places itself on the right edge each frame | B, but its movie overrides placement |
+| Kill Tips and Hit Sound | Kill feed, a breathing meter | no master, static calls; 18 | no | own interface only | B (hides by moving to y -900) |
+| paHUD | Nothing of its own: forces the game's HP, AP, ammo, rads meters on in power armor | master; 12 calls | no | reads and forces vanilla parts | A: a power armor option of ours |
+| PowerHUD | Power armor: meters moved, a fusion core bar, a dashboard mesh | master (its ESL); 10 calls | no | **gets the HUD through HUDFramework's object** | C (the author's fix is one line) |
+| Gas Masks of the Wasteland | Filter charge and count, mask condition, radiation | script type, no master; ~30 calls incl. run-time position, scale, opacity | dead code | self-contained | B (base class variable retyped too) |
+| Sim Settlements 2 | A five-panel settlement HUD, war results; WSFW's progress bars | **through WorkshopFramework's `hudframeworkmanager`**; optional (state `NoHUD`) | debug only | own interface; WarResults uses vanilla `HUDMenu.BGSCodeObj` sounds | the authors: WSFW's manager is the one place to change |
+| SS2 Workshop HUD Override | Nothing on the HUD: a patched vanilla `Workshop.swf` (ratings past 999, negative values) | none | no | n/a | not a HUDFramework mod |
+
+**Our gaps, by how many mods need them:**
+1. **Custom messages** (CompanionStatus, Companion Status Enhanced,
+   DEF_WIDGETS_SURVIVAL, SS2): a Message form whose text the game fills in
+   (`%f` values, `<Alias=...>`, `<Global=...>`) and that names its widget
+   and command in its own text (`| widget | command | ... |`). The biggest
+   one; needs a native that has the game fill a Message's text.
+2. **A loaded callback** (AN76, CompanionStatus, KillTips, paHUD, PowerHUD,
+   GasMasks, SS2's map widget): setup done once the movie has loaded.
+   `Send` already waits for the load, so a converter can also send the
+   setup right after `AddWidget`.
+3. **Scale, opacity, hiding and position from the mod** (AN76,
+   CompanionStatus, HoloTime, DEF_WIDGETS_SURVIVAL, KillTips, GasMasks,
+   SS2), today the player's alone in the edit menu: decide how a mod's value
+   and the player's place combine (the player's over the mod's).
+4. **Queries** `IsWidgetRegistered`, `IsWidgetLoaded` (most mods).
+5. **An anchor to a screen edge or corner** (Settlement Resource Bar places
+   itself at the right edge; ours would let the edit menu's drag stick).
+6. **The power armor HUD** (paHUD, PowerHUD): a `powerarmor` condition, the
+   game's meters shown in power armor, and parts placed there. paHUD forces
+   engine-hidden parts visible, which our look never does (see
+   [look](#hud-look)); offering it ourselves as an option is the way. Built
+   2026-11-16: the condition and the meters ([hud-extras](#hud-extras)).
+7. **Widgets that need the HUD**: a sanctioned way to hand a widget the
+   HUD's root (PowerHUD; SS2's WarResults looks it up with
+   `stage.getChildAt(0)`, which already works on our host).
+8. **A clock and global values** in `AddStats`, which shows actor values
+   only (HoloTime). The clock is built ([hud-extras](#hud-extras));
+   globals in `AddStats` are not.
+9. **Sub-panel layout** (SS2 runs its own per-panel positioner inside one
+   full-screen widget; our edit menu would see one screen-sized box).
+
+**What this means for the routes.** Route 2 (a converter on the player's
+installed mods) works for the plain cases (AN76, KillTips, GasMasks,
+Settlement Resource Bar, with DEF_WIDGETS_SURVIVAL and CompanionStatus
+once custom messages are in), but the big ones go through a shared
+manager (SS2 through WorkshopFramework) or string calls (Companion Status
+Enhanced) that a call rewrite doesn't see: for those, route 1 (their
+authors adding a `CRUI_Hud` branch) is the right one. Two are features we
+should simply offer (a clock; the power armor meters). Next survey:
+WorkshopFramework's `hudframeworkmanager` (its progress bars are its own
+widget), which covers SS2 and its add-ons in one place.
+
+### <a id="condition-survey"></a>Condition and Pip-Boy mods beside ours (survey 2026-11-16)
+
+Three mods that touch the Pip-Boy or the HUD without HUDFramework,
+downloaded by the user, unpacked into `out/pipboy_survey/` and decompiled
+into `out/pipboy_survey/_decomp/` (their own files only; DLLs read for
+strings). Cleanroom UI itself wears nothing: it shows and repairs what a
+mod passes to `CRUI_Condition.Track` (the converter's FNV items), in the
+game's own per-stack health.
+
+| Mod | What it does | Where condition lives | Its UI | With us |
+|---|---|---|---|---|
+| Condition Boy 2.4.1 (2022) | A Vault Boy or Girl of limb condition and worn armor | the game's limb values (inferred: its DLL pushes them) | Its own menu `BingleBodyPartsUI` (`BodyPartsUI.swf`), placed by its MCM (anchor, X, Y, screen ratio); its DLL hides it while one of a fixed list of vanilla menus is open | Our edit menu can't move, hide or give it rules (not on the HUD); our own menus (edit menu, level-up) aren't on its list, so it stays drawn over them (inferred); a duplicate of the vanilla `VaultBoyCondition_mc`, which players can hide in our edit menu. Built on 2022 CommonLibF4: likely old-gen only (inferred) |
+| AWC 2.0.2 (Armor and Weapon Condition) | Wear, jams, defects, repair kits, gun oil; 397 vanilla weapons and armors scripted | Papyrus variables on each item, mirrored into 101 tier OMODs (keyword `AWC_Condition_NNN`); never the game's health | Item names ("Rusted 10mm [45%]", refreshed as the Pip-Boy opens), ~50 notifications, a MESG selector on F8 | No shared value: can't corrupt ours. Overlaps only if a mod tracks vanilla weapons (two numbers). It reads the clip count by path (`HUDMenu` `root.RightMeters_mc.AmmoCount_mc.ClipCount_tf.text`) on every shot: our layouts move the part within its group, so the path holds; a HUD that reparented it would silently stop its jams |
+| Equipment Condition Classic 1.1.2 (FO3/FNV condition) | FO3/FNV wear, broken items, repair page in the Pip-Boy (M), kits, Jury Rigging, merchant repair after barter, condition-scaled prices | **The game's per-stack health**, the same field our `HealthOf`/`WriteHealth` use | Its own menus `ECCConditionHUD` (a CND bar at fixed 1280x720 spots, its own offset and scale) and `ECCMerchantRepair`; native hooks on PipboyMenu (item card DAM/DR, a CND row, hotkeys refused for broken items), PipboyInventoryMenu (a row per stack), BarterMenu (slots 0x15, 0x1E; ours is 0xE0) and the item-card builder; leaves HUDMenu alone on purpose | **Breaks with a converter that also wears** (two wear systems on one value). For us alone: a second CND row on cards and a second HUD bar only for items a mod tracks; two repair menus (our G, its M) and two vendor repairs. Its HUD bar is a separate menu, so our edit menu can't move it. Its row-per-stack split may change the stack mapping our `LineStack` reads (inferred, untested). It suspends itself when AWC is loaded, not for us |
+
+**What we'd do:**
+1. <a id="compat-ecc"></a>**Step back for ECC** (built 2026-11-16, not
+   played). With `EquipmentConditionClassic.esm` loaded, ECC owns
+   condition: `CRUI_Condition.Track` and `TrackRepair` take nothing
+   (`plugin.cpp` `OwnerPlugin`, looked up once), so our CND rows on item
+   cards, the REPAIR hint and G key, the repair lists, vendor repair and
+   the FNV preset's CND bar stay off (each shows only tracked items), and
+   ECC's own show instead. `CRUI_Condition.ConditionOwner()` names the
+   plugin, so a mod that wears items can stop too; the converter's
+   `F3NV_ConditionPlayer` checks the plugin itself and neither wears,
+   breaks, repairs nor listens (its own pin needs no new native). The
+   rest of Cleanroom UI (HUD, edit menu, Pip-Boy lists, level-up, dialogue)
+   is unchanged.
+2. **Or keep our HUD bar and feed it from ECC**: our bar already reads the
+   same health field; for an exact match, ECC's own Papyrus API
+   (`ECC_ConditionAPI.GetCondition`, the `ECC_ConditionChanged` event).
+   The player turns ECC's bar off in ECC's MCM (we don't change its
+   settings).
+3. **Condition from a keyword list** for AWC-style mods (tier keywords to a
+   percent), so our CND bar and card could show their value: optional.
+4. **Floating menus** (Condition Boy, ECC's bar): our edit menu could list
+   another mod's own menu as a box and move its whole movie (a DLL-side
+   `SetPosition` on that menu's movie view), with their author's consent
+   or as an opt-in; until then they place themselves.
+5. **APIs these mods would use** if offered: per-copy item-card lines
+   (`CRUI_ItemCard.SetLine` is per form), item actions on the card, a
+   clip-ammo native (no HUD text scraping), condition events (changed,
+   broken, repaired), and a hook to refuse equipping or hotkeying an item.
 
 ### <a id="hud-built"></a>The host (built 2026-11-13, not played)
 
@@ -807,9 +926,13 @@ Second play-test, 2026-11-16:
 - **The MCM hotkey shows a ")" after its key**: MCM's own label code adds it
   for every mod's hotkeys (its `Option_ButtonMapping.RefreshText`); not
   ours.
-- **The compass's black faded shadow**: reported, not yet understood. Our
-  host doesn't touch the compass's background holder
-  (`CompassBGHolder_mc`, which the game drives from C++).
+- **The compass's dark band stayed while the compass was hidden** (by its
+  rule; it moves with the compass). It is the game's shaded background,
+  drawn from C++ behind the part and sized by the part's bounds, as the
+  dialogue list's is ([dialogue](#dialogue-fixes)); our hide mask hid what
+  Flash draws but left the bounds. A hidden part now also gets a scrollRect
+  of a tenth of a pixel, which shrinks its bounds, and the edit menu keeps
+  the bounds it had as it was hidden (`Look.hiddenBounds`). Not played.
 
 ### <a id="mcm-page"></a>Our MCM page (built 2026-11-16, not played)
 
@@ -821,7 +944,9 @@ Asked for after the first stock play-test: the edit menu and our settings from M
   over `CleanroomUI.ini` (`IniText`): `bLayoutPerSave` (after a restart), `fShowLinger`, and two switches,
   `bFnvPreset` and `bImmersive`, which stand for `sPreset=FNV` and `sShow=Immersive` when those are not set
   (MCM's dropdowns store an index, so switches keep the DLL's string settings as they are). The show rules'
-  settings are read again as the pause menu closes; the preset applies the next time the HUD loads.
+  settings are read again as the pause menu closes; the preset applies the next time the HUD loads. Added
+  2026-11-16: the clock's three switches and `bPowerArmorMeters` ([hud-extras](#hud-extras)), read again as the
+  pause menu closes.
 - **Keys:** the edit menu's six, the peek key and the Pip-Boy's two, as text (a letter, a digit or F1 to F12),
   read again as the edit menu or the Pip-Boy opens.
 - `settings.ini` holds the DLL's own defaults (a test keeps them equal); its words are `$CRUI_MCM_` keys in
@@ -1204,6 +1329,38 @@ gone after loading a save made without the mod.
 health meter, the sneak meter) needs any rule at all, or is left out of
 the preset; whether the peek key is press-for-a-while or hold by default
 (Immersive HUD offers both).
+
+### <a id="hud-extras"></a>A clock and power armor (built 2026-11-16, not played)
+
+Two things two HUDFramework mods did (HoloTime, paHUD; see the
+[survey](#hud-survey)) that we offer ourselves, each off by default and
+switched on in our MCM page. Our own code; none of those mods' is used.
+- **The clock** (`[Hud] bClock`; `menus/hud/as3/Clock.as`): the game's
+  time, from Fallout4.esm's `GameHour` global (0x38, read by the DLL's
+  `HudExtras`), and with `bClockRealTime` the computer's time under it
+  ("REAL 9:12 PM"); `bClock24` for 24-hour. It is a part of ours in the
+  HUD group `TopRightGroup_mc`, under the Vault Boy, so it hides and fades
+  with that group, and the edit menu moves, scales, colors and hides it and
+  gives it a show rule as it does the game's parts (`part:CRUI_Clock_mc`).
+  It keeps the size of its widest time, so its box doesn't change with the
+  minutes.
+- **`powerarmor`**, a show condition worked out by the host: the game's HUD
+  is in its power armor mode, as the active effects widget holds it
+  (`HUDActiveEffectsWidget_mc.bInPowerArmorMode`, which the engine sets as
+  the player enters and leaves a frame). On the edit menu's rule list as
+  "IN POWER ARMOR"; a mod's rule can use it too.
+- **The game's meters in power armor** (`[Hud] bPowerArmorMeters`): the
+  engine hides the HP and AP meters and the ammo count in power armor (the
+  frame's own gauges stand for them). With the switch on, while in power
+  armor and in play (the crosshair shown, or V.A.T.S.), the host keeps the
+  HP and AP meters visible, and the ammo count with a weapon out; one it
+  kept and no longer keeps goes back to hidden while still in power armor.
+  This is the one place we set a part's engine visibility, against the
+  [look](#hud-look)'s rule, because the player asked for it; a show rule
+  still hides the part on top. The rads counter is left to the engine (it
+  shows as rads are taken; keeping it on would show a frozen number).
+- The settings are read as the HUD loads and as the pause menu closes, so
+  MCM's changes apply on returning to the game.
 
 ## <a id="level-up"></a>Our own level-up menu (built 2026-11-12, not played)
 

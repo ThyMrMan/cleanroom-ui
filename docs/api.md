@@ -73,7 +73,8 @@ language has its letters.
 (`Data\MCM\Settings\CleanroomUI.ini`) over it:
 - `[Keys]`: the Pip-Boy's repair and ammo keys and the HUD edit menu's
   keys ([keys](swf_framework.md#keys));
-- `[Hud]`: `sPreset`, `sShow`, `fShowLinger` ([HUD](swf_framework.md#hud-conditions));
+- `[Hud]`: `sPreset`, `sShow`, `fShowLinger` ([HUD](swf_framework.md#hud-conditions)); `bClock`,
+  `bClockRealTime`, `bClock24`, `bPowerArmorMeters` ([clock and power armor](swf_framework.md#hud-extras));
 - `[Log] iLevel`: 0 errors only, 1 warnings, 2 messages (the default), 3
   everything; the same in `CleanroomDialogue.ini` for that DLL.
 
@@ -119,7 +120,8 @@ FO3/FNV item condition: the engine's own item health (0 to 1) on an inventory it
 - `Int Function StackCount(ObjectReference akHolder, Form akItem) Global Native`: How many of akItem share the stack its health sits on (they share one condition).
 - `Float Function GetStackHealth(ObjectReference akHolder, Form akItem, Int aiStack) Global Native`: GetHealth on stack aiStack of akItem (-1, or a stack it lacks: its equipped copy, else its first).
 - `Bool Function SetStackHealth(ObjectReference akHolder, Form akItem, Int aiStack, Float afHealth) Global Native`: SetHealth on stack aiStack of akItem, chosen as GetStackHealth chooses it.
-- `Function Track(Form[] akItems) Global Native`: akItems wear: the Pip-Boy shows their condition (CND) on the item card. Adds to the items other mods track; the REPAIR hint and G key appear only once some mod tracks an item.
+- `Function Track(Form[] akItems) Global Native`: akItems wear: the Pip-Boy shows their condition (CND) on the item card. Adds to the items other mods track; the REPAIR hint and G key appear only once some mod tracks an item. Does nothing while ConditionOwner() names a mod.
+- `String Function ConditionOwner() Global Native`: The plugin of a mod that owns item condition itself (Equipment Condition Classic: "EquipmentConditionClassic.esm"), or "". While one is loaded, Track and TrackRepair do nothing, so ours stays off; a mod that wears items should stop too.
 - `Form Function PipboySelection() Global Native`: The item highlighted in the Pip-Boy's inventory when it wears; None otherwise.
 - `Int Function PipboyStack() Global Native`: The stack index of PipboySelection's item; -1 with none.
 - `Function PipboyRefresh() Global Native`: Show the highlighted item's condition again on the Pip-Boy's item card (after a repair).
@@ -317,6 +319,7 @@ FO3/FNV SexChange: the game's own SexChange command, run by CleanroomUI.dll, as 
 - `PipboyActionsDone` (framework/pad.cpp): PipboyActionsDone(): close the action menu.
 - `HudPartLayout` (framework/parts.cpp): HudPartLayout(): the preset and DEF_HUD.xml, as {preset, settings: {name: value}, parts: [{name, parname, x, y, defx, defy, scaleX, scaleY, rotation, color, color2, flags}]} (each element's fields under their own names); settings and parts are empty when there is no file or no <HUD> in it.
 - `HudWeaponCondition` (framework/parts.cpp): HudWeaponCondition(): the condition of the player's equipped weapon, for the FNV preset's CND bar (0 to 1; 1 while none is set yet, as the Pip-Boy shows it); -1 with no weapon equipped or one that doesn't wear (CRUI_Condition.Track).
+- `HudExtras` (framework/parts.cpp): HudExtras(): {clock (our clock shown), clockRealTime (with the real time under the game's), clock24 (24-hour), powerArmorMeters (the game's HP, AP and ammo kept in power armor), hour (the game's, 0 to 24; -1 not found)}. The host asks a few times a second.
 - `PipboyCardLines` (framework/pipboy.cpp): PipboyCardLines(): the lines for the highlighted item's card, [{text, value, showAsPercent}], for our Pip-Boy movie to keep there: the CND line of an item that wears, why a list did not open, then other mods' lines (card.cpp). Null while a list of ours is open or off the inventory page.
 - `PipboyList` (framework/pipboy.cpp): PipboyList(): the open repair or ammo list for our movie to draw, {heading, rows, chosen, notes, keys} (heading and keys {text, value}; rows and notes arrays of them; chosen the highlighted row, -1 for none); null when none.
 - `HudState` (framework/show.cpp): HudState(): the conditions now, {combat, drawn, vats, peek, aiming} (each true or false), the mods' conditions under their own names, and linger (seconds).

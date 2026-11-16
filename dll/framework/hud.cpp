@@ -70,6 +70,7 @@ namespace {
 // Load our host into the HUD movie, once per HUD movie. On the UI thread.
 void HookMovie() {
     ReadShowSettings();
+    ReadPartSettings();
     Movie *movie = MenuMovie(MENU);
     Value root;
     if (!movie) return;
@@ -105,8 +106,11 @@ public:
                                           RE::BSTEventSource<RE::MenuOpenCloseEvent> *) override {
         const char *name = event.menuName.c_str();
         if (event.opening && name && !std::strcmp(name, MENU)) Hook();
-        // Leaving the pause menu, where MCM changes settings: the show rules' settings again.
-        if (!event.opening && name && !std::strcmp(name, "PauseMenu")) ReadShowSettings();
+        // Leaving the pause menu, where MCM changes settings: the show rules' and our parts' settings again.
+        if (!event.opening && name && !std::strcmp(name, "PauseMenu")) {
+            ReadShowSettings();
+            ReadPartSettings();
+        }
         return RE::BSEventNotifyControl::kContinue;
     }
 };

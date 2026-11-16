@@ -22,6 +22,9 @@ package
    // right is left alone.
    // Not applied yet: flags (which of a part's pieces are shown; DEF's meaning of each bit is not known), color2,
    // SafeX, SafeY and globalscaleX, globalscaleY; each is logged once when the file sets it.
+   // Our own parts beside the preset's (HudExtras, read every few frames; docs/swf_framework.md#hud-extras): the
+   // clock, added to its group while [Hud] bClock is on, and the game's HP, AP and ammo meters kept on in power
+   // armor while bPowerArmorMeters is (the one place we set a part's engine visibility; the player's opt-in).
    // See docs/swf_framework.md#hud-layout and docs/swf_framework.md#hud-edit
    public class PartLayout
    {
@@ -50,6 +53,17 @@ package
       private var preset:String = "";
       private var fnv:FnvPreset;
       private var looks:Look = new Look();
+      // How often HudExtras and the HUD color are read (frames); the last read ({clock, clockRealTime, clock24,
+      // powerArmorMeters, hour}, or null), the HUD color, and our clock while it is on.
+      private static const EXTRAS_FRAMES:int = 6;
+      private var extras:Object = null;
+      private var color:uint = 0xFFFFFF;
+      private var frames:int = 0;
+      private var clock:Clock;
+      // The game's meters kept on in power armor: part name -> the condition that keeps it ("" in play), and
+      // those kept on last frame.
+      private static const ARMOR_METERS:Object = {HPMeter_mc: "", ActionPointMeter_mc: "", AmmoCount_mc: "drawn"};
+      private var kept:Object = {};
 
       // `layout` as HudPartLayout gives it ({preset, settings, parts}, parts empty with no file; or null with no
       // DLL); `log` takes a line.
@@ -63,6 +77,7 @@ package
                parts[name] = {group: group, name: name, entry: null};
             }
          }
+         parts[Clock.NAME] = {group: Clock.GROUP, name: Clock.NAME, entry: null, ours: true};
          if (layout == null)
          {
             return;
@@ -78,7 +93,7 @@ package
             fnv = new FnvPreset();
             for (var widget:String in FnvPreset.WIDGETS)
             {
-               parts[widget] = {group: FnvPreset.WIDGETS[widget], name: widget, entry: null};
+               parts[widget] = {group: FnvPreset.WIDGETS[widget], name: widget, entry: null, ours: true};
             }
          }
          if (preset != "")
@@ -125,10 +140,11 @@ package
          {
             fnv.add(hud);
          }
+         showClock(hud);
          var found:Object = {};
          for each (var part:Object in parts)
          {
-            var view:DisplayObject = find(hud, part.group, part.name);
+            var view:DisplayObject = find(hud, part);
             part.view = view != null && view.parent != null ? view : null;
             if (part.view != null)
             {
@@ -146,14 +162,25 @@ package
          }
       }
 
-      // Each frame: the preset's own widgets drawn (FnvPreset.draw), then every part's look put on (again over any
-      // the game wrote since): hidden by the player, or by its rule (`rules`) while none of its conditions holds.
+      // Each frame: the preset's own widgets drawn (FnvPreset.draw), our clock fed, the game's meters kept on in
+      // power armor, then every part's look put on (again over any the game wrote since): hidden by the player, or
+      // by its rule (`rules`) while none of its conditions holds.
       public function draw(hud:Object, dll:Object, rules:ShowRules) : void
       {
          if (fnv != null)
          {
             fnv.draw(hud, dll);
          }
+         if (frames++ % EXTRAS_FRAMES == 0)
+         {
+            extras = dll.HudExtras != null ? dll.HudExtras() : null;
+            color = dll.HudColor != null ? uint(dll.HudColor()) : 0xFFFFFF;
+         }
+         if (clock != null && clock.parent != null && extras != null)
+         {
+            clock.update(Number(extras.hour), new Date(), extras.clockRealTime == true, extras.clock24 == true, color);
+         }
+         keepArmorMeters(hud, rules);
          for each (var part:Object in parts)
          {
             if (part.view != null)
@@ -162,6 +189,72 @@ package
                looks.apply(part.view, hidden, part.color != null ? Number(part.color) : -1);
             }
          }
+      }
+
+      // Our clock added to its group under `hud` while [Hud] bClock is on (again when the HUD is made again), and
+      // taken off while it is off.
+      private function showClock(hud:Object) : void
+      {
+         var on:Boolean = extras != null && extras.clock == true;
+         var group:Object = null;
+         try
+         {
+            group = hud[Clock.GROUP];
+         }
+         catch (error:Error)
+         {
+         }
+         if (on && group != null && group.getChildByName(Clock.NAME) == null)
+         {
+            clock = clock || new Clock();
+            group.addChild(clock);
+         }
+         else if (!on && clock != null && clock.parent != null)
+         {
+            clock.parent.removeChild(clock);
+         }
+      }
+
+      // While bPowerArmorMeters is on and the HUD is in its power armor mode (`rules`), in play (the crosshair shown,
+      // or V.A.T.S.): the game's HP and AP meters, and the ammo count with a weapon out, kept visible as the engine
+      // hides them there. One kept last frame and not now, still in power armor, goes back to hidden.
+      private function keepArmorMeters(hud:Object, rules:ShowRules) : void
+      {
+         var armor:Boolean = rules.holds("powerarmor");
+         var on:Boolean = extras != null && extras.powerArmorMeters == true && armor;
+         var playing:Boolean = on && (rules.holds("vats") || crosshairShown(hud));
+         for (var name:String in ARMOR_METERS)
+         {
+            var view:DisplayObject = parts[name].view;
+            if (view == null)
+            {
+               continue;
+            }
+            var keep:Boolean = playing && (ARMOR_METERS[name] == "" || rules.holds(ARMOR_METERS[name]));
+            if (keep)
+            {
+               view.visible = true;
+               view.alpha = 1;
+            }
+            else if (kept[name] == true && armor)
+            {
+               view.visible = false;
+            }
+            kept[name] = keep;
+         }
+      }
+
+      // Whether the game shows its crosshair (it hides it in menus, dialogue and the workbench).
+      private static function crosshairShown(hud:Object) : Boolean
+      {
+         try
+         {
+            return hud.CenterGroup_mc.HUDCrosshair_mc.visible == true;
+         }
+         catch (error:Error)
+         {
+         }
+         return false;
       }
 
       // The parts the show rules watch (ShowRules.WATCHED), as found by the last place() (null where not found).
@@ -175,9 +268,11 @@ package
          return out;
       }
 
-      // The part `name` in HUD group `group` under `hud`, or null.
-      private function find(hud:Object, group:String, name:String) : DisplayObject
+      // Part `part` ({group, name, ours}) under `hud`, or null; a missing part of the game's is logged once (ours,
+      // the clock while it is off, is not).
+      private function find(hud:Object, part:Object) : DisplayObject
       {
+         var group:String = part.group, name:String = part.name;
          var found:DisplayObject = null;
          try
          {
@@ -191,7 +286,7 @@ package
          {
             found = null;
          }
-         if (found == null)
+         if (found == null && part.ours != true)
          {
             once("no HUD part " + group + "." + name + " (another HUD movie?), left alone");
          }
@@ -262,7 +357,7 @@ package
             {
                part.outline = new Outline();
             }
-            var bounds:Rectangle = part.outline.measure(view, stage);
+            var bounds:Rectangle = part.outline.measure(view, stage, looks.hiddenBounds(view));
             dll.HudReport(name, origin.x / wide, origin.y / high, bounds.x / wide, bounds.y / high,
                           bounds.width / wide, bounds.height / high);
             if (at != null)

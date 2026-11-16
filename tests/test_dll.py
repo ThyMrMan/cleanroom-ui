@@ -171,3 +171,16 @@ def test_movies_read_a_mods_settings():
     assert 'dll.Settings(mod)' in bridge and 'public function attach(stage:Stage)' in bridge
     for movie in ('pipboy/as3/CRUI_Pipboy.as', 'transfer/as3/CRUI_Transfer.as'):
         assert 'bridge.attach(stage);' in (REPO / 'menus' / movie).read_text(encoding='utf-8')
+
+
+def test_condition_steps_back_for_a_mod_that_owns_it():
+    """With Equipment Condition Classic loaded (it keeps condition in the same engine health), Track and TrackRepair
+    take nothing, so every CND row, hint, key, list and bar of ours stays off; ConditionOwner names the plugin for
+    mods that wear items. See docs/swf_framework.md#compat-ecc"""
+    plugin = (FRAMEWORK / 'plugin.cpp').read_text(encoding='utf-8')
+    assert 'CONDITION_OWNERS[] = {"EquipmentConditionClassic.esm"};' in plugin
+    for name in ('void Track(', 'void TrackRepairLists('):
+        assert '{\n    if (!OwnerPlugin().empty()) return;' in _body(plugin, name), name
+    assert 'vm->BindNativeMethod(SCRIPT, "ConditionOwner", ConditionOwner);' in plugin
+    script = (REPO / 'papyrus' / 'CRUI_Condition.psc').read_text(encoding='utf-8')
+    assert 'String Function ConditionOwner() Global Native' in script

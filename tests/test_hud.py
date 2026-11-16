@@ -75,7 +75,8 @@ def test_the_movie_builds_the_same_twice(tmp_path):
     raw = menus.compile_movie(MENU, tmp_path / 'a.swf').read_bytes()
     assert raw == menus.compile_movie(MENU, tmp_path / 'b.swf').read_bytes() and raw[:3] == b'FWS'
     assert not {t.code for t in Swf.parse(raw).tags} & set(mxmlc.DATED)
-    for name in (b'CRUI_Hud', b'StatsLine', b'PartLayout', b'FnvPreset', b'ConditionBar', b'HudWidgets',
+    for name in (b'CRUI_Hud', b'StatsLine', b'PartLayout', b'FnvPreset', b'ConditionBar', b'Clock', b'HudExtras',
+                 b'HudWidgets',
                  b'HudMessages', b'HudStats', b'HudPartLayout', b'HudWeaponCondition', b'processMessage', b'crui'):
         assert name in raw
 
@@ -139,7 +140,7 @@ def test_boxes_keep_one_size_while_their_part_animates():
     (played 2026-11-15); parts and widgets report every bounds they have had, joined in their own space (Outline)."""
     parts, host = _source(MENU.sources / 'PartLayout.as'), _source(MENU.sources / f'{MENU.document}.as')
     outline = _source(MENU.sources / 'Outline.as')
-    assert 'part.outline.measure(view, stage)' in parts and 'shown.outline.measure(view, stage)' in host
+    assert 'part.outline.measure(view, stage, ' in parts and 'shown.outline.measure(view, stage)' in host
     assert 'view.getBounds(stage)' not in parts and 'joined.union(now)' in outline
 
 
@@ -161,6 +162,13 @@ def test_a_box_behind_another_can_be_picked():
     assert 'layout[i].name == hovered' in edit
 
 
+def test_a_hidden_part_takes_its_shaded_background_with_it():
+    """Hidden parts are clipped to a dot too (swf_framework.md#hud-edit-fixes)."""
+    look, parts = _source(MENU.sources / 'Look.as'), _source(MENU.sources / 'PartLayout.as')
+    assert 'view.scrollRect = state.clip;' in look and 'view.scrollRect = null;' in look
+    assert 'part.outline.measure(view, stage, looks.hiddenBounds(view))' in parts
+
+
 def test_the_host_lays_out_the_hud_parts_from_def_hud_xml():
     """parts.cpp reads DEF_HUD.xml from where DEF_HUD's editor saves it and hands it to the host (HudPartLayout),
     which lays out and places the parts through PartLayout on its first frame, as a place changes and every few
@@ -168,7 +176,7 @@ def test_the_host_lays_out_the_hud_parts_from_def_hud_xml():
     parts = _source(REPO / 'dll' / 'framework' / 'parts.cpp')
     assert r'".\\Data\\Interface\\DEF_CONF\\DEF_HUD.xml"' in parts
     registered = re.findall(r'RegisterFunction<\w+>\(plugin, movie, "(\w+)"\);', parts)
-    assert registered == ['HudPartLayout', 'HudWeaponCondition']
+    assert registered == ['HudPartLayout', 'HudWeaponCondition', 'HudExtras']
     assert 'RegisterHudParts(movie, plugin);' in _source(HUD_CPP)
     host = _source(MENU.sources / f'{MENU.document}.as')
     assert 'new PartLayout(dll.HudPartLayout != null ? dll.HudPartLayout() : null, log);' in host
@@ -238,6 +246,55 @@ def test_the_fnv_preset_draws_the_weapon_condition_bar_fnv_has_and_fo4_has_not()
     assert 'g_tracked.contains(weapon->GetFormID())' in condition and 'return set < 0.0f ? 1.0 : double(set);' in condition
 
 
+def test_a_clock_of_ours_shows_the_game_time_and_the_real_time():
+    """[Hud] bClock adds our clock to TopRightGroup_mc as a part of ours (placed, colored and shown on rules like the
+    game's, not logged missing while it is off); HudExtras gives its settings and the game's hour from
+    Fallout4.esm's GameHour global, read again as the HUD loads and as the pause menu closes."""
+    clock = _source(MENU.sources / 'Clock.as')
+    assert 'NAME:String = "CRUI_Clock_mc";' in clock and 'GROUP:String = "TopRightGroup_mc";' in clock
+    assert '"$CRUI_CLOCK_REAL\\t" + realText' in clock
+    parts = _source(REPO / 'dll' / 'framework' / 'parts.cpp')
+    assert 'GAME_HOUR = 0x38;' in parts and 'As<RE::TESGlobal>()' in parts
+    assert 'RegisterFunction<ExtrasNative>(plugin, movie, "HudExtras");' in parts
+    for name in ('bClock', 'bClockRealTime', 'bClock24', 'bPowerArmorMeters'):
+        assert f'IniText("Hud", "{name}") == "1"' in parts
+    hud = _source(HUD_CPP)
+    assert hud.count('ReadPartSettings();') == 2
+    layout = _source(MENU.sources / 'PartLayout.as')
+    assert 'parts[Clock.NAME] = {group: Clock.GROUP, name: Clock.NAME, entry: null, ours: true};' in layout
+    assert 'showClock(hud);' in layout and 'if (found == null && part.ours != true)' in layout
+    assert 'dll.HudExtras()' in layout
+    words = _source(REPO / 'translations' / 'CleanroomUI' / 'en.txt')
+    assert re.search(r'^\$CRUI_CLOCK_REAL\t.*\{0\}', words, re.M)
+
+
+def test_clock_times_read_as_the_game_shows_them():
+    """12-hour as the Pip-Boy shows it (12 AM at midnight, 12 PM at noon), or 24-hour with leading zeros."""
+    clock = _source(MENU.sources / 'Clock.as')
+    assert 'var twelve:int = hours % 12 == 0 ? 12 : hours % 12;' in clock
+    assert '(hours < 12 ? " AM" : " PM")' in clock and '(hours < 10 ? "0" : "") + String(hours)' in clock
+    assert 'int(Math.floor(hour * 60)) % (24 * 60)' in clock
+
+
+def test_power_armor_is_a_condition_and_its_meters_an_option():
+    """powerarmor holds while the HUD is in its power armor mode (the active effects widget's bInPowerArmorMode);
+    with [Hud] bPowerArmorMeters the host keeps the HP and AP meters, and the ammo count with a weapon out, visible
+    in power armor in play, the one engine visibility we set, and hides one it stops keeping."""
+    rules = _source(MENU.sources / 'ShowRules.as')
+    assert 'powerArmor = watched != null && inPowerArmor(watched[POWER]);' in rules
+    assert 'Object(view).bInPowerArmorMode == true' in rules and 'word == "powerarmor"' in rules
+    show = _source(REPO / 'dll' / 'framework' / 'show.cpp')
+    assert '"powerarmor"' in show[show.index('BUILT_IN[]'):show.index('};', show.index('BUILT_IN[]'))]
+    layout = _source(MENU.sources / 'PartLayout.as')
+    assert 'ARMOR_METERS:Object = {HPMeter_mc: "", ActionPointMeter_mc: "", AmmoCount_mc: "drawn"};' in layout
+    keep = layout[layout.index('private function keepArmorMeters('):layout.index('private static function crosshairShown(')]
+    assert 'extras.powerArmorMeters == true && armor' in keep and 'view.visible = true;' in keep
+    assert 'else if (kept[name] == true && armor)' in keep
+    assert layout.count('.visible = ') == 2
+    words = _source(REPO / 'translations' / 'CleanroomUI' / 'en.txt')
+    assert re.search(r'^\$CRUI_SHOW_POWERARMOR\t', words, re.M)
+
+
 def test_the_player_hides_and_colors_widgets_and_parts_without_fighting_the_game():
     """A place carries hidden and a color (saved as two more columns; a line without them still loads), toggled and
     stepped in the edit menu by keys from [Keys]. The game's parts are hidden by a mask (never their visible or
@@ -302,7 +359,8 @@ def test_parts_show_as_their_values_change_run_low_or_the_location_moves():
     assert 'WeaponCondition(player, weapon)' in show
     rules = _source(MENU.sources / 'ShowRules.as')
     assert '"part:HPMeter_mc": "health"' in rules and '"part:CRUI_WeaponCondition_mc": "condition"' in rules
-    assert 'WATCHED:Array = ["LocationText_mc", "QuestUpdates_mc", "StealthMeter_mc"];' in rules
+    assert re.search(r'WATCHED:Array = \["LocationText_mc", "QuestUpdates_mc", "StealthMeter_mc",\s+'
+                     r'"HUDActiveEffectsWidget_mc"\];', rules)
     assert 'condition.split(":")' in rules and 'dll.HudValues()' in rules
     assert 'if (weapon != fullestWeapon)' in rules and 'movedFrame == frames' in rules
     start = rules.index('WATCHED:Array')
@@ -342,7 +400,7 @@ def test_the_edit_menu_sets_when_each_box_shows():
     state = set(re.findall(r'SetMember\("(\w+)", ', show[show.index('class StateNative'):]))
     host = _source(MENU.sources / 'ShowRules.as')
     assert listed == (state - {'linger', 'health', 'ap', 'rads', 'condition', 'weapon'}) | {
-        word for word in ('changed', 'low', 'moved', 'sneaking') if f'word == "{word}"' in host}
+        word for word in ('changed', 'low', 'moved', 'sneaking', 'powerarmor') if f'word == "{word}"' in host}
     layout = _source(REPO / 'dll' / 'framework' / 'layout.cpp')
     assert 'entry.SetMember("showOwn", String(movie, place.show));' in layout
     assert 'g_places[Arg(params, 0)].show = rule;' in layout

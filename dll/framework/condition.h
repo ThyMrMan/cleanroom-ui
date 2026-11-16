@@ -351,7 +351,10 @@ void RegisterHud(RE::BSScript::IVirtualMachine *vm);
 // weapon or one that doesn't wear (CRUI_Condition.Track).
 double WeaponCondition(RE::Actor *player, RE::TESForm *weapon);
 
-// Give `plugin` the host's HudPartLayout and the FNV preset's HudWeaponCondition.
+// Read our other HUD parts' settings again (the clock, the power armor meters) from the INI files.
+void ReadPartSettings();
+
+// Give `plugin` the host's HudPartLayout and HudExtras, and the FNV preset's HudWeaponCondition.
 void RegisterHudParts(Movie *movie, Value *plugin);
 
 // ---- Our own keys (keys.cpp; docs/swf_framework.md#keys) ----

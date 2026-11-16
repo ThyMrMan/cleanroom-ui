@@ -64,6 +64,42 @@
       }
     },
     {
+      "id": "bClock:Hud",
+      "text": "$CRUI_MCM_CLOCK",
+      "type": "switcher",
+      "help": "$CRUI_MCM_CLOCK_HELP",
+      "valueOptions": {
+        "sourceType": "ModSettingBool"
+      }
+    },
+    {
+      "id": "bClockRealTime:Hud",
+      "text": "$CRUI_MCM_CLOCK_REAL",
+      "type": "switcher",
+      "help": "$CRUI_MCM_CLOCK_REAL_HELP",
+      "valueOptions": {
+        "sourceType": "ModSettingBool"
+      }
+    },
+    {
+      "id": "bClock24:Hud",
+      "text": "$CRUI_MCM_CLOCK_24",
+      "type": "switcher",
+      "help": "$CRUI_MCM_CLOCK_24_HELP",
+      "valueOptions": {
+        "sourceType": "ModSettingBool"
+      }
+    },
+    {
+      "id": "bPowerArmorMeters:Hud",
+      "text": "$CRUI_MCM_ARMOR_METERS",
+      "type": "switcher",
+      "help": "$CRUI_MCM_ARMOR_METERS_HELP",
+      "valueOptions": {
+        "sourceType": "ModSettingBool"
+      }
+    },
+    {
       "text": "$CRUI_MCM_EDIT_KEYS",
       "type": "section"
     },

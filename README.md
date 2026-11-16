@@ -65,9 +65,13 @@ DEF_HUD or any other). It doesn't replace `HUDMenu.swf`.
   keep theirs, and it has a preset that arranges the HUD like Fallout: New
   Vegas.
 - **Show only when needed.** Each part can be set to appear only in
-  combat, with a weapon drawn, in V.A.T.S., while aiming or sneaking, when
-  its value changes or runs low, or when a key is pressed. Other mods can
-  add conditions of their own.
+  combat, with a weapon drawn, in V.A.T.S., while aiming or sneaking, in
+  power armor, when its value changes or runs low, or when a key is
+  pressed. Other mods can add conditions of their own.
+- **A clock**, if you want one: the game's time, and your computer's too,
+  placed and colored like any other part.
+- **Health, AP and ammo in power armor**, if you want them: the game hides
+  them there, and this switch keeps them.
 
 ### The Pip-Boy
 
@@ -115,6 +119,32 @@ way when XDI is installed.
   English to show where a longer translation would be cut off.
 - **Gamepad support** in every menu we ship, through `Input` and
   `HintBar`.
+
+## Compatibility
+
+Cleanroom UI adds to the game's menus rather than replacing them, so most
+UI mods sit beside it. Our HUD loads *into* whichever HUD you use (vanilla,
+DEF_HUD, a replacer), and our edit menu moves and hides the parts that HUD
+has. What it can't reach is anything a mod draws in **its own menu**
+floating over the game: that stays where its mod puts it, set in that
+mod's own options.
+
+**HUD widget mods** (checked 2026-11-16: twelve mods that need
+HUDFramework). Cleanroom UI doesn't run them and never loads HUDFramework.
+Their widgets keep working with HUDFramework installed; the plan is a way
+to move them onto our HUD, so the edit menu could place them too
+([survey](docs/swf_framework.md#hud-survey)). Two of them we now offer
+ourselves: a **clock** (as HoloTime) and **health, AP and ammo in power
+armor** (as Power Armor HUD).
+
+**Item condition and Pip-Boy mods** (checked 2026-11-16,
+[details](docs/swf_framework.md#condition-survey)):
+
+| Mod | Alongside Cleanroom UI |
+|---|---|
+| **Equipment Condition Classic** | Works. It keeps condition in the same place we do, so when it's loaded, our own condition display and repair step back and its own show instead (no double CND bars or repair menus). Its HUD bar is its own menu: place it in its MCM, not our edit menu. |
+| **Armor and Weapon Condition (AWC)** | Works. It keeps condition its own way and shows it in item names; nothing of ours touches it. It reads the ammo count from the HUD, which our layouts keep readable. |
+| **Condition Boy** | Works. It draws in its own menu, so our edit menu can't move it (use its MCM). Hide the game's own Vault Boy in our edit menu if you don't want both. It may stay on screen over our own menus. |
 
 ## For mod authors
 
@@ -199,13 +229,17 @@ In short:
    1.10.163 and next-gen 1.10.984 to 1.11.221. GOG waits for an Address
    Library database.
 4. **What play-testing asks for**: the rest of the HUD options (fades,
-   rotation, power armor), and the level-up menu's last open decision.
+   rotation), and the level-up menu's last open decision.
 5. **Release**: release downloads and the Nexus page. The example menu,
    API guide and CI are done.
 6. **Moving HUDFramework mods onto our HUD**, later: a guide for authors
    and a tool players run on their installed mods
    ([plan](docs/swf_framework.md#hud-migrate)). It uses nothing of
-   HUDFramework's.
+   HUDFramework's. Twelve mods surveyed on 2026-11-16: the plain ones can
+   be converted, the big ones (Sim Settlements 2, through WorkshopFramework)
+   need their authors, a clock and the power armor meters we now offer
+   ourselves, and the biggest gap is custom messages
+   ([survey](docs/swf_framework.md#hud-survey)).
 
 ## License
 
