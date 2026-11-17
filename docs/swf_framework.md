@@ -491,6 +491,22 @@ Phases:
      - FallUI has its own item-card add-on framework (SWFs in
        `Interface\UI-Framework\ItemCard`). Ours stays independent so it
        works under vanilla too; under FallUI both sets of lines show.
+   - **Read again 2026-11-16, all four of its movies** (`PipboyMenu`,
+     `Pipboy_InvPage`, `ContainerMenu`, `BarterMenu`; the FO3/FNV
+     conversion needs the Pip-Boy and transfer lines under it). Everything
+     the DLL and our movies read is still there:
+     - Pip-Boy: `BGSCodeObj` on the menu's root, `DataObj.CurrentTab`,
+       `InvalidateData`, `ButtonHintBar_mc`; `buttonHintDataV` is
+       `PipboyPage`'s getter, and FallUI's own hint list
+       (`_mod.modButtons`) is that same vector, so our REPAIR and AMMO
+       hints show in its bar. The STAT page is still vanilla's.
+     - Container and barter: the menu is the root (no `FilterHolder_mc`;
+       `FindMenu`'s last path, `root`, finds it), with `ItemCard_mc`,
+       `ContainerList_mc` and `PlayerInventory_mc.PlayerList_mc` and their
+       `selectedEntry`. Its list pass (`ContainerMod.processList`) copies
+       only the array (`concat()`), so the lines keep our `cruiCND` stamp.
+     - No FallUI part replaces `DialogueMenu.swf`; FallUI HUD replaces
+       `HUDMenu`, `PromptMenu` and `Workshop` only ([HUD](#hud-fallui)).
 2. **The repair and ammo lists** (built 2026-11-12, played 2026-11-16 under vanilla). The DLL
    keeps each list's state, its keys (the native `keyUp` listener, which
    already works) and the repair, but no longer writes the list over the
@@ -1136,6 +1152,39 @@ HUD color goes on the parts' own transforms (our color then replaces it)
 or over the whole movie (ours then multiplies with it: green times amber
 is darker); a colored part keeps its color as the HUD color changes in
 the settings.
+
+### <a id="hud-fallui"></a>Under FallUI HUD (built 2026-11-16, not played)
+
+FallUI HUD (Nexus 51813, 1.7.1; its `HUDMenu.swf` read with FFDec, read
+only) replaces `HUDMenu.swf` and lays out, hides and colors the game's
+parts itself, from its own MCM editor:
+- **It applies its layout once,** after its fonts load (`HUDMenuMod`
+  `applyFallUIHUDLayoutFromHudConfig`; again on a power armor HUD color
+  change), from `MCM\Settings\FallUIHUD.ini` (`s<group>__<part>=on:XxY*sx*sy
+  rR:<options>`). It reads `DEF_CONF\DEF_HUD.xml` itself when
+  `bDefHudAdapterLoadConfig` is on.
+- **It hides a piece by moving it 99999 px down** (`handlerSimpleHide`,
+  `setHideIfFlag`), adds its own backgrounds into parts
+  (`BackgroundSimple`, drawn with `cacheAsBitmap`), and moves a part's
+  children for its anchor and widescreen fixes.
+
+Played 2026-11-16 with a save laid out under vanilla: the edit menu's boxes
+sat nowhere near the parts, and large white boxes covered the left of the
+screen, where the save's hidden parts (TutorialText, QuestUpdates, XPMeter,
+PromptMessageHolder) are. Likely causes, not confirmed: a piece moved
+99999 px joins into a part's outline ([edit](#hud-edit)); our hide mask
+over a part holding FallUI's cached-bitmap background.
+
+So under FallUI HUD (its `HUDMenu` has `fallUiHudVersion`) `PartLayout`
+finds none of the game's parts: it never moves, masks, colors or reports
+one, and the edit menu shows only Cleanroom UI's widgets (the clock, the
+FNV preset's CND bar, other mods'); DEF_HUD.xml and the FNV preset's
+arrangement of the game's parts are FallUI HUD's to do, and the power armor
+meters are its too. The log says so once. Place the game's parts in FallUI
+HUD's own editor.
+
+**Play check:** no white boxes and no boxes for the game's parts in the
+edit menu under FallUI HUD; our clock shows, moves and recolors.
 
 ### <a id="hud-conditions"></a>Parts shown on conditions (plan 2026-11-13; built, not played)
 

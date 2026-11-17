@@ -29,8 +29,17 @@ This mod was developed entirely with AI tooling, primarily Claude Opus, with in-
 ## What you install
 
 Cleanroom UI is one download with an installer (FOMOD), which works in
-Mod Organizer 2, Vortex and other mod managers. It needs only
-[F4SE](https://f4se.silverlock.org/).
+Mod Organizer 2, Vortex and other mod managers.
+
+Requirements:
+
+* [F4SE](https://f4se.silverlock.org/).
+* [Address Library for F4SE Plugins](https://www.nexusmods.com/fallout4/mods/47327),
+  with the file for your game version. Without it, Cleanroom UI's features
+  stay off.
+* [Mod Configuration Menu](https://www.nexusmods.com/fallout4/mods/21497),
+  for the HUD editor and Cleanroom UI's settings. The dialogue menu works
+  without it.
 
 |Option|What's in it|Pick it if|
 |-|-|-|
@@ -42,7 +51,9 @@ Mod Organizer 2, Vortex and other mod managers. It needs only
 ### The HUD
 
 Works with whichever HUD you use: vanilla, DEF\_HUD or any other. Nothing
-replaces `HUDMenu.swf`.
+replaces `HUDMenu.swf`. With FallUI HUD, place the game's HUD parts in
+FallUI HUD's own editor; Cleanroom UI's editor then moves only its own
+widgets, such as the clock.
 
 * **Edit your HUD.** Move, resize, hide or recolor any part of the HUD,
 with the mouse, keyboard or a gamepad. Open the editor from the MCM page
@@ -85,9 +96,11 @@ weapon's ammo type, from a list over the item card.
 Replaces the four-button dialogue wheel with a list of every option. It
 turns itself off when XDI is installed.
 
-### Every language, mouse or gamepad
+### Languages, mouse or gamepad
 
-* All text is translated for every language the game ships.
+* Every language the game ships is supported. English is complete; the
+  other languages are partly translated so far, and any untranslated line
+  shows in English.
 * Every menu works with mouse, keyboard or gamepad, with button hints
 along the bottom.
 
@@ -97,6 +110,10 @@ Cleanroom UI adds to the game's menus rather than replacing them, so most
 UI mods work beside it. The HUD editor moves and hides the parts of
 whichever HUD you use. It can't move anything another mod draws in **its
 own menu** on top of the game; place those in that mod's own settings.
+
+**FallUI HUD** works. It lays out the game's HUD parts itself, so
+Cleanroom UI leaves those parts to FallUI HUD's editor and its own HUD
+editor shows only Cleanroom UI's widgets.
 
 **HUDFramework widget mods** keep working with HUDFramework installed.
 They don't appear in the HUD editor yet. Cleanroom UI has its own clock

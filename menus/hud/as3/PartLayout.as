@@ -66,6 +66,10 @@ package
       private var kept:Object = {};
       // Whether a part was hidden last frame (its shaded background then off).
       private var quadless:Boolean = false;
+      // Whether the HUD is FallUI HUD's own HUDMenu.swf (it has fallUiHudVersion): FallUI HUD lays out, hides and
+      // colors the game's parts from its own editor, so the game's parts are left to it and only ours are placed.
+      // See docs/swf_framework.md#hud-fallui
+      private var fallUi:Boolean = false;
 
       // `layout` as HudPartLayout gives it ({preset, settings, parts}, parts empty with no file; or null with no
       // DLL); `log` takes a line.
@@ -143,9 +147,19 @@ package
             fnv.add(hud);
          }
          showClock(hud);
+         fallUi = fallUiVersion(hud) != null;
+         if (fallUi)
+         {
+            once("FallUI HUD " + fallUiVersion(hud) + " found: the game's parts are left to its own editor");
+         }
          var found:Object = {};
          for each (var part:Object in parts)
          {
+            if (fallUi && part.ours != true)
+            {
+               part.view = null;
+               continue;
+            }
             var view:DisplayObject = find(hud, part);
             part.view = view != null && view.parent != null ? view : null;
             if (part.view != null)
@@ -257,6 +271,19 @@ package
             }
             kept[name] = keep;
          }
+      }
+
+      // FallUI HUD's version when `hud` is its HUDMenu.swf, else null.
+      private static function fallUiVersion(hud:Object) : String
+      {
+         try
+         {
+            return hud.fallUiHudVersion != null ? String(hud.fallUiHudVersion) : null;
+         }
+         catch (error:Error)
+         {
+         }
+         return null;
       }
 
       // Whether the game shows its crosshair (it hides it in menus, dialogue and the workbench).

@@ -175,6 +175,16 @@ def test_a_hidden_part_takes_its_shaded_background_with_it():
     assert 'Get(at, "parent", &parent)' in native
 
 
+def test_under_fallui_hud_the_game_parts_are_left_to_it():
+    """FallUI HUD's HUDMenu.swf (its fallUiHudVersion) lays out, hides and colors the game's parts from its own
+    editor: ours finds none of them there, so it never moves, masks, colors or reports one; our widgets stay ours
+    (swf_framework.md#hud-fallui)."""
+    parts = _source(MENU.sources / 'PartLayout.as')
+    assert 'hud.fallUiHudVersion != null' in parts
+    assert re.search(r'if \(fallUi && part\.ours != true\)\s*\{\s*part\.view = null;\s*continue;', parts)
+    assert parts.index('fallUi = fallUiVersion(hud) != null;') < parts.index('var view:DisplayObject = find(hud, part);')
+
+
 def test_the_host_lays_out_the_hud_parts_from_def_hud_xml():
     """parts.cpp reads DEF_HUD.xml from where DEF_HUD's editor saves it and hands it to the host (HudPartLayout),
     which lays out and places the parts through PartLayout on its first frame, as a place changes and every few

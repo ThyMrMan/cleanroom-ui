@@ -36,7 +36,8 @@ ZIP_DATE = (2026, 1, 1, 0, 0, 0)
 DIALOGUE_TEXT = ('Replaces the four-button dialogue wheel with a list of every option. Leave it off if you use '
                  'another dialogue menu; it turns itself off when XDI is installed.')
 DESCRIPTION = ('Move, resize, hide and recolor every part of your HUD, and get item condition, repair and ammo lists '
-               'in your Pip-Boy. A menu framework for other mods, written from scratch. Needs F4SE.')
+               'in your Pip-Boy. A menu framework for other mods, written from scratch. Needs F4SE, Address '
+               'Library for F4SE Plugins and Mod Configuration Menu.')
 
 
 def version() -> str:
