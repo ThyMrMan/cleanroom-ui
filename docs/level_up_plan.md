@@ -332,9 +332,40 @@ the menu opened and filled in under 0.1 s after that. Since then:
   it now does so only when `UI.IsMenuRegistered` says a load dropped them.
 - **The gather timed by part.** `gathered in` now gives `collect`,
   `stacks` (the slowest chunk and `ScanUnlisted`, each from the end of
-  `collect`) and `the rest` (joining the args).
+  `collect`). Joining the args moved to `Send`
+  ([save strings](#save-strings)).
 
 **Play check:** the next play's `gathered in` line says which part to cut.
+
+## <a id="save-strings"></a>No long text in a save (built 2026-11-16, not played)
+
+FO4 writes a Papyrus string of any length into a save, but loads one into a
+4,096-byte buffer. A longer one overruns it, and the save crashes on every
+load (`Fallout4.exe+2101EA4`, in `ObjectBindPolicy::LoadFromBoundInfoBuffer`
+/ `ConvertProperties`). A save holds every script variable and every
+waiting stack's locals.
+
+Played 2026-11-16 (FO3 build, Vault 101): an exit save crashed on load.
+The string was the merged `PerkDescriptions`, 8,332 bytes, in `ready`, the
+`Var[]` where `Prepare` kept the built arguments while `Show` waited for
+the Pip-Boy and pause menus to close. Quitting from the pause menu saved
+it. Those saves can't be recovered.
+
+Now:
+- **`Prepare` gathers only.** It runs `Collect` and `Gather`, which ask the
+  engine, so the asking still overlaps the wait. What it keeps is short:
+  ranks, values, tags and traits held as numbers per chunk, the passing
+  rows' indexes, and the added skills' image paths.
+- **`Send` joins the long texts.** `Built` runs only inside `Send`, with
+  our menu open. The menu's flags give no pause menu, so nothing saves
+  then. The added perks' and skills' names and descriptions are read from
+  the forms there (`AddedText`, `MoreText`); `extraParts` and `moreParts`
+  are gone.
+- `Send` logs `built and sent in`, the time joining takes now that
+  `gathered in` no longer covers it.
+
+`test_long_texts_never_sit_in_saved_state` holds this: only short-text
+variables, and only `Send` calls `Built`.
 
 ## <a id="game-points"></a>The game's own perk points (built 2026-11-13, not played)
 

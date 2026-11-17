@@ -51,7 +51,7 @@ def test_built_hands_over_what_the_movie_reads():
     and row counts (33, 34), which move the rows' owners and perk targets."""
     built = _function(SCRIPT, 'Built')
     assert sorted(int(n) for n in re.findall(r'args\[(\d+)\] =', built)) == list(range(35)) and 'new Var[35]' in built
-    assert 'UI.Invoke(MenuName, "root1.Open", args)' in _function(SCRIPT, 'Send')
+    assert 'UI.Invoke(MenuName, "root1.Open", Built())' in _function(SCRIPT, 'Send')
     assert 'args[16]' in CHARACTER and 'readRows(args.slice(17, 25), split(args[33]), split(args[34]))' in CHARACTER
     assert re.findall(r'split\(columns\[(\d)\]\)', CHARACTER) == [str(i) for i in range(8)]
     assert 'for each (var at:String in split(columns[7]))' in CHARACTER
@@ -77,7 +77,8 @@ def test_built_merges_each_text_the_movie_reads_where_the_table_keeps_it():
 
 def test_open_gathers_again_only_for_a_different_open():
     """Prepare registers the menu and gathers; Open gathers again only for another mode, count or bonus."""
-    assert 'Register()' in _function(SCRIPT, 'Prepare') and 'If !ready || mode != aiMode' in _function(SCRIPT, 'Open')
+    assert 'Register()' in _function(SCRIPT, 'Prepare')
+    assert 'If !gathered || mode != aiMode' in _function(SCRIPT, 'Open')
     modes = {m: int(v) for m, v in re.findall(r'Int Property (\w+)Mode = (\d)', SCRIPT)}
     assert modes == {'LevelUp': 0, 'Tags': 1, 'Traits': 2}
     assert all(f'{name}:int = {modes[mode]};' in CHARACTER
@@ -94,12 +95,13 @@ def test_the_api_sends_its_events():
 
 
 def test_an_added_perk_is_described_and_tested_by_the_game():
-    """DescribeAdded fills every perk and row text (Text's 0-4, 8-14) for an added perk, its one row of kind 4,
-    which the movie's GAME kind is, listed as passed after every table's rows when the game's test passes."""
-    described = _function(SCRIPT, 'DescribeAdded')
-    filled = sorted(int(n) for n in re.findall(r'AddPart\((\d+),', described))
-    assert filled == [*range(5), *range(8, 15)] and 'AddPart(9, "4", j)' in described
-    assert '"" + (tableRows + j)' in described
+    """AddedEntry gives every perk text (Text's 0-4, 8) and the one row's (9-14) for an added perk, a row of kind 4,
+    which the movie's GAME kind is; DescribeAdded lists it as passed after every table's rows when the test passes."""
+    entry = _function(SCRIPT, 'AddedEntry')
+    assert sorted(int(n) for n in re.findall(r'aiWhich == (\d+)', entry)) == [*range(5), 8]
+    assert 'row[0] = "4"' in entry and 'new String[6]' in entry and 'row[Least(Most(aiWhich - 9, 0), 5)]' in entry
+    assert 'AddedText(aiWhich)' in _function(SCRIPT, 'Merged')
+    assert '"" + (tableRows + j)' in _function(SCRIPT, 'DescribeAdded')
     assert 'public static const GAME:int = 4;' in CHARACTER and '"$CRUI_LU_OWN_TEST"' in CHARACTER
 
 
@@ -109,7 +111,8 @@ def test_an_added_skill_follows_the_builds_everywhere_the_menu_reads_skills():
     built = _function(SCRIPT, 'Built')
     for arg, table, which in ((11, 'SkillNames', 0), (12, 'SkillDescriptions', 1), (13, 'SkillImages', 2)):
         assert f'args[{arg}] = SkillTexts({table}, {which})' in built
-    assert 'Gather(specialCount, SkillCount())' in built and 'DescribeSkills()' in _function(SCRIPT, 'Collect')
+    assert 'Gather(Specials.GetSize(), SkillCount())' in _function(SCRIPT, 'Prepare')
+    assert 'DescribeSkills()' in _function(SCRIPT, 'Collect')
     for name in ('ScanChunk', 'OnMenuRaise', 'OnMenuTags'):
         assert 'SkillAt(' in _function(SCRIPT, name) and 'Skills.GetAt' not in _function(SCRIPT, name), name
     readers = {name for name in re.findall(r'^\S*\s*Function (\w+)\(', SCRIPT, re.M)
@@ -157,6 +160,20 @@ def test_show_gathers_while_menus_close_then_opens():
     show = _function(SCRIPT, 'Show')
     assert show.index('Prepare(') < show.index('While Utility.IsInMenuMode()') < show.index('Open(aiMode')
     assert 'Utility.Wait(' not in show
+
+
+def test_long_texts_never_sit_in_saved_state():
+    """A save holds the script's variables and every waiting stack, and FO4 can't load a string past 4,095 bytes: so
+    the joined tables are built only in Send, with our menu open (no saving), never across a wait, and the variables
+    keep only short texts (numbers, one image path each)."""
+    variables = set(re.findall(r'^(?:String|Var)(?:\[\])? (\w+)$', SCRIPT, re.M))
+    assert variables == {'heldParts', 'valueParts', 'tagParts', 'traitParts', 'AddedSkillImages', 'moreImages',
+                         'unlisted'}
+    callers = {name for name in re.findall(r'^\S*\s*Function (\w+)\(', SCRIPT, re.M)
+               if re.search(r'\bBuilt\(\)', _function(SCRIPT, name)) and name != 'Built'}
+    assert callers == {'Send'}
+    built = _function(SCRIPT, 'Built')
+    assert 'Wait' not in built and 'Gather(' not in built and 'Collect(' not in built
 
 
 def test_level_up_menu_ex_is_never_named():

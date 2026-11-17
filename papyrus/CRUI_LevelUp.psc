@@ -69,12 +69,11 @@ Perk[] Added
 ActorValue[] AddedSkills
 String[] AddedSkillImages
 ActorValue[] moreSkills
-String[] moreParts
+String[] moreImages
 Int listedSkills
 Perk[] extra
-String[] extraParts
 String unlisted
-Var[] ready
+Bool gathered
 Float openAsked
 Float chunksDone
 Float unlistedDone
@@ -365,7 +364,7 @@ Function Open(Int aiMode = 0, Int aiCount = 0, Int aiBonus = 0)
   {Open our menu in mode aiMode (LevelUpMode, TagsMode for aiCount tags in all with aiBonus each, TraitsMode for up to
   aiCount traits): its data gathered first (Prepare) unless Prepare just did for this open; Send hands it over.}
   openAsked = Utility.GetCurrentRealTime()
-  If !ready || mode != aiMode || wanted != aiCount || bonus != aiBonus
+  If !gathered || mode != aiMode || wanted != aiCount || bonus != aiBonus
     Prepare(aiMode, aiCount, aiBonus)
   EndIf
   UI.OpenMenu(MenuName)
@@ -378,13 +377,21 @@ Float Function Since(Float afStart)
 EndFunction
 
 Function Prepare(Int aiMode, Int aiCount, Int aiBonus)
-  {Gather what our menu shows in mode aiMode (Built) ahead of opening it, registered first. Show (or a holder's own
-  opener) calls it while the Pip-Boy closes, so the gathering overlaps that wait. See docs/level_up_plan.md#open-delay}
+  {Gather what our menu shows in mode aiMode (Collect, Gather) ahead of opening it, registered first. Show (or a
+  holder's own opener) calls it while the Pip-Boy closes, so the gathering overlaps that wait. Only short texts are
+  kept; Send joins the long ones. See docs/level_up_plan.md#save-strings}
   mode = aiMode
   wanted = aiCount
   bonus = aiBonus
   Register()
-  ready = Built()
+  Float started = Utility.GetCurrentRealTime()
+  Collect()
+  Float collected = Utility.GetCurrentRealTime()
+  Gather(Specials.GetSize(), SkillCount())
+  gathered = True
+  Debug.Trace("CRUI_LevelUp: gathered in " + Since(started) + "s, mode " + mode + ", " + shown.Length + " tables: " \
+              + "collect " + (collected - started) + "s, stacks " + Since(collected) + "s (last chunk +" \
+              + (chunksDone - collected) + "s, unlisted +" + (unlistedDone - collected) + "s)")
 EndFunction
 
 Function Register()
@@ -432,28 +439,25 @@ EndEvent
 
 Function Send()
   {Hand the open menu what Prepare gathered (root1.Open), once; gathered now when nothing waits.}
-  Var[] args = ready
-  ready = None
-  If !args
-    args = Built()
-  EndIf
   Float opened = Utility.GetCurrentRealTime()
-  UI.Invoke(MenuName, "root1.Open", args)
-  Debug.Trace("CRUI_LevelUp: menu open " + (opened - openAsked) + "s after Open, sent in " + Since(opened) + "s")
+  If !gathered
+    Prepare(mode, wanted, bonus)
+  EndIf
+  gathered = False
+  Float built = Utility.GetCurrentRealTime()
+  UI.Invoke(MenuName, "root1.Open", Built())
+  Debug.Trace("CRUI_LevelUp: menu open " + (opened - openAsked) + "s after Open, built and sent in " + Since(built) \
+              + "s")
 EndFunction
 
 Var[] Function Built()
-  {What the menu shows, in Character.as's order: every plugin's perk, trait and requirement tables joined (Collect,
-  Merged), the player's points, level, sex and cap, the ranks held and values (asked in parallel, Gather), the tagged
-  skills, the mode and the traits held, whether to show every perk at first, and each table's perk and row counts
-  (the menu moves each table's row owners and perk targets by them).}
-  Float started = Utility.GetCurrentRealTime()
+  {What the menu shows, in Character.as's order, joined from what Prepare gathered: every plugin's perk, trait and
+  requirement tables (Merged), the player's points, level, sex and cap, the ranks held and values, the tagged skills,
+  the mode and the traits held, whether to show every perk at first, and each table's perk and row counts (the menu
+  moves each table's row owners and perk targets by them). Only Send calls it: the texts are past what a save can
+  hold. See docs/level_up_plan.md#save-strings}
   Actor player = Game.GetPlayer()
-  Collect()
-  Float collected = Utility.GetCurrentRealTime()
   Int specialCount = Specials.GetSize()
-  Gather(specialCount, SkillCount())
-  Float gathered = Utility.GetCurrentRealTime()
   Var[] args = new Var[35]
   args[0] = PerkPoints
   args[1] = SkillPoints
@@ -490,10 +494,6 @@ Var[] Function Built()
   args[32] = ShowAllPerks
   args[33] = GroupCounts(perkCounts)
   args[34] = GroupCounts(rowCounts)
-  Debug.Trace("CRUI_LevelUp: gathered in " + Since(started) + "s, mode " + mode + ", " + shown.Length + " tables: " \
-              + "collect " + (collected - started) + "s, stacks " + (gathered - collected) + "s (last chunk +" \
-              + (chunksDone - collected) + "s, unlisted +" + (unlistedDone - collected) + "s), the rest " \
-              + Since(gathered) + "s")
   Return args
 EndFunction
 
@@ -550,7 +550,6 @@ Function Collect()
     t += 1
   EndWhile
   extra = new Perk[0]
-  extraParts = new String[16]
   If mode == LevelUpMode
     DescribeAdded()
   EndIf
@@ -559,28 +558,42 @@ Function Collect()
 EndFunction
 
 Function DescribeSkills()
-  {Into moreSkills and moreParts (names, descriptions, images): the skills AddSkill listed that Skills does not, each
-  read from the skill; listedSkills is Skills' count.}
+  {Into moreSkills and moreImages: the skills AddSkill listed that Skills does not, and their images; listedSkills is
+  Skills' count.}
   listedSkills = Skills.GetSize()
   moreSkills = new ActorValue[0]
-  moreParts = new String[3]
+  moreImages = new String[0]
   Int i = 0
   While AddedSkills && i < AddedSkills.Length
     ActorValue skill = AddedSkills[i]
     If skill && Skills.Find(skill) < 0 && moreSkills.Find(skill) < 0
-      Int n = moreSkills.Length
-      moreParts[0] = CRUI_LevelUpTable.Joined(moreParts[0], skill.GetName(), n)
-      moreParts[1] = CRUI_LevelUpTable.Joined(moreParts[1], skill.GetDescription(), n)
-      moreParts[2] = CRUI_LevelUpTable.Joined(moreParts[2], AddedSkillImages[i], n)
       moreSkills.Add(skill)
+      moreImages.Add(AddedSkillImages[i])
     EndIf
     i += 1
   EndWhile
 EndFunction
 
+String Function MoreText(Int aiWhich)
+  {The added skills' (moreSkills) names (aiWhich 0), descriptions (1), read from each skill, or images (2), SEP between.}
+  String out = ""
+  Int i = 0
+  While i < moreSkills.Length
+    String text = moreImages[i]
+    If aiWhich == 0
+      text = moreSkills[i].GetName()
+    ElseIf aiWhich == 1
+      text = moreSkills[i].GetDescription()
+    EndIf
+    out = CRUI_LevelUpTable.Joined(out, text, i)
+    i += 1
+  EndWhile
+  Return out
+EndFunction
+
 String Function SkillTexts(String asTable, Int aiWhich)
   {asTable (SkillNames, SkillDescriptions or SkillImages, one entry per Skills entry, or "" for none) with the added
-  skills' text aiWhich (moreParts) after Skills' entries.}
+  skills' text aiWhich (MoreText) after Skills' entries.}
   If moreSkills.Length == 0
     Return asTable
   EndIf
@@ -591,7 +604,7 @@ String Function SkillTexts(String asTable, Int aiWhich)
     out += "\t"
     i += 1
   EndWhile
-  Return CRUI_LevelUpTable.Joined(out, moreParts[aiWhich], listedSkills)
+  Return CRUI_LevelUpTable.Joined(out, MoreText(aiWhich), listedSkills)
 EndFunction
 
 Int Function SkillCount()
@@ -608,9 +621,9 @@ ActorValue Function SkillAt(Int aiIndex)
 EndFunction
 
 Function DescribeAdded()
-  {Into extra and extraParts (CRUI_LevelUpTable.Text's order): the perks AddPerk listed that no shown table lists,
-  each read from the perk, with one requirement row of kind 4, the game's own test of its next rank: the row's index,
-  after every table's rows, goes in unlisted when the test passes. Owners count from 0, as a table's do.}
+  {Into extra: the perks AddPerk listed that no shown table lists (their texts are AddedText's), each with one
+  requirement row of kind 4, the game's own test of its next rank: the row's index, after every table's rows, goes in
+  unlisted when the test passes.}
   Int i = 0
   While Added && i < Added.Length
     If Added[i] && extra.Find(Added[i]) < 0 && !Tabled(Added[i])
@@ -620,29 +633,48 @@ Function DescribeAdded()
   EndWhile
   Int j = 0
   While j < extra.Length
-    Perk first = extra[j]
-    AddPart(0, first.GetName(), j)
-    AddPart(1, first.GetDescription(), j)
-    AddPart(2, first.GetIconPath(), j)
-    AddPart(3, "" + first.GetLevel(), j)
-    AddPart(4, "" + first.GetNumRanks(), j)
-    AddPart(8, "" + j, j)
-    AddPart(9, "4", j)
-    AddPart(10, "-1", j)
-    AddPart(11, "0", j)
-    AddPart(12, "1.0", j)
-    AddPart(13, "0", j)
-    AddPart(14, "", j)
-    If Eligible(NextRank(first))
+    If Eligible(NextRank(extra[j]))
       unlisted = CRUI_LevelUpTable.Joined(unlisted, "" + (tableRows + j), (unlisted != "") as Int)
     EndIf
     j += 1
   EndWhile
 EndFunction
 
-Function AddPart(Int aiWhich, String asText, Int aiIndex)
-  {asText, the added perk aiIndex's, onto extraParts[aiWhich] (a tab inside it would split the entry).}
-  extraParts[aiWhich] = CRUI_LevelUpTable.Joined(extraParts[aiWhich], asText, aiIndex)
+String Function AddedText(Int aiWhich)
+  {Text aiWhich (CRUI_LevelUpTable.Text's order) of the added perks (extra), SEP between: read from each perk, with
+  its one requirement row (DescribeAdded). Owners count from 0, as a table's do; a tab in a text would split it.}
+  String out = ""
+  Int j = 0
+  While j < extra.Length
+    out = CRUI_LevelUpTable.Joined(out, AddedEntry(extra[j], aiWhich, j), j)
+    j += 1
+  EndWhile
+  Return out
+EndFunction
+
+String Function AddedEntry(Perk akFirst, Int aiWhich, Int aiIndex)
+  {Text aiWhich (CRUI_LevelUpTable.Text's order) of added perk aiIndex, akFirst.}
+  If aiWhich == 0
+    Return akFirst.GetName()
+  ElseIf aiWhich == 1
+    Return akFirst.GetDescription()
+  ElseIf aiWhich == 2
+    Return akFirst.GetIconPath()
+  ElseIf aiWhich == 3
+    Return "" + akFirst.GetLevel()
+  ElseIf aiWhich == 4
+    Return "" + akFirst.GetNumRanks()
+  ElseIf aiWhich == 8
+    Return "" + aiIndex
+  EndIf
+  String[] row = new String[6]
+  row[0] = "4"
+  row[1] = "-1"
+  row[2] = "0"
+  row[3] = "1.0"
+  row[4] = "0"
+  row[5] = ""
+  Return row[Least(Most(aiWhich - 9, 0), 5)]
 EndFunction
 
 Bool Function Tabled(Perk akPerk)
@@ -671,7 +703,7 @@ String Function Merged(Int aiWhich, Int[] aiCounts)
     t += 1
   EndWhile
   If extra.Length > 0 && (aiWhich < 5 || aiWhich > 7)
-    out = CRUI_LevelUpTable.Joined(out, extraParts[aiWhich], part)
+    out = CRUI_LevelUpTable.Joined(out, AddedText(aiWhich), part)
   EndIf
   Return out
 EndFunction
